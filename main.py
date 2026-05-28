@@ -400,6 +400,11 @@ def main() -> None:
                                 "Vehicle still present (YOLO conf=%.2f) — holding badge",
                                 det.confidence,
                             )
+                            if now_mono - last_recognition_sent_at >= 30.0:
+                                badge_url = _badge_url(last_recognized_make)
+                                display.send_recognition(make=last_recognized_make, model="", greeting="", badge_url=badge_url)
+                                last_recognition_sent_at = now_mono
+                                logger.info("Re-sent badge to display (keepalive)")
                         else:
                             if gone_since is None:
                                 gone_since = now_mono
