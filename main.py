@@ -92,11 +92,14 @@ def _badge_url(make: str | None) -> str:
     """Return the HTTP URL for a make's badge, falling back to default."""
     if not make:
         return _DEFAULT_BADGE_URL
-    slug = make.lower().strip().split()[0].replace("/", "-")
-    candidate = _BADGES_DIR / f"{slug}.png"
-    if candidate.exists():
-        return f"{_BADGE_BASE_URL}/{slug}.png"
-    logger.debug("No badge file found for make '%s' (checked %s) — using default", make, candidate)
+    parts = make.lower().strip().replace("/", "-").split()
+    # Try full slug first, then progressively shorter: "land-rover-evoque" -> "land-rover" -> "land"
+    for i in range(len(parts), 0, -1):
+        slug = "-".join(parts[:i])
+        candidate = _BADGES_DIR / f"{slug}.png"
+        if candidate.exists():
+            return f"{_BADGE_BASE_URL}/{slug}.png"
+    logger.debug("No badge file found for make '%s' — using default", make)
     return _DEFAULT_BADGE_URL
 
 
