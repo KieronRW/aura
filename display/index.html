@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AURA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,200;0,300;1,200;1,300&family=Montserrat:wght@100;200;300&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      cursor: none;
+    }
+
+    /* ================================================================
+       SCREENS
+    ================================================================ */
+
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 2s ease-in-out;
+      pointer-events: none;
+    }
+
+    .screen.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ================================================================
+       IDLE SCREEN
+       Portrait-first: 1080 × 1920
+       Logo is large and centred; pulsing glow only — no position change
+    ================================================================ */
+
+    #idle-screen {
+      overflow: hidden;
+    }
+
+    /* Concentric rings — sized in vw so they scale with portrait width */
+    .rings {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Portrait 1080px wide: 65vw=702px, 95vw=1026px, 130vw=1404px */
+    .ring-1 { width: 65vw;  height: 65vw;  animation: ring-breathe 5s ease-in-out infinite 0s; }
+    .ring-2 { width: 95vw;  height: 95vw;  animation: ring-breathe 5s ease-in-out infinite 1s; }
+    .ring-3 { width: 130vw; height: 130vw; animation: ring-breathe 5s ease-in-out infinite 2s; }
+
+    @keyframes ring-breathe {
+      0%, 100% { opacity: 0.12; transform: scale(0.97); }
+      50%       { opacity: 0.50; transform: scale(1.03); }
+    }
+
+    /* Logo block — above the rings, no movement */
+    .idle-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /*
+     * Portrait 1080px: 22vw = 237px — large, impactful, fills the column
+     * Glow pulses in place; no translateY anywhere on this element
+     */
+    .aura-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 200;
+      font-size: 24vw;           /* 1080px portrait → 259px, large and impactful */
+      letter-spacing: 0.28em;
+      padding-left: 0.28em;      /* compensate trailing tracking to stay centred */
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.9);
+      line-height: 1;
+      /* position is NEVER touched — only text-shadow and opacity animate */
+      transform: none;
+      animation: logo-glow 5s ease-in-out infinite;
+    }
+
+    .aura-rule {
+      width: 1px;
+      height: 60px;          /* fixed — never changes, so layout never reflows */
+      background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.22), transparent);
+      margin: 2.8rem auto;
+      transform-origin: center;
+      animation: rule-breathe 5s ease-in-out infinite;
+    }
+
+    /* Portrait 1080px: 1.8vw = ~19px — readable but subordinate */
+    .aura-tagline {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 100;
+      font-size: clamp(0.7rem, 1.8vw, 1.3rem);
+      letter-spacing: 0.5em;
+      padding-left: 0.5em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.2);
+      animation: fade-breathe 5s ease-in-out infinite;
+      animation-delay: 0.5s;
+    }
+
+    /* text-shadow and opacity only — zero geometry properties, zero layout shift */
+    @keyframes logo-glow {
+      0%, 100% {
+        text-shadow:
+          0 0 20px  rgba(255, 255, 255, 0.06),
+          0 0 60px  rgba(255, 255, 255, 0.03);
+        opacity: 0.40;
+      }
+      50% {
+        text-shadow:
+          0 0 30px  rgba(255, 255, 255, 0.65),
+          0 0 80px  rgba(255, 255, 255, 0.30),
+          0 0 150px rgba(210, 230, 255, 0.14);
+        opacity: 1;
+      }
+    }
+
+    @keyframes rule-breathe {
+      /* scaleY shrinks/grows without touching height, so siblings never move */
+      0%, 100% { opacity: 0.15; transform: scaleY(0.45); }
+      50%       { opacity: 0.55; transform: scaleY(1.00); }
+    }
+
+    @keyframes fade-breathe {
+      0%, 100% { opacity: 0.10; }
+      50%       { opacity: 0.32; }
+    }
+
+    /* ================================================================
+       RECOGNITION SCREEN
+    ================================================================ */
+
+    #recognition-screen {
+      gap: 0;
+      padding: 0 6vw;
+    }
+
+    /* Make · Model — small caps above the badge */
+    .rec-make-model {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 100;
+      font-size: clamp(0.75rem, 2.2vw, 1.4rem);
+      letter-spacing: 0.48em;
+      padding-left: 0.48em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.28);
+      margin-bottom: 7vh;
+      text-align: center;
+    }
+
+    /* Perspective container for 3-D Y-spin */
+    .badge-stage {
+      perspective: 1100px;
+      perspective-origin: 50% 50%;
+    }
+
+    /*
+     * Float: subtle vertical drift to sell the "mid air" feel.
+     * This is on the outer wrapper; the spin is on the inner wrapper
+     * so the two transforms never conflict.
+     */
+    .badge-float {
+      animation: badge-float 6s ease-in-out infinite;
+    }
+
+    /*
+     * Spin: linear gives perfectly smooth continuous 360° rotation.
+     * ease-in-out on a looping spin creates a stutter at the boundary
+     * (it decelerates, pauses, then re-accelerates every cycle) which
+     * is why linear is the correct choice here.
+     */
+    .badge-spin {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: badge-spin-y 9s linear infinite;
+      transform-style: preserve-3d;
+    }
+
+    /*
+     * Badge image — 70 % of portrait width.
+     * brightness(0) invert(1) converts any logo to pure white so it reads
+     * cleanly against the black background.  The drop-shadows add a soft
+     * white halo around the badge and a deep shadow beneath it.
+     */
+    .badge-img {
+      display: block;
+      width: 70vw;
+      max-width: 756px;
+      height: auto;
+      filter: brightness(1.2) drop-shadow(0 0 30px rgba(255, 255, 255, 0.3));
+    }
+
+    .badge-img.hidden { display: none; }
+
+    /* Subtle floor reflection — 25% of badge height, no gap, fades to nothing */
+    .badge-reflection {
+      display: block;
+      width: 70vw;
+      max-width: 756px;
+      height: 17.5vw;        /* 25% of the 70vw badge width (assumes ~square badge) */
+      max-height: 189px;     /* 25% of 756px max-width */
+      object-fit: cover;
+      object-position: bottom; /* show the bottom edge of the badge in the clipped strip */
+      transform: scaleY(-1); /* flip so badge-bottom sits at the top of the reflection */
+      opacity: 0.15;
+      margin-top: 0;         /* no gap between badge and reflection */
+      -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 100%);
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 100%);
+    }
+
+    .badge-reflection.hidden { display: none; }
+
+    @keyframes badge-float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-14px); }
+    }
+
+    @keyframes badge-spin-y {
+      from { transform: rotateY(0deg); }
+      to   { transform: rotateY(360deg); }
+    }
+
+    /* Floor spotlight — width matches the badge */
+    .badge-floor-glow {
+      width: 72vw;
+      max-width: 780px;
+      height: 2px;
+      background: radial-gradient(ellipse at center,
+        rgba(255, 255, 255, 0.14) 0%,
+        transparent 70%
+      );
+      box-shadow: 0 0 40px 12px rgba(255, 255, 255, 0.04);
+      animation: floor-breathe 6s ease-in-out infinite;
+    }
+
+    @keyframes floor-breathe {
+      0%, 100% { opacity: 0.45; transform: scaleX(0.82); }
+      50%       { opacity: 1.00; transform: scaleX(1.00); }
+    }
+
+    /* Greeting — elegant italic serif below the badge */
+    .rec-greeting {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: clamp(1.6rem, 5vw, 4rem);
+      color: rgba(255, 255, 255, 0.72);
+      letter-spacing: 0.04em;
+      text-align: center;
+      margin-top: 7vh;
+      max-width: 88vw;
+    }
+
+    /* ================================================================
+       WS STATUS DOT
+    ================================================================ */
+
+    #ws-dot {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.10);
+      transition: background 0.6s ease-in-out;
+    }
+
+    #ws-dot.connected    { background: rgba(255, 255, 255, 0.40); }
+    #ws-dot.reconnecting { background: rgba(200, 160, 60, 0.65); animation: dot-blink 1s ease-in-out infinite; }
+    #ws-dot.error        { background: rgba(200, 60,  60, 0.65); }
+
+    @keyframes dot-blink {
+      0%, 100% { opacity: 1;   }
+      50%       { opacity: 0.2; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Idle screen ───────────────────────────────────────────────── -->
+  <div id="idle-screen" class="screen active">
+    <div class="rings">
+      <div class="ring ring-1"></div>
+      <div class="ring ring-2"></div>
+      <div class="ring ring-3"></div>
+    </div>
+    <div class="idle-content">
+      <div class="aura-logo">AURA</div>
+      <div class="aura-rule"></div>
+      <div class="aura-tagline">Autonomous Vehicle Recognition</div>
+    </div>
+  </div>
+
+  <!-- ── Recognition screen ───────────────────────────────────────── -->
+  <div id="recognition-screen" class="screen">
+    <div class="rec-make-model" id="rec-make-model"></div>
+
+    <div class="badge-stage">
+      <div class="badge-float">
+        <div class="badge-spin">
+          <img class="badge-img"        id="rec-badge"   src="" alt="Vehicle badge">
+          <img class="badge-reflection" id="rec-reflect" src="" alt="">
+        </div>
+      </div>
+    </div>
+
+    <div class="badge-floor-glow"></div>
+    <div class="rec-greeting" id="rec-greeting"></div>
+  </div>
+
+  <div id="ws-dot"></div>
+
+  <script>
+    const idleScreen  = document.getElementById('idle-screen');
+    const recScreen   = document.getElementById('recognition-screen');
+    const recMM       = document.getElementById('rec-make-model');
+    const recBadge    = document.getElementById('rec-badge');
+    const recReflect  = document.getElementById('rec-reflect');
+    const recGreeting = document.getElementById('rec-greeting');
+    const wsDot       = document.getElementById('ws-dot');
+
+    const WS_URL          = 'ws://localhost:8765';
+    const RECONNECT_DELAY = 4000;
+
+    let currentState   = 'idle';
+    let reconnectTimer = null;
+    let ws             = null;
+    let manualOverride = false; // true while user has manually pinned a state via spacebar
+
+    // ── Screen transitions ──────────────────────────────────────────
+
+    function showIdle(force = false) {
+      if (!force && manualOverride) return; // WebSocket cannot dismiss a manually-pinned state
+      if (currentState === 'idle') return;
+      currentState = 'idle';
+      recScreen.classList.remove('active');
+      idleScreen.classList.add('active');
+    }
+
+    function showRecognition(data) {
+      currentState = 'recognition';
+
+      const parts = [data.make, data.model].filter(Boolean);
+      recMM.textContent       = parts.join('  ·  ');
+      recGreeting.textContent = data.greeting || '';
+
+      if (data.badge_url) {
+        const probe = new Image();
+        console.log('Probing badge URL:', data.badge_url);
+        probe.onload  = () => { console.log('Badge loaded OK:', data.badge_url); applyBadge(data.badge_url); };
+        probe.onerror = () => { console.log('Badge FAILED to load:', data.badge_url); applyBadge(null); };
+        probe.src = data.badge_url;
+      } else {
+        applyBadge(null);
+      }
+    }
+
+    function applyBadge(url) {
+      if (url) {
+        recBadge.src   = url;
+        recReflect.src = url;
+        recBadge.classList.remove('hidden');
+        recReflect.classList.remove('hidden');
+      } else {
+        // No badge image — still show the recognition screen (text only)
+        recBadge.classList.add('hidden');
+        recReflect.classList.add('hidden');
+      }
+      idleScreen.classList.remove('active');
+      recScreen.classList.add('active');
+    }
+
+    // ── Spacebar test mode — toggles between idle and recognition ──
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code !== 'Space') return;
+      e.preventDefault();
+      if (currentState !== 'idle') {
+        manualOverride = false;
+        showIdle(true); // force: bypass the override guard
+      } else {
+        manualOverride = true; // pin this state — WebSocket events cannot dismiss it
+        currentState = 'recognition';
+        recMM.textContent       = 'BMW';
+        recGreeting.textContent = 'Welcome back, Kieron';
+        applyBadge('http://localhost:8080/assets/badges/bmw.svg');
+      }
+    });
+
+    // ── WebSocket ───────────────────────────────────────────────────
+
+    function connect() {
+      clearTimeout(reconnectTimer);
+      wsDot.className = 'reconnecting';
+
+      ws = new WebSocket(WS_URL);
+
+      ws.addEventListener('open', () => {
+        wsDot.className = 'connected';
+      });
+
+      ws.addEventListener('message', ({ data }) => {
+        let msg;
+        try { msg = JSON.parse(data); } catch { return; }
+        if (msg.state === 'recognition') {
+          showRecognition(msg);
+        } else {
+          showIdle();
+        }
+      });
+
+      ws.addEventListener('close', () => {
+        wsDot.className = 'reconnecting';
+        showIdle();
+        reconnectTimer = setTimeout(connect, RECONNECT_DELAY);
+      });
+
+      ws.addEventListener('error', () => {
+        wsDot.className = 'error';
+        ws.close();
+      });
+    }
+
+    connect();
+  </script>
+</body>
+</html>
