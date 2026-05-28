@@ -341,6 +341,41 @@ def main() -> None:
     last_hold_check_at: float = 0.0
     gone_since: float | None = None
 
+    logger.info("Startup: running initial recognition scan")
+    time.sleep(2)
+    _startup_frame = camera.get_frame()
+    if _startup_frame is not None:
+        try:
+            _startup_result = recognizer.recognize(_startup_frame)
+        except Exception:
+            logger.exception("Startup recognition error")
+            _startup_result = None
+        if _startup_result is not None:
+            _startup_name = _startup_result.matched_vehicle["name"] if _startup_result.matched_vehicle else "unknown"
+            logger.info(
+                "Startup recognition — vehicle='%s' make='%s' method=%s conf=%.2f",
+                _startup_name, _startup_result.make, _startup_result.method_used, _startup_result.confidence,
+            )
+            _write_result(_startup_result)
+            _startup_vehicle  = _startup_result.matched_vehicle
+            _startup_greeting = (_startup_vehicle.get("greeting") if _startup_vehicle else None) or f"Welcome, {_startup_name}"
+            _startup_badge    = _badge_url(_startup_result.make)
+            display.send_recognition(
+                make=_startup_result.make or "",
+                model=_startup_result.model or "",
+                greeting=_startup_greeting,
+                badge_url=_startup_badge,
+            )
+            last_recognition_sent_at = time.monotonic()
+            last_recognized_make = _startup_result.make or ""
+            last_hold_check_at = 0.0
+            gone_since = None
+            camera.set_hold_reference(True)
+        else:
+            logger.info("Startup recognition: no result")
+    else:
+        logger.warning("Startup recognition: no frame available")
+
     try:
         while not _shutdown["requested"]:
             # Drain display commands queued by the HTTP test endpoint
