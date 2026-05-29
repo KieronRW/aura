@@ -2,7 +2,7 @@ import logging
 import os
 import socket
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -11,7 +11,6 @@ from aura.config.settings import (
     GOOGLE_CREDENTIALS_PATH,
     GOOGLE_VISION_ENABLED,
 )
-from aura.core import database as db
 from aura.core.detector import detect
 from aura.core.fingerprint import (
     compare_fingerprints,
@@ -52,9 +51,10 @@ class Recognizer:
     # Public
     # ------------------------------------------------------------------
 
-    def recognize(self, frame: np.ndarray) -> RecognitionResult | None:
+    def recognize(self, frame: np.ndarray, vehicles: list[dict] | None = None) -> RecognitionResult | None:
         """
         Full recognition pipeline. Returns None if no vehicle is detected.
+        Logging is handled by the caller via cloud.log_recognition().
         """
         # Step 1 — confirm a vehicle is present via YOLO
         detection = detect(frame)
@@ -70,32 +70,20 @@ class Recognizer:
         # Crop to bounding box for fingerprinting / Vision (tighter feature focus)
         cropped = self._crop(frame, detection.bounding_box)
 
-        # Step 2 — fingerprint matching
-        result = self._match_fingerprint(cropped, detection)
+        # Step 2 — fingerprint matching against synced vehicles
+        result = self._match_fingerprint(cropped, detection, vehicles or [])
         if result:
-            db.log_recognition(
-                method_used=result.method_used,
-                make_detected=result.make,
-                confidence=result.confidence,
-                vehicle_id=result.matched_vehicle["id"] if result.matched_vehicle else None,
-            )
             return result
 
         # Step 3 — Google Vision fallback
         if GOOGLE_VISION_ENABLED:
             result = self._match_vision(frame, cropped, detection)
             if result:
-                db.log_recognition(
-                    method_used=result.method_used,
-                    make_detected=result.make,
-                    confidence=result.confidence,
-                    vehicle_id=None,
-                )
                 return result
 
         # Step 4 — return YOLO-only result (make/model unknown but vehicle confirmed)
         logger.info("No match found — returning YOLO-only result")
-        result = RecognitionResult(
+        return RecognitionResult(
             matched_vehicle=None,
             make=None,
             model=None,
@@ -103,22 +91,14 @@ class Recognizer:
             method_used="yolo",
             badge_path=None,
         )
-        db.log_recognition(
-            method_used="yolo",
-            make_detected=detection.vehicle_type,
-            confidence=detection.confidence,
-            vehicle_id=None,
-        )
-        return result
 
     # ------------------------------------------------------------------
     # Step 2 — fingerprint
     # ------------------------------------------------------------------
 
-    def _match_fingerprint(self, cropped: np.ndarray, detection) -> RecognitionResult | None:
-        vehicles = db.get_all_vehicles(active_only=True)
+    def _match_fingerprint(self, cropped: np.ndarray, detection, vehicles: list[dict]) -> RecognitionResult | None:
         if not vehicles:
-            logger.debug("No registered vehicles in database")
+            logger.debug("No registered vehicles available")
             return None
 
         query_fp = extract_fingerprint(cropped)
@@ -137,7 +117,7 @@ class Recognizer:
                 continue
 
             score = compare_fingerprints(query_fp, stored_fp)
-            logger.debug("Fingerprint score vs '%s': %.4f", vehicle["name"], score)
+            logger.debug("Fingerprint score vs '%s': %.4f", vehicle["owner_name"], score)
 
             if score > best_score:
                 best_score = score
@@ -145,7 +125,7 @@ class Recognizer:
 
         if best_vehicle and best_score >= FINGERPRINT_MATCH_THRESHOLD:
             logger.info(
-                "Fingerprint match: '%s' score=%.4f", best_vehicle["name"], best_score
+                "Fingerprint match: '%s' score=%.4f", best_vehicle["owner_name"], best_score
             )
             return RecognitionResult(
                 matched_vehicle=best_vehicle,
@@ -153,7 +133,7 @@ class Recognizer:
                 model=best_vehicle["model"],
                 confidence=best_score,
                 method_used="fingerprint",
-                badge_path=best_vehicle.get("badge_path"),
+                badge_path=best_vehicle.get("custom_badge_path"),
             )
 
         logger.info(

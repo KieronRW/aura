@@ -61,16 +61,15 @@ from aura.config.settings import (
     API_PORT,
     CAMERA_HEIGHT,
     CAMERA_WIDTH,
-    DATABASE_PATH,
     FINGERPRINT_MATCH_THRESHOLD,
     GOOGLE_CREDENTIALS_PATH,
     GOOGLE_VISION_ENABLED,
     STATIC_IP,
     YOLO_CONFIDENCE,
 )
-from aura.core import database as db
 from aura.core import detector as yolo_detector
 from aura.core.camera import Camera, MotionState
+from aura.core.cloud import log_recognition, sync_settings, sync_vehicles, update_departure
 from aura.core.display_server import DisplayServer
 from aura.core.recognizer import Recognizer
 
@@ -103,13 +102,25 @@ def _badge_url(make: str | None) -> str:
     return _DEFAULT_BADGE_URL
 
 
+def _find_vehicle_by_make(make: str | None, vehicles: list[dict]) -> dict | None:
+    """Match a Vision-returned make string against synced vehicles (case-insensitive substring)."""
+    if not make or not vehicles:
+        return None
+    make_lower = make.lower()
+    for v in vehicles:
+        v_make = v.get("make", "").lower()
+        if v_make and (v_make in make_lower or make_lower.startswith(v_make)):
+            return v
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Banner
 # ---------------------------------------------------------------------------
 
 def _print_banner() -> None:
     google_creds_ok = os.path.exists(GOOGLE_CREDENTIALS_PATH)
-    db_path = os.path.expanduser(DATABASE_PATH)
+    install_id = os.getenv("INSTALLATION_ID", "not set")
 
     lines = [
         "",
@@ -121,7 +132,7 @@ def _print_banner() -> None:
         f"║  FP threshold {FINGERPRINT_MATCH_THRESHOLD:<35.2f} ║",
         f"║  Google Vision {'ENABLED ' if GOOGLE_VISION_ENABLED else 'DISABLED':<34} ║",
         f"║  Vision creds  {'OK' if google_creds_ok else 'MISSING':<33} ║",
-        f"║  Database     {db_path:<34} ║",
+        f"║  Install ID   {install_id:<34} ║",
         f"║  API          {STATIC_IP}:{API_PORT:<26} ║",
         f"║  Display WS   ws://localhost:8765{'':<18} ║",
         f"║  Log          {str(_LOG_FILE):<34} ║",
@@ -156,15 +167,15 @@ def _write_idle() -> None:
     })
 
 
-def _write_result(result) -> None:
-    vehicle = result.matched_vehicle
+def _write_result(result, vehicle: dict | None = None) -> None:
+    vehicle = vehicle if vehicle is not None else result.matched_vehicle
     _write_recognition({
         "state": "recognized" if vehicle else "detected",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "matched_vehicle": {
             "id": vehicle["id"],
-            "name": vehicle["name"],
-            "greeting": vehicle.get("greeting"),
+            "owner_name": vehicle["owner_name"],
+            "owner_greeting": vehicle.get("owner_greeting"),
         } if vehicle else None,
         "make": result.make,
         "model": result.model,
@@ -205,7 +216,7 @@ _HTTP_PORT = 9998
 _TEST_IMAGE_PATH = Path.home() / "aura" / "test_vw_front.jpg"
 
 
-def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue: "queue.Queue"):
+def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue: "queue.Queue", synced_vehicles: list):
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path != "/test-recognition":
@@ -223,7 +234,7 @@ def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue
             logger.info("HTTP test: using %s", _TEST_IMAGE_PATH.name)
 
             try:
-                result = recognizer.recognize(frame)
+                result = recognizer.recognize(frame, synced_vehicles)
             except Exception as exc:
                 logger.exception("HTTP test: recognition error")
                 self._respond(500, {"error": str(exc)})
@@ -233,18 +244,22 @@ def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue
                 payload = {"state": "no_result"}
                 display_queue.put(("idle",))
             else:
-                vehicle  = result.matched_vehicle
-                name     = vehicle["name"] if vehicle else "unknown"
-                greeting = (vehicle.get("greeting") if vehicle else None) or f"Welcome, {name}"
+                vehicle  = result.matched_vehicle or _find_vehicle_by_make(result.make, synced_vehicles)
+                name     = vehicle["owner_name"] if vehicle else "unknown"
+                greeting = (vehicle.get("owner_greeting") if vehicle else None) or f"Welcome, {name}"
                 badge_url = _badge_url(result.make)
                 logger.info("HTTP test: badge_url=%s", badge_url)
+                log_recognition(
+                    result.make or "", result.model or "", result.confidence,
+                    result.method_used, vehicle["id"] if vehicle else None,
+                )
                 display_queue.put(("recognition", result.make or "", result.model or "", greeting, badge_url))
                 payload = {
                     "state": "recognized" if vehicle else "detected",
                     "matched_vehicle": {
                         "id": vehicle["id"],
-                        "name": vehicle["name"],
-                        "greeting": vehicle.get("greeting"),
+                        "owner_name": vehicle["owner_name"],
+                        "owner_greeting": vehicle.get("owner_greeting"),
                     } if vehicle else None,
                     "make": result.make,
                     "model": result.model,
@@ -269,8 +284,8 @@ def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue
     return _Handler
 
 
-def _start_http_server(camera: "Camera", recognizer: "Recognizer", display_queue: "queue.Queue") -> http.server.HTTPServer:
-    handler = _make_http_handler(camera, recognizer, display_queue)
+def _start_http_server(camera: "Camera", recognizer: "Recognizer", display_queue: "queue.Queue", synced_vehicles: list) -> http.server.HTTPServer:
+    handler = _make_http_handler(camera, recognizer, display_queue, synced_vehicles)
     server = http.server.HTTPServer(("", _HTTP_PORT), handler)
     t = threading.Thread(target=server.serve_forever, daemon=True, name="http-test")
     t.start()
@@ -285,14 +300,6 @@ def _start_http_server(camera: "Camera", recognizer: "Recognizer", display_queue
 def main() -> None:
     _print_banner()
     logger.info("AURA v%s starting up", _VERSION)
-
-    # Initialise database
-    try:
-        db.init_db()
-        logger.info("Database initialised at %s", DATABASE_PATH)
-    except Exception:
-        logger.exception("Failed to initialise database — aborting")
-        sys.exit(1)
 
     # Start display WebSocket server
     display = DisplayServer()
@@ -312,9 +319,16 @@ def main() -> None:
         logger.exception("Failed to start camera — aborting")
         sys.exit(1)
 
+    _synced_vehicles = sync_vehicles()
+    _synced_settings = sync_settings()
+    logger.info(
+        "Supabase sync: %d vehicles, %d settings",
+        len(_synced_vehicles), len(_synced_settings),
+    )
+
     recognizer = Recognizer()
     _display_queue: queue.Queue = queue.Queue()
-    http_server = _start_http_server(camera, recognizer, _display_queue)
+    http_server = _start_http_server(camera, recognizer, _display_queue, _synced_vehicles)
 
     # Graceful shutdown flag
     _shutdown = {"requested": False}
@@ -343,6 +357,7 @@ def main() -> None:
     last_recognized_make: str | None = None
     last_hold_check_at: float = 0.0
     gone_since: float | None = None
+    last_event_id: int | None = None
 
     # Startup scan: recognise any car already in frame
     logger.info("Startup: running initial recognition scan")
@@ -350,13 +365,17 @@ def main() -> None:
     startup_frame = camera.get_frame()
     if startup_frame is not None:
         try:
-            startup_result = recognizer.recognize(startup_frame)
+            startup_result = recognizer.recognize(startup_frame, _synced_vehicles)
             if startup_result and startup_result.make:
-                name = startup_result.matched_vehicle["name"] if startup_result.matched_vehicle else "unknown"
+                vehicle = startup_result.matched_vehicle or _find_vehicle_by_make(startup_result.make, _synced_vehicles)
+                name = vehicle["owner_name"] if vehicle else "unknown"
                 logger.info("Startup: recognised %s (%s) conf=%.2f", startup_result.make, name, startup_result.confidence)
-                vehicle = startup_result.matched_vehicle
-                greeting = (vehicle.get("greeting") if vehicle else None) or f"Welcome, {name}"
+                greeting = (vehicle.get("owner_greeting") if vehicle else None) or f"Welcome, {name}"
                 badge_url = _badge_url(startup_result.make)
+                log_recognition(
+                    startup_result.make or "", startup_result.model or "", startup_result.confidence,
+                    startup_result.method_used, vehicle["id"] if vehicle else None,
+                )
                 display.send_recognition(make=startup_result.make or "", model=startup_result.model or "", greeting=greeting, badge_url=badge_url)
                 last_recognition_sent_at = time.monotonic()
                 last_recognized_make = startup_result.make or ""
@@ -414,6 +433,9 @@ def main() -> None:
                                 logger.info("YOLO lost vehicle — starting 5s departure timer")
                             elif now_mono - gone_since >= 5.0:
                                 logger.info("Vehicle departed — returning to idle")
+                                if last_event_id is not None:
+                                    update_departure(last_event_id)
+                                    last_event_id = None
                                 last_recognized_make = None
                                 gone_since = None
                                 camera.set_hold_reference(False)
@@ -449,7 +471,7 @@ def main() -> None:
 
             logger.info("Running recognition pipeline")
             try:
-                result = recognizer.recognize(frame)
+                result = recognizer.recognize(frame, _synced_vehicles)
             except Exception:
                 logger.exception("Recognition pipeline error")
                 time.sleep(0.25)
@@ -461,16 +483,21 @@ def main() -> None:
                 if time.monotonic() - last_recognition_sent_at >= 10.0:
                     display.send_idle()
             else:
-                name = result.matched_vehicle["name"] if result.matched_vehicle else "unknown"
+                vehicle  = result.matched_vehicle or _find_vehicle_by_make(result.make, _synced_vehicles)
+                name     = vehicle["owner_name"] if vehicle else "unknown"
                 logger.info(
                     "Recognition complete — vehicle='%s' make='%s' method=%s conf=%.2f",
                     name, result.make, result.method_used, result.confidence,
                 )
-                _write_result(result)
+                _write_result(result, vehicle)
 
-                vehicle   = result.matched_vehicle
-                greeting  = (vehicle.get("greeting") if vehicle else None) or f"Welcome, {name}"
+                greeting  = (vehicle.get("owner_greeting") if vehicle else None) or f"Welcome, {name}"
                 badge_url = _badge_url(result.make)
+                event = log_recognition(
+                    result.make or "", result.model or "", result.confidence,
+                    result.method_used, vehicle["id"] if vehicle else None,
+                )
+                last_event_id = event["id"] if event else None
                 display.send_recognition(
                     make=result.make or "",
                     model=result.model or "",
