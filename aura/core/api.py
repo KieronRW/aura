@@ -32,6 +32,20 @@ def start_server(host: str, port: int) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Health
+# ---------------------------------------------------------------------------
+
+@app.get("/health")
+def get_health():
+    return {
+        "camera_ok":       _state.get("camera_ok", False),
+        "display_clients": _state.get("display_clients", 0),
+        "supabase_ok":     _state.get("supabase_ok", False),
+        "uptime_seconds":  _state.get("uptime_seconds", 0.0),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Status
 # ---------------------------------------------------------------------------
 
