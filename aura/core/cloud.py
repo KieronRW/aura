@@ -134,7 +134,7 @@ def log_recognition(
         "detected_model": detected_model,
         "confidence": confidence,
         "method": method,
-        "matched_vehicle_id": matched_vehicle_id,
+        "vehicle_id": matched_vehicle_id,
     }
     try:
         response = client.table("recognition_events").insert(payload).execute()
