@@ -14,6 +14,7 @@ _SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 _INSTALLATION_ID = os.getenv("INSTALLATION_ID", "")
 
 _client = None
+_installation_uuid: str | None = None  # resolved once from installation_key, then cached
 
 
 def _get_client():
@@ -29,6 +30,32 @@ def _get_client():
         return _client
     except Exception as exc:
         log.warning("Supabase client init failed: %s", exc)
+        return None
+
+
+def _get_installation_uuid() -> str | None:
+    """Resolve and cache the installations.id UUID for the configured installation_key."""
+    global _installation_uuid
+    if _installation_uuid is not None:
+        return _installation_uuid
+    client = _get_client()
+    if client is None:
+        return None
+    try:
+        response = (
+            client.table("installations")
+            .select("id")
+            .eq("installation_key", _INSTALLATION_ID)
+            .execute()
+        )
+        if response.data:
+            _installation_uuid = response.data[0]["id"]
+            log.debug("Resolved installation UUID for key %r: %s", _INSTALLATION_ID, _installation_uuid)
+            return _installation_uuid
+        log.warning("No installation found for installation_key=%r", _INSTALLATION_ID)
+        return None
+    except Exception as exc:
+        log.warning("Installation UUID lookup failed: %s", exc)
         return None
 
 
@@ -65,18 +92,21 @@ def sync_vehicles() -> list[dict]:
 
 
 def sync_settings() -> dict:
-    """Return settings for this installation as a key:value dict, or {} if unreachable."""
+    """Return device_settings for this installation as a key:value dict, or {} if unreachable."""
     client = _get_client()
     if client is None:
         return {}
     try:
         response = (
-            client.table("settings")
-            .select("key, value")
-            .eq("installation_id", _INSTALLATION_ID)
+            client.table("device_settings")
+            .select("setting_key, setting_value, installations!inner(installation_key)")
+            .filter("installations.installation_key", "eq", _INSTALLATION_ID)
             .execute()
         )
-        return {row["key"]: row["value"] for row in (response.data or [])}
+        return {
+            row["setting_key"]: row["setting_value"]
+            for row in (response.data or [])
+        }
     except Exception as exc:
         log.warning("sync_settings failed: %s", exc)
         return {}
@@ -93,8 +123,13 @@ def log_recognition(
     client = _get_client()
     if client is None:
         return None
+    uuid = _get_installation_uuid()
+    if uuid is None:
+        log.warning("log_recognition: installation UUID unavailable — event not recorded")
+        return None
     payload = {
-        "installation_id": _INSTALLATION_ID,
+        "installation_id": uuid,
+        "arrived_at": datetime.now(timezone.utc).isoformat(),
         "detected_make": detected_make,
         "detected_model": detected_model,
         "confidence": confidence,
