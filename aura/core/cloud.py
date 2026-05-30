@@ -89,7 +89,7 @@ def log_recognition(
         "matched_vehicle_id": matched_vehicle_id,
     }
     try:
-        response = client.table("recognition_logs").insert(payload).execute()
+        response = client.table("recognition_events").insert(payload).execute()
         return response.data[0] if response.data else None
     except Exception as exc:
         log.warning("log_recognition failed: %s", exc)
@@ -103,7 +103,7 @@ def update_departure(event_id: int) -> bool:
         return False
     departed_at = datetime.now(timezone.utc).isoformat()
     try:
-        client.table("recognition_logs").update({"departed_at": departed_at}).eq("id", event_id).execute()
+        client.table("recognition_events").update({"departed_at": departed_at}).eq("id", event_id).execute()
         return True
     except Exception as exc:
         log.warning("update_departure failed for event %s: %s", event_id, exc)

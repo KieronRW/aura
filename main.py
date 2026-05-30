@@ -444,6 +444,17 @@ def main() -> None:
                 time.sleep(0.25)
                 continue
 
+            # ── Periodic idle YOLO scan (every 60s) ──
+            if now_mono - last_hold_check_at >= 60.0:
+                last_hold_check_at = now_mono
+                idle_frame = camera.get_frame()
+                if idle_frame is not None:
+                    idle_det = yolo_detector.detect(idle_frame)
+                    if idle_det.is_vehicle:
+                        logger.info("Idle scan: vehicle detected (YOLO conf=%.2f) — triggering recognition", idle_det.confidence)
+                        camera.force_presence(duration=10.0)
+                        camera.set_hold_reference(True)
+
             # ── Normal motion-based detection ──
             state = camera.get_motion_state()
 
