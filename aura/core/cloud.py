@@ -38,19 +38,27 @@ def is_connected() -> bool:
 
 
 def sync_vehicles() -> list[dict]:
-    """Return active vehicles for this installation from Supabase, or [] if unreachable."""
+    """Return active vehicles for this installation from Supabase, or [] if unreachable.
+
+    Joins vehicles → profiles → installations and filters by
+    installations.installation_key = INSTALLATION_ID.
+    """
     client = _get_client()
     if client is None:
         return []
     try:
         response = (
             client.table("vehicles")
-            .select("*")
-            .eq("installation_id", _INSTALLATION_ID)
+            .select("*, profiles!inner(installations!inner(installation_key))")
             .eq("is_active", True)
+            .filter("profiles.installations.installation_key", "eq", _INSTALLATION_ID)
             .execute()
         )
-        return response.data or []
+        vehicles = response.data or []
+        # Strip nested join data — downstream consumers only need vehicle fields
+        for v in vehicles:
+            v.pop("profiles", None)
+        return vehicles
     except Exception as exc:
         log.warning("sync_vehicles failed: %s", exc)
         return []
