@@ -1,0 +1,114 @@
+import logging
+from typing import Any
+
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="AURA", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+_state: dict[str, Any] = {}
+
+
+def init(shared_state: dict[str, Any]) -> None:
+    global _state
+    _state = shared_state
+
+
+def start_server(host: str, port: int) -> None:
+    config = uvicorn.Config(app, host=host, port=port, log_level="warning", access_log=False)
+    server = uvicorn.Server(config)
+    server.run()
+
+
+# ---------------------------------------------------------------------------
+# Status
+# ---------------------------------------------------------------------------
+
+@app.get("/status")
+def get_status():
+    return {
+        "current_state":               _state.get("current_state", "idle"),
+        "vehicle_present":             _state.get("vehicle_present", False),
+        "last_recognized_make":        _state.get("last_recognized_make"),
+        "last_recognized_owner":       _state.get("last_recognized_owner"),
+        "last_recognition_confidence": _state.get("last_recognition_confidence"),
+        "camera_ok":                   _state.get("camera_ok", False),
+        "display_clients":             _state.get("display_clients", 0),
+        "supabase_ok":                 _state.get("supabase_ok", False),
+        "uptime_seconds":              _state.get("uptime_seconds", 0.0),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Data
+# ---------------------------------------------------------------------------
+
+@app.get("/vehicles")
+def get_vehicles():
+    return _state.get("synced_vehicles", [])
+
+
+@app.get("/events")
+def get_events():
+    return _state.get("recent_events", [])
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+@app.post("/trigger")
+def trigger_recognition():
+    cb = _state.get("trigger_recognition_cb")
+    if cb is None:
+        raise HTTPException(503, detail="System not ready")
+    try:
+        cb()
+    except Exception as exc:
+        logger.warning("trigger_recognition_cb failed: %s", exc)
+        raise HTTPException(500, detail=str(exc))
+    return {"ok": True}
+
+
+@app.post("/idle")
+def force_idle():
+    cb = _state.get("force_idle_cb")
+    if cb is None:
+        raise HTTPException(503, detail="System not ready")
+    try:
+        cb()
+    except Exception as exc:
+        logger.warning("force_idle_cb failed: %s", exc)
+        raise HTTPException(500, detail=str(exc))
+    return {"ok": True}
+
+
+class DisplayPayload(BaseModel):
+    make: str
+    model: str = ""
+    greeting: str = ""
+    badge_url: str = ""
+
+
+@app.post("/display")
+def force_display(payload: DisplayPayload):
+    cb = _state.get("force_recognition_cb")
+    if cb is None:
+        raise HTTPException(503, detail="System not ready")
+    try:
+        cb(payload.make, payload.model or None, payload.greeting, payload.badge_url or None)
+    except Exception as exc:
+        logger.warning("force_recognition_cb failed: %s", exc)
+        raise HTTPException(500, detail=str(exc))
+    return {"ok": True}

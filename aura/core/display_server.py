@@ -43,6 +43,10 @@ class DisplayServer:
     # Public API  (safe to call from any thread)
     # ------------------------------------------------------------------
 
+    @property
+    def client_count(self) -> int:
+        return len(self._clients)
+
     def send_recognition(
         self,
         make: str,

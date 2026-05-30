@@ -67,9 +67,10 @@ from aura.config.settings import (
     STATIC_IP,
     YOLO_CONFIDENCE,
 )
+from aura.core import api
 from aura.core import detector as yolo_detector
 from aura.core.camera import Camera, MotionState
-from aura.core.cloud import log_recognition, sync_settings, sync_vehicles, update_departure
+from aura.core.cloud import is_connected, log_recognition, sync_settings, sync_vehicles, update_departure
 from aura.core.display_server import DisplayServer
 from aura.core.recognizer import Recognizer
 
@@ -305,6 +306,25 @@ def main() -> None:
     _print_banner()
     logger.info("AURA v%s starting up", _VERSION)
 
+    _start_time = time.monotonic()
+    _state: dict = {
+        "current_state":               "idle",
+        "vehicle_present":             False,
+        "last_recognized_make":        None,
+        "last_recognized_owner":       None,
+        "last_recognition_confidence": None,
+        "camera_ok":                   False,
+        "display_clients":             0,
+        "supabase_ok":                 False,
+        "uptime_seconds":              0.0,
+        "synced_vehicles":             [],
+        "recent_events":               [],
+        "trigger_recognition_cb":      None,
+        "force_idle_cb":               None,
+        "force_recognition_cb":        None,
+    }
+    api.init(_state)
+
     # Start display WebSocket server
     display = DisplayServer()
     try:
@@ -313,6 +333,21 @@ def main() -> None:
     except Exception:
         logger.exception("Failed to start display server — aborting")
         sys.exit(1)
+
+    _state["force_idle_cb"] = display.send_idle
+    _state["force_recognition_cb"] = display.send_recognition
+
+    # Start FastAPI server (non-critical — won't abort startup on failure)
+    try:
+        threading.Thread(
+            target=api.start_server,
+            args=("0.0.0.0", API_PORT),
+            daemon=True,
+            name="api",
+        ).start()
+        logger.info("API server starting on http://0.0.0.0:%d", API_PORT)
+    except Exception:
+        logger.warning("Failed to start API server — continuing without API")
 
     # Start camera
     camera = Camera()
@@ -323,12 +358,17 @@ def main() -> None:
         logger.exception("Failed to start camera — aborting")
         sys.exit(1)
 
+    _state["camera_ok"] = True
+    _state["trigger_recognition_cb"] = camera.force_presence
+
     _synced_vehicles = sync_vehicles()
     _synced_settings = sync_settings()
     logger.info(
         "Supabase sync: %d vehicles, %d settings",
         len(_synced_vehicles), len(_synced_settings),
     )
+    _state["supabase_ok"] = is_connected()
+    _state["synced_vehicles"] = _synced_vehicles
 
     recognizer = Recognizer()
     _display_queue: queue.Queue = queue.Queue()
@@ -387,6 +427,11 @@ def main() -> None:
                 last_recognized_make = startup_result.make or ""
                 last_hold_check_at = 0.0
                 camera.set_hold_reference(True)
+                _state["current_state"] = "recognized" if vehicle else "detected"
+                _state["vehicle_present"] = True
+                _state["last_recognized_make"] = startup_result.make
+                _state["last_recognized_owner"] = name if vehicle else None
+                _state["last_recognition_confidence"] = startup_result.confidence
             else:
                 logger.info("Startup: no vehicle detected")
         except Exception:
@@ -418,6 +463,7 @@ def main() -> None:
                 fresh = sync_vehicles()
                 if fresh:
                     _synced_vehicles = fresh
+                    _state["synced_vehicles"] = _synced_vehicles
                     logger.info("Vehicle sync: %d vehicles refreshed", len(_synced_vehicles))
                 else:
                     logger.warning("Vehicle sync returned empty — retaining previous data")
@@ -427,6 +473,8 @@ def main() -> None:
                 state = camera.get_motion_state()
                 logger.info("Motion state: %s", state.value)
                 last_state_log_at = now_mono
+                _state["uptime_seconds"] = now_mono - _start_time
+                _state["display_clients"] = display.client_count
 
             # ── YOLO hold: if we already recognised a car, skip motion detection ──
             #    last_hold_check_at is reset to 0 on new recognition so the first
@@ -463,6 +511,8 @@ def main() -> None:
                                 camera.set_hold_reference(False)
                                 _write_idle()
                                 display.send_idle()
+                                _state["current_state"] = "idle"
+                                _state["vehicle_present"] = False
 
                 time.sleep(0.25)
                 continue
@@ -485,6 +535,8 @@ def main() -> None:
                     _write_idle()
                     if time.monotonic() - last_recognition_sent_at >= 10.0:
                         display.send_idle()
+                    _state["current_state"] = "idle"
+                    _state["vehicle_present"] = False
                 time.sleep(0.25)
                 continue
 
@@ -544,6 +596,20 @@ def main() -> None:
                 last_hold_check_at = 0.0  # trigger immediate YOLO hold check on next iteration
                 gone_since = None
                 camera.set_hold_reference(True)
+
+                _state["current_state"] = "recognized" if vehicle else "detected"
+                _state["vehicle_present"] = True
+                _state["last_recognized_make"] = result.make
+                _state["last_recognized_owner"] = name if vehicle else None
+                _state["last_recognition_confidence"] = result.confidence
+                _state["recent_events"] = ([{
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "make": result.make,
+                    "model": result.model,
+                    "confidence": result.confidence,
+                    "method_used": result.method_used,
+                    "owner_name": name if vehicle else None,
+                }] + _state["recent_events"])[:20]
 
     finally:
         http_server.shutdown()

@@ -32,6 +32,11 @@ def _get_client():
         return None
 
 
+def is_connected() -> bool:
+    """Return True if a Supabase client has been successfully initialised."""
+    return _get_client() is not None
+
+
 def sync_vehicles() -> list[dict]:
     """Return active vehicles for this installation from Supabase, or [] if unreachable."""
     client = _get_client()
