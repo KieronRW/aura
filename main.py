@@ -19,7 +19,7 @@ from pathlib import Path
 _LOG_DIR = Path.home() / "aura" / "logs"
 _LOG_FILE = _LOG_DIR / "aura.log"
 _RECOGNITION_FILE = Path.home() / "aura" / "data" / "current_recognition.json"
-_VERSION = "1.0.0"
+_VERSION = "1.0.1"
 
 # ---------------------------------------------------------------------------
 # Logging — set up before any aura imports so all modules inherit the config
@@ -31,7 +31,7 @@ def _setup_logging() -> None:
     root.setLevel(logging.DEBUG)
 
     fmt = logging.Formatter(
-        "%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
+        "%(asctime)s %(levelname)-8s %(name)s — %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
@@ -77,8 +77,8 @@ from aura.core.recognizer import Recognizer
 # Constants
 # ---------------------------------------------------------------------------
 
-_RECOGNITION_COOLDOWN = 3  # seconds between recognition attempts
-
+_RECOGNITION_COOLDOWN = 3        # seconds between recognition attempts
+_VEHICLE_SYNC_INTERVAL = 300     # re-sync vehicles from Supabase every 5 minutes
 _BADGES_DIR = Path(__file__).parent / "assets" / "badges"
 _BADGE_BASE_URL = "http://localhost:8080/assets/badges"
 _DEFAULT_BADGE_URL = f"{_BADGE_BASE_URL}/default.png"
@@ -91,13 +91,16 @@ def _badge_url(make: str | None) -> str:
     """Return the HTTP URL for a make's badge, falling back to default."""
     if not make:
         return _DEFAULT_BADGE_URL
+
     parts = make.lower().strip().replace("/", "-").split()
+
     # Try full slug first, then progressively shorter: "land-rover-evoque" -> "land-rover" -> "land"
     for i in range(len(parts), 0, -1):
         slug = "-".join(parts[:i])
         candidate = _BADGES_DIR / f"{slug}.png"
         if candidate.exists():
             return f"{_BADGE_BASE_URL}/{slug}.png"
+
     logger.debug("No badge file found for make '%s' — using default", make)
     return _DEFAULT_BADGE_URL
 
@@ -113,7 +116,6 @@ def _find_vehicle_by_make(make: str | None, vehicles: list[dict]) -> dict | None
             return v
     return None
 
-
 # ---------------------------------------------------------------------------
 # Banner
 # ---------------------------------------------------------------------------
@@ -121,27 +123,25 @@ def _find_vehicle_by_make(make: str | None, vehicles: list[dict]) -> dict | None
 def _print_banner() -> None:
     google_creds_ok = os.path.exists(GOOGLE_CREDENTIALS_PATH)
     install_id = os.getenv("INSTALLATION_ID", "not set")
-
     lines = [
         "",
         "╔══════════════════════════════════════════════════╗",
-        f"║          AURA  v{_VERSION}  —  Vehicle Recognition       ║",
+        f"║  AURA v{_VERSION} — Vehicle Recognition             ║",
         "╠══════════════════════════════════════════════════╣",
-        f"║  Camera       {CAMERA_WIDTH}x{CAMERA_HEIGHT:<34} ║",
+        f"║  Camera       {CAMERA_WIDTH}x{CAMERA_HEIGHT:<32} ║",
         f"║  YOLO conf    {YOLO_CONFIDENCE:<35.2f} ║",
         f"║  FP threshold {FINGERPRINT_MATCH_THRESHOLD:<35.2f} ║",
         f"║  Google Vision {'ENABLED ' if GOOGLE_VISION_ENABLED else 'DISABLED':<34} ║",
         f"║  Vision creds  {'OK' if google_creds_ok else 'MISSING':<33} ║",
-        f"║  Install ID   {install_id:<34} ║",
-        f"║  API          {STATIC_IP}:{API_PORT:<26} ║",
-        f"║  Display WS   ws://localhost:8765{'':<18} ║",
-        f"║  Log          {str(_LOG_FILE):<34} ║",
+        f"║  Install ID    {install_id:<33} ║",
+        f"║  API           {STATIC_IP}:{API_PORT:<25} ║",
+        f"║  Display WS    ws://localhost:8765{'':<14} ║",
+        f"║  Log           {str(_LOG_FILE):<33} ║",
         "╚══════════════════════════════════════════════════╝",
         "",
     ]
     for line in lines:
         print(line)
-
 
 # ---------------------------------------------------------------------------
 # JSON output helpers
@@ -184,12 +184,12 @@ def _write_result(result, vehicle: dict | None = None) -> None:
         "badge_path": result.badge_path,
     })
 
-
 # ---------------------------------------------------------------------------
 # UDP trigger listener
 # ---------------------------------------------------------------------------
 
 _UDP_PORT = 9999
+
 
 def _udp_listener(camera: "Camera", shutdown: dict) -> None:
     """Daemon thread: listens on UDP port 9999 for 'TRIGGER' to call force_presence()."""
@@ -207,7 +207,6 @@ def _udp_listener(camera: "Camera", shutdown: dict) -> None:
                 logger.info("TRIGGER received from %s — forcing PRESENCE state for 10 s", addr)
                 camera.force_presence()
 
-
 # ---------------------------------------------------------------------------
 # HTTP test server
 # ---------------------------------------------------------------------------
@@ -224,13 +223,16 @@ def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue
                 return
 
             import cv2
+
             if not _TEST_IMAGE_PATH.exists():
                 self._respond(503, {"error": f"test image not found: {_TEST_IMAGE_PATH}"})
                 return
+
             frame = cv2.imread(str(_TEST_IMAGE_PATH))
             if frame is None:
                 self._respond(503, {"error": f"failed to load test image: {_TEST_IMAGE_PATH}"})
                 return
+
             logger.info("HTTP test: using %s", _TEST_IMAGE_PATH.name)
 
             try:
@@ -244,16 +246,19 @@ def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue
                 payload = {"state": "no_result"}
                 display_queue.put(("idle",))
             else:
-                vehicle  = result.matched_vehicle or _find_vehicle_by_make(result.make, synced_vehicles)
-                name     = vehicle["owner_name"] if vehicle else "unknown"
+                vehicle = result.matched_vehicle or _find_vehicle_by_make(result.make, synced_vehicles)
+                name = vehicle["owner_name"] if vehicle else "unknown"
                 greeting = (vehicle.get("owner_greeting") if vehicle else None) or f"Welcome, {name}"
                 badge_url = _badge_url(result.make)
+
                 logger.info("HTTP test: badge_url=%s", badge_url)
+
                 log_recognition(
                     result.make or "", result.model or "", result.confidence,
                     result.method_used, vehicle["id"] if vehicle else None,
                 )
                 display_queue.put(("recognition", result.make or "", result.model or "", greeting, badge_url))
+
                 payload = {
                     "state": "recognized" if vehicle else "detected",
                     "matched_vehicle": {
@@ -292,7 +297,6 @@ def _start_http_server(camera: "Camera", recognizer: "Recognizer", display_queue
     logger.info("HTTP test server on http://localhost:%d/test-recognition", _HTTP_PORT)
     return server
 
-
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -328,9 +332,10 @@ def main() -> None:
 
     recognizer = Recognizer()
     _display_queue: queue.Queue = queue.Queue()
+
     http_server = _start_http_server(camera, recognizer, _display_queue, _synced_vehicles)
 
-    # Graceful shutdown flag
+    # Graceful shutdown
     _shutdown = {"requested": False}
 
     kb_thread = threading.Thread(
@@ -358,6 +363,7 @@ def main() -> None:
     last_hold_check_at: float = 0.0
     gone_since: float | None = None
     last_event_id: int | None = None
+    last_vehicle_sync_at: float = time.monotonic()
 
     # Startup scan: recognise any car already in frame
     logger.info("Startup: running initial recognition scan")
@@ -390,6 +396,7 @@ def main() -> None:
 
     try:
         while not _shutdown["requested"]:
+
             # Drain display commands queued by the HTTP test endpoint
             while True:
                 try:
@@ -404,12 +411,26 @@ def main() -> None:
                         display.send_idle()
 
             now_mono = time.monotonic()
+
+            # ── Periodic vehicle sync (every 5 minutes) ──────────────────────
+            if now_mono - last_vehicle_sync_at >= _VEHICLE_SYNC_INTERVAL:
+                last_vehicle_sync_at = now_mono
+                fresh = sync_vehicles()
+                if fresh:
+                    _synced_vehicles = fresh
+                    logger.info("Vehicle sync: %d vehicles refreshed", len(_synced_vehicles))
+                else:
+                    logger.warning("Vehicle sync returned empty — retaining previous data")
+
+            # ── Periodic state log ────────────────────────────────────────────
             if now_mono - last_state_log_at >= 5.0:
                 state = camera.get_motion_state()
                 logger.info("Motion state: %s", state.value)
                 last_state_log_at = now_mono
 
-            # ── YOLO hold: if we already recognised a car, ignore motion detection ──
+            # ── YOLO hold: if we already recognised a car, skip motion detection ──
+            #    last_hold_check_at is reset to 0 on new recognition so the first
+            #    hold check fires on the very next iteration (~250 ms later).
             if last_recognized_make is not None:
                 if now_mono - last_hold_check_at >= 3.0:
                     last_hold_check_at = now_mono
@@ -422,6 +443,7 @@ def main() -> None:
                                 "Vehicle still present (YOLO conf=%.2f) — holding badge",
                                 det.confidence,
                             )
+                            # Keepalive: re-send badge every 30 s to prevent display timeout
                             if now_mono - last_recognition_sent_at >= 30.0:
                                 badge_url = _badge_url(last_recognized_make)
                                 display.send_recognition(make=last_recognized_make, model="", greeting="", badge_url=badge_url)
@@ -430,7 +452,7 @@ def main() -> None:
                         else:
                             if gone_since is None:
                                 gone_since = now_mono
-                                logger.info("YOLO lost vehicle — starting 5s departure timer")
+                                logger.info("YOLO lost vehicle — starting 5 s departure timer")
                             elif now_mono - gone_since >= 5.0:
                                 logger.info("Vehicle departed — returning to idle")
                                 if last_event_id is not None:
@@ -441,10 +463,11 @@ def main() -> None:
                                 camera.set_hold_reference(False)
                                 _write_idle()
                                 display.send_idle()
+
                 time.sleep(0.25)
                 continue
 
-            # ── Periodic idle YOLO scan (every 60s) ──
+            # ── Periodic idle YOLO scan (every 60 s) ─────────────────────────
             if now_mono - last_hold_check_at >= 60.0:
                 last_hold_check_at = now_mono
                 idle_frame = camera.get_frame()
@@ -455,9 +478,8 @@ def main() -> None:
                         camera.force_presence(duration=10.0)
                         camera.set_hold_reference(True)
 
-            # ── Normal motion-based detection ──
+            # ── Normal motion-based detection ─────────────────────────────────
             state = camera.get_motion_state()
-
             if state != MotionState.PRESENCE:
                 if state == MotionState.IDLE:
                     _write_idle()
@@ -472,8 +494,8 @@ def main() -> None:
                 continue
 
             last_recognition_at = now
-            logger.info("Vehicle presence confirmed — capturing still")
 
+            logger.info("Vehicle presence confirmed — capturing still")
             frame = camera.capture_still()
             if frame is None:
                 logger.warning("capture_still returned None — skipping recognition")
@@ -494,21 +516,23 @@ def main() -> None:
                 if time.monotonic() - last_recognition_sent_at >= 10.0:
                     display.send_idle()
             else:
-                vehicle  = result.matched_vehicle or _find_vehicle_by_make(result.make, _synced_vehicles)
-                name     = vehicle["owner_name"] if vehicle else "unknown"
+                vehicle = result.matched_vehicle or _find_vehicle_by_make(result.make, _synced_vehicles)
+                name = vehicle["owner_name"] if vehicle else "unknown"
                 logger.info(
                     "Recognition complete — vehicle='%s' make='%s' method=%s conf=%.2f",
                     name, result.make, result.method_used, result.confidence,
                 )
                 _write_result(result, vehicle)
 
-                greeting  = (vehicle.get("owner_greeting") if vehicle else None) or f"Welcome, {name}"
+                greeting = (vehicle.get("owner_greeting") if vehicle else None) or f"Welcome, {name}"
                 badge_url = _badge_url(result.make)
+
                 event = log_recognition(
                     result.make or "", result.model or "", result.confidence,
                     result.method_used, vehicle["id"] if vehicle else None,
                 )
                 last_event_id = event["id"] if event else None
+
                 display.send_recognition(
                     make=result.make or "",
                     model=result.model or "",
@@ -517,7 +541,7 @@ def main() -> None:
                 )
                 last_recognition_sent_at = time.monotonic()
                 last_recognized_make = result.make or ""
-                last_hold_check_at = 0.0
+                last_hold_check_at = 0.0  # trigger immediate YOLO hold check on next iteration
                 gone_since = None
                 camera.set_hold_reference(True)
 

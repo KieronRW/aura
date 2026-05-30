@@ -31,12 +31,10 @@ class Camera:
         self._frame: np.ndarray | None = None
         self._state = MotionState.IDLE
         self._presence_since: float | None = None
-
         self._force_presence_until: float | None = None
         self._hold_reference: bool = False
 
         self._cam = None  # set by _camera_loop while running
-
         self._running = False
         self._thread: threading.Thread | None = None
 
@@ -149,7 +147,9 @@ class Camera:
                     for c in contours
                 )
 
-                self._update_state(motion_area, large_object)
+                logger.debug("motion_area=%.0f large=%s", motion_area, large_object)
+
+                self._update_state(motion_area, large_object, now)
 
                 # Frame-to-frame stability — update reference when scene settles
                 fd = cv2.absdiff(prev_frame_gray, gray)
@@ -166,7 +166,7 @@ class Camera:
                         stable_since = None
                         with self._lock:
                             self._hold_reference = False
-                        logger.info("Reference frame updated — scene stable for 5s, releasing hold")
+                        logger.info("Reference frame updated — scene stable for 5 s, releasing hold")
                 else:
                     stable_since = None
 
@@ -179,29 +179,35 @@ class Camera:
             cam.close()
             logger.info("Picamera2 closed")
 
-    def _update_state(self, motion_area: float, large_object: bool):
-        now = time.monotonic()
-        logger.info("DBG motion_area=%.0f large=%s", motion_area, large_object)
-
+    def _update_state(self, motion_area: float, large_object: bool, now: float):
+        """Determine and apply the new motion state. Must be called from the camera thread."""
         with self._lock:
+            # Honour forced presence window
             if self._force_presence_until is not None:
                 if now < self._force_presence_until:
                     return
                 self._force_presence_until = None
 
+            current_state = self._state
+            presence_since = self._presence_since
+
+        # Compute new state
         if motion_area < MOTION_THRESHOLD:
             new_state = MotionState.IDLE
-            self._presence_since = None
+            new_presence_since = None
         elif not large_object:
             new_state = MotionState.MOTION
-            self._presence_since = None
+            new_presence_since = None
         else:
-            if self._presence_since is None:
-                self._presence_since = now
-            elapsed = now - self._presence_since
+            if presence_since is None:
+                presence_since = now
+            elapsed = now - presence_since
             new_state = MotionState.PRESENCE if elapsed >= VEHICLE_PRESENCE_SECONDS else MotionState.MOTION
+            new_presence_since = presence_since
 
+        # Write back under lock
         with self._lock:
-            if new_state != self._state:
-                logger.info("Motion state: %s → %s", self._state.value, new_state.value)
+            self._presence_since = new_presence_since
+            if new_state != current_state:
+                logger.info("Motion state: %s → %s", current_state.value, new_state.value)
                 self._state = new_state

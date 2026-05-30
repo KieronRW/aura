@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import socket
@@ -20,13 +21,13 @@ from aura.core.fingerprint import (
 
 logger = logging.getLogger(__name__)
 
-# Vision results are cached against a fingerprint similarity key for this many seconds
+# Vision results are cached against a stable image hash for this many seconds
 _VISION_CACHE_TTL = 300  # 5 minutes
 
 
 @dataclass
 class RecognitionResult:
-    matched_vehicle: dict | None       # full vehicle dict from DB, or None
+    matched_vehicle: dict | None       # full vehicle dict from Supabase, or None
     make: str | None
     model: str | None
     confidence: float
@@ -45,7 +46,7 @@ class _VisionCacheEntry:
 class Recognizer:
     def __init__(self):
         self._vision_client = None
-        self._vision_cache: dict[int, _VisionCacheEntry] = {}  # vehicle_id → entry
+        self._vision_cache: dict[str, _VisionCacheEntry] = {}  # md5 hex → entry
 
     # ------------------------------------------------------------------
     # Public
@@ -54,7 +55,7 @@ class Recognizer:
     def recognize(self, frame: np.ndarray, vehicles: list[dict] | None = None) -> RecognitionResult | None:
         """
         Full recognition pipeline. Returns None if no vehicle is detected.
-        Logging is handled by the caller via cloud.log_recognition().
+        Recognition events are logged by the caller via cloud.log_recognition().
         """
         # Step 1 — confirm a vehicle is present via YOLO
         detection = detect(frame)
@@ -151,8 +152,8 @@ class Recognizer:
             logger.warning("Offline — skipping Google Vision")
             return None
 
-        # Check cache using a stable key derived from the cropped image hash
-        cache_key = hash(cropped.tobytes())
+        # Stable, process-safe cache key using MD5 of the cropped image bytes
+        cache_key = hashlib.md5(cropped.tobytes(), usedforsecurity=False).hexdigest()
         cached = self._vision_cache.get(cache_key)
         if cached and time.monotonic() < cached.expires_at:
             logger.info(
@@ -212,7 +213,7 @@ class Recognizer:
     def _parse_vision_entities(self, entities) -> tuple[str | None, str | None, float]:
         """
         Heuristic: the highest-scoring entity that contains a known car brand is the make.
-        The next entity is treated as a model hint.
+        The next distinct entity is treated as a model hint.
         """
         car_brands = {
             "toyota", "honda", "ford", "bmw", "mercedes", "volkswagen", "vw",
