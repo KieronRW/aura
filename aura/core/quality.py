@@ -45,4 +45,6 @@ def check_quality(frame: np.ndarray, settings: dict) -> tuple[bool, float]:
         )
 
     score = passed / checks
+    if score == 1.0:
+        log.info("Quality check passed (score=1.0)")
     return score == 1.0, score
