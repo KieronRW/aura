@@ -70,7 +70,7 @@ from aura.config.settings import (
 from aura.core import api
 from aura.core import detector as yolo_detector
 from aura.core.camera import Camera, MotionState
-from aura.core.cloud import is_connected, log_recognition, sync_settings, sync_vehicles, update_departure
+from aura.core.cloud import is_connected, log_recognition, push_heartbeat, sync_settings, sync_vehicles, update_departure
 from aura.core.display_server import DisplayServer
 from aura.core.recognizer import Recognizer
 
@@ -80,6 +80,7 @@ from aura.core.recognizer import Recognizer
 
 _RECOGNITION_COOLDOWN = 3        # seconds between recognition attempts
 _VEHICLE_SYNC_INTERVAL = 300     # re-sync vehicles from Supabase every 5 minutes
+_HEARTBEAT_INTERVAL    = 30      # push device_status heartbeat every 30 seconds
 _BADGES_DIR = Path(__file__).parent / "assets" / "badges"
 _BADGE_BASE_URL = "http://localhost:8080/assets/badges"
 _DEFAULT_BADGE_URL = f"{_BADGE_BASE_URL}/default.png"
@@ -399,6 +400,7 @@ def main() -> None:
     last_recognition_at = 0.0
     last_recognition_sent_at = 0.0
     last_state_log_at = 0.0
+    last_heartbeat_at = 0.0
     last_recognized_make: str | None = None
     last_hold_check_at: float = 0.0
     gone_since: float | None = None
@@ -475,6 +477,16 @@ def main() -> None:
                 last_state_log_at = now_mono
                 _state["uptime_seconds"] = now_mono - _start_time
                 _state["display_clients"] = display.client_count
+
+            # ── Heartbeat (every 30 s) ────────────────────────────────────────
+            if now_mono - last_heartbeat_at >= _HEARTBEAT_INTERVAL:
+                last_heartbeat_at = now_mono
+                push_heartbeat(
+                    camera_ok=_state["camera_ok"],
+                    display_clients=_state["display_clients"],
+                    current_state=_state["current_state"],
+                    software_version=_VERSION,
+                )
 
             # ── YOLO hold: if we already recognised a car, skip motion detection ──
             #    last_hold_check_at is reset to 0 on new recognition so the first

@@ -1,8 +1,10 @@
 import logging
 import os
+import socket
 from datetime import datetime, timezone
 from pathlib import Path
 
+import psutil
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / "config" / ".env")
@@ -156,3 +158,51 @@ def update_departure(event_id: int) -> bool:
     except Exception as exc:
         log.warning("update_departure failed for event %s: %s", event_id, exc)
         return False
+
+
+def push_heartbeat(
+    camera_ok: bool,
+    display_clients: int,
+    current_state: str,
+    software_version: str,
+) -> None:
+    """Upsert a heartbeat row into device_status. Fails silently if Supabase is unreachable."""
+    client = _get_client()
+    if client is None:
+        return
+    uuid = _get_installation_uuid()
+    if uuid is None:
+        return
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+    except OSError:
+        local_ip = None
+
+    try:
+        uptime_seconds = float(Path("/proc/uptime").read_text().split()[0])
+    except OSError:
+        uptime_seconds = None
+
+    payload = {
+        "installation_id":  uuid,
+        "is_online":        True,
+        "last_seen_at":     datetime.now(timezone.utc).isoformat(),
+        "local_ip":         local_ip,
+        "uptime_seconds":   uptime_seconds,
+        "cpu_percent":      psutil.cpu_percent(interval=None),
+        "memory_percent":   psutil.virtual_memory().percent,
+        "disk_percent":     psutil.disk_usage("/").percent,
+        "software_version": software_version,
+        "camera_ok":        camera_ok,
+        "display_clients":  display_clients,
+        "current_state":    current_state,
+    }
+
+    try:
+        client.table("device_status").upsert(payload, on_conflict="installation_id").execute()
+        log.debug("Heartbeat sent")
+    except Exception as exc:
+        log.warning("push_heartbeat failed: %s", exc)
