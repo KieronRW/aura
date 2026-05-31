@@ -182,7 +182,7 @@ def push_heartbeat(
         local_ip = None
 
     try:
-        uptime_seconds = float(Path("/proc/uptime").read_text().split()[0])
+        uptime_seconds = int(float(Path("/proc/uptime").read_text().split()[0]))
     except OSError:
         uptime_seconds = None
 
