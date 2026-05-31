@@ -17,7 +17,7 @@ def check_quality(frame: np.ndarray, settings: dict) -> tuple[bool, float]:
     min_brightness = float(settings.get("quality_min_brightness", 40))
     max_brightness = float(settings.get("quality_max_brightness", 220))
 
-    checks = 4
+    checks = 3
     passed = 0
 
     # 1 — Minimum crop size
