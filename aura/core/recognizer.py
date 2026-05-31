@@ -18,6 +18,7 @@ from aura.core.fingerprint import (
     extract_fingerprint,
     json_to_fingerprint,
 )
+from aura.core.quality import check_quality
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class Recognizer:
     # Public
     # ------------------------------------------------------------------
 
-    def recognize(self, frame: np.ndarray, vehicles: list[dict] | None = None) -> RecognitionResult | None:
+    def recognize(self, frame: np.ndarray, vehicles: list[dict] | None = None, *, settings: dict | None = None) -> RecognitionResult | None:
         """
         Full recognition pipeline. Returns None if no vehicle is detected.
         Recognition events are logged by the caller via cloud.log_recognition().
@@ -71,6 +72,13 @@ class Recognizer:
 
         # Crop to bounding box for fingerprinting / Vision (tighter feature focus)
         cropped = self._crop(frame, detection.bounding_box)
+
+        # Step 1b — quality gate on the cropped frame
+        if settings:
+            passed, score = check_quality(cropped, settings)
+            if not passed:
+                logger.debug("Quality check failed (score=%.2f) — skipping recognition", score)
+                return None
 
         # Step 2 — fingerprint matching against synced vehicles
         result = self._match_fingerprint(cropped, detection, vehicles or [])

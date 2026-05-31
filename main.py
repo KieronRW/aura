@@ -238,7 +238,7 @@ def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue
             logger.info("HTTP test: using %s", _TEST_IMAGE_PATH.name)
 
             try:
-                result = recognizer.recognize(frame, synced_vehicles)
+                result = recognizer.recognize(frame, synced_vehicles, settings=_synced_settings)
             except Exception as exc:
                 logger.exception("HTTP test: recognition error")
                 self._respond(500, {"error": str(exc)})
@@ -413,7 +413,7 @@ def main() -> None:
     startup_frame = camera.get_frame()
     if startup_frame is not None:
         try:
-            startup_result = recognizer.recognize(startup_frame, _synced_vehicles)
+            startup_result = recognizer.recognize(startup_frame, _synced_vehicles, settings=_synced_settings)
             if startup_result and startup_result.make:
                 vehicle = startup_result.matched_vehicle or _find_vehicle_by_make(startup_result.make, _synced_vehicles)
                 name = vehicle["owner_name"] if vehicle else "unknown"
@@ -568,7 +568,7 @@ def main() -> None:
 
             logger.info("Running recognition pipeline")
             try:
-                result = recognizer.recognize(frame, _synced_vehicles)
+                result = recognizer.recognize(frame, _synced_vehicles, settings=_synced_settings)
             except Exception:
                 logger.exception("Recognition pipeline error")
                 time.sleep(0.25)
