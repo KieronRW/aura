@@ -11,6 +11,7 @@ def check_quality(frame: np.ndarray, settings: dict) -> tuple[bool, float]:
     Run 4 quality checks on a frame. Returns (passed, score) where score is
     the fraction of checks passed (0.0–1.0).
     """
+    log.info("Quality check called — frame shape: %s", frame.shape)
     min_crop_size  = int(settings.get("quality_min_crop_size",  100))
     min_sharpness  = float(settings.get("quality_min_sharpness", 150))
     min_brightness = float(settings.get("quality_min_brightness", 40))
