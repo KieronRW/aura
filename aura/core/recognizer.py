@@ -31,7 +31,8 @@ class RecognitionResult:
     make: str | None
     model: str | None
     confidence: float
-    method_used: str                   # "fingerprint", "vision", or "yolo"
+    method_used: str                   # "fingerprint", "vision", or "unknown"
+    confidence_tier: str               # "high", "medium", "low"
     badge_path: str | None
 
 
@@ -82,14 +83,15 @@ class Recognizer:
             if result:
                 return result
 
-        # Step 4 — return YOLO-only result (make/model unknown but vehicle confirmed)
-        logger.info("No match found — returning YOLO-only result")
+        # Step 4 — vehicle confirmed by YOLO but make/model unknown
+        logger.info("No match found — returning unknown vehicle result")
         return RecognitionResult(
             matched_vehicle=None,
             make=None,
             model=None,
             confidence=detection.confidence,
-            method_used="yolo",
+            method_used="unknown",
+            confidence_tier="low",
             badge_path=None,
         )
 
@@ -134,6 +136,7 @@ class Recognizer:
                 model=best_vehicle["model"],
                 confidence=best_score,
                 method_used="fingerprint",
+                confidence_tier="high",
                 badge_path=best_vehicle.get("custom_badge_path"),
             )
 
@@ -166,6 +169,7 @@ class Recognizer:
                 model=cached.model,
                 confidence=cached.confidence,
                 method_used="vision",
+                confidence_tier="medium",
                 badge_path=None,
             )
 
@@ -200,6 +204,7 @@ class Recognizer:
                     model=model,
                     confidence=confidence,
                     method_used="vision",
+                    confidence_tier="medium",
                     badge_path=None,
                 )
 
