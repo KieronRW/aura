@@ -74,7 +74,7 @@ class Recognizer:
         cropped = self._crop(frame, detection.bounding_box)
 
         # Step 1b — quality gate on the cropped frame
-        if settings:
+        if settings is not None:
             passed, score = check_quality(cropped, settings)
             if not passed:
                 logger.debug("Quality check failed (score=%.2f) — skipping recognition", score)
