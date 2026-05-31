@@ -25,7 +25,7 @@ def check_quality(frame: np.ndarray, settings: dict) -> tuple[bool, float]:
     if w > min_crop_size and h > min_crop_size:
         passed += 1
     else:
-        log.debug("Quality: crop size failed (%dx%d, min %d)", w, h, min_crop_size)
+        log.info("Quality: crop size failed (%dx%d, min %d)", w, h, min_crop_size)
 
     # 2 — Blur / sharpness (Laplacian variance; higher = sharper)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -33,14 +33,14 @@ def check_quality(frame: np.ndarray, settings: dict) -> tuple[bool, float]:
     if sharpness > min_sharpness:
         passed += 1
     else:
-        log.debug("Quality: sharpness failed (%.1f, min %.1f)", sharpness, min_sharpness)
+        log.info("Quality: sharpness failed (%.1f, min %.1f)", sharpness, min_sharpness)
 
     # 3 — Brightness (mean grayscale value)
     brightness = float(gray.mean())
     if min_brightness <= brightness <= max_brightness:
         passed += 1
     else:
-        log.debug(
+        log.info(
             "Quality: brightness failed (%.1f, range %.1f–%.1f)",
             brightness, min_brightness, max_brightness,
         )
