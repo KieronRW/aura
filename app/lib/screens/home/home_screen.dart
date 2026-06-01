@@ -1,6 +1,8 @@
 // Home screen — four tab navigation: Home, Profiles, Automations, Admin
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/supabase_service.dart';
 import '../profiles/profiles_screen.dart';
 import '../automations/automations_screen.dart';
 import '../admin/admin_screen.dart';
@@ -63,17 +65,103 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _DashboardTab extends StatelessWidget {
+class _DashboardTab extends StatefulWidget {
   const _DashboardTab();
 
   @override
+  State<_DashboardTab> createState() => _DashboardTabState();
+}
+
+class _DashboardTabState extends State<_DashboardTab> {
+  Map<String, dynamic>? _deviceStatus;
+  List<Map<String, dynamic>> _recentEvents = [];
+  bool _loading = true;
+
+RealtimeChannel? _statusChannel;
+RealtimeChannel? _eventsChannel;
+
+@override
+void initState() {
+  super.initState();
+  _loadData();
+  _subscribeToRealtime();
+}
+
+void _subscribeToRealtime() {
+  _statusChannel = Supabase.instance.client
+      .channel('device_status_changes')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'device_status',
+        callback: (payload) {
+          if (mounted) _loadData();
+        },
+      )
+      .subscribe();
+
+  _eventsChannel = Supabase.instance.client
+      .channel('recognition_events_changes')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'recognition_events',
+        callback: (payload) {
+          if (mounted) _loadData();
+        },
+      )
+      .subscribe();
+}
+
+@override
+void dispose() {
+  _statusChannel?.unsubscribe();
+  _eventsChannel?.unsubscribe();
+  super.dispose();
+}
+
+  Future<void> _loadData() async {
+    final status = await SupabaseService.getDeviceStatus();
+    final events = await SupabaseService.getRecentEvents();
+    if (mounted) {
+      setState(() {
+        _deviceStatus = status;
+        _recentEvents = events;
+        _loading = false;
+      });
+    }
+  }
+
+  String _formatTime(String? isoString) {
+    if (isoString == null) return '';
+    final dt = DateTime.parse(isoString).toLocal();
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    return '$hour:$min';
+  }
+
+  String _formatDate(String? isoString) {
+    if (isoString == null) return '';
+    final dt = DateTime.parse(isoString).toLocal();
+    final now = DateTime.now();
+    if (dt.day == now.day) return 'Today';
+    if (dt.day == now.day - 1) return 'Yesterday';
+    return '${dt.day}/${dt.month}';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isOnline = _deviceStatus?['is_online'] == true;
+
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: RefreshIndicator(
+        onRefresh: _loadData,
+        color: Colors.white,
+        backgroundColor: const Color(0xFF111111),
+        child: ListView(
+          padding: const EdgeInsets.all(24.0),
           children: [
+            // Header
             const Text(
               'AURA',
               style: TextStyle(
@@ -93,46 +181,74 @@ class _DashboardTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
+
             // Mirror status card
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111111),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.greenAccent,
-                      shape: BoxShape.circle,
+            if (_loading)
+              const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.white24,
+                  strokeWidth: 1,
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111111),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: isOnline ? Colors.greenAccent : Colors.redAccent,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Aura Mirror 1',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isOnline
+                                ? 'Online · ${_deviceStatus?['local_ip'] ?? ''}'
+                                : 'Offline',
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isOnline)
                       Text(
-                        'Aura Mirror 1',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          letterSpacing: 1,
+                        (_deviceStatus?['current_state'] ?? '').toString().toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 10,
+                          letterSpacing: 2,
                         ),
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Online · 192.168.0.200',
-                        style: TextStyle(color: Colors.white38, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+
             const SizedBox(height: 32),
+
+            // Recent activity
             const Text(
               'RECENT ACTIVITY',
               style: TextStyle(
@@ -142,14 +258,122 @@ class _DashboardTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Center(
-              child: Text(
-                'No recent activity',
-                style: TextStyle(color: Colors.white24, fontSize: 13),
-              ),
-            ),
+
+            if (_loading)
+              const SizedBox()
+            else if (_recentEvents.isEmpty)
+              const Center(
+                child: Text(
+                  'No recent activity',
+                  style: TextStyle(color: Colors.white24, fontSize: 13),
+                ),
+              )
+            else
+              ..._recentEvents.map((event) => _EventRow(
+                    make: event['detected_make'] ?? 'Unknown vehicle',
+                    model: event['detected_model'],
+                    time: _formatTime(event['arrived_at']),
+                    date: _formatDate(event['arrived_at']),
+                    method: event['method'] ?? '',
+                  )),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EventRow extends StatelessWidget {
+  final String make;
+  final String? model;
+  final String time;
+  final String date;
+  final String method;
+
+  const _EventRow({
+    required this.make,
+    required this.model,
+    required this.time,
+    required this.date,
+    required this.method,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.white12),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Time
+          SizedBox(
+            width: 48,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  time,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+                Text(
+                  date,
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Vehicle info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  model != null ? '$make · $model' : make,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'arrived',
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Method badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Text(
+              method.toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 9,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
