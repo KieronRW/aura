@@ -46,13 +46,15 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
         'Bonsoir event: ${event.runtimeType} - ${event.service?.name}',
       );
 
-      if (event is BonsoirDiscoveryServiceResolvedEvent) {
+      if (event is BonsoirDiscoveryServiceFoundEvent) {
         final service = event.service;
-        final hosts = service.hostAddresses;
-        final port = service.port;
+        final attributes = service.attributes;
 
-        if (hosts.isEmpty) return;
-        final ip = hosts.first;
+        // Use attributes from the mDNS broadcast directly
+        final ip = attributes['ip'];
+        final port = int.tryParse(attributes['port'] ?? '8000') ?? 8000;
+
+        if (ip == null) return;
 
         try {
           final response = await http
