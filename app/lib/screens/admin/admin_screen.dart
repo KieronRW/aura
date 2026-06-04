@@ -158,7 +158,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 ),
               ),
 
-            const SizedBox(height, 24),
+            const SizedBox(height: 24),
 
             // System resources
             const Text(
