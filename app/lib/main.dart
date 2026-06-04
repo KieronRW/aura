@@ -51,9 +51,18 @@ class _AuraAppState extends State<AuraApp> {
           surface: Color(0xFF111111),
         ),
       ),
-      home: Supabase.instance.client.auth.currentSession != null
-          ? const HomeScreen()
-          : const LoginScreen(),
+      home: StreamBuilder<AuthState>(
+        stream: Supabase.instance.client.auth.onAuthStateChange,
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            final session = snapshot.data!.session;
+            if (session != null) {
+              return const HomeScreen();
+            }
+          }
+          return const LoginScreen();
+        },
+      ),
     );
   }
 }
