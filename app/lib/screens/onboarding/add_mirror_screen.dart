@@ -217,7 +217,7 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
                   Container(
                     margin: const EdgeInsets.all(24),
                     padding: const EdgeInsets.all(16),
-                    color: Colors.red.withOpacity(0.2),
+                    color: Colors.red.withValues(alpha: 0.2),
                     child: Text(
                       _error!,
                       textAlign: TextAlign.center,
