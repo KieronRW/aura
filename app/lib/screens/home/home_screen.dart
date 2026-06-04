@@ -6,6 +6,7 @@ import '../../services/supabase_service.dart';
 import '../profiles/profiles_screen.dart';
 import '../automations/automations_screen.dart';
 import '../admin/admin_screen.dart';
+import '../onboarding/add_mirror_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -172,6 +173,54 @@ class _DashboardTabState extends State<_DashboardTab> {
     return '${dt.day}/${dt.month}';
   }
 
+  Widget _buildEmptyState() {
+    return Column(
+      children: [
+        const SizedBox(height: 48),
+        const Icon(Icons.sensors, color: Colors.white12, size: 64),
+        const SizedBox(height: 24),
+        const Text(
+          'No mirrors found',
+          style: TextStyle(
+            color: Colors.white38,
+            fontSize: 15,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Add your Aura to get started',
+          style: TextStyle(color: Colors.white24, fontSize: 13),
+        ),
+        const SizedBox(height: 32),
+        OutlinedButton(
+          onPressed: () async {
+            final added = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(builder: (_) => const AddMirrorScreen()),
+            );
+            if (added == true && mounted) {
+              setState(() => _loading = true);
+              _loadData();
+            }
+          },
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Colors.white24),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero,
+            ),
+          ),
+          child: const Text(
+            'ADD AURA',
+            style: TextStyle(letterSpacing: 4, fontSize: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isOnline = _isActuallyOnline(_deviceStatus);
@@ -204,7 +253,6 @@ class _DashboardTabState extends State<_DashboardTab> {
             ),
             const SizedBox(height: 32),
 
-            // Mirror status card
             if (_loading)
               const Center(
                 child: CircularProgressIndicator(
@@ -284,9 +332,7 @@ class _DashboardTabState extends State<_DashboardTab> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (_loading)
-                const SizedBox()
-              else if (_recentEvents.isEmpty)
+              if (_recentEvents.isEmpty)
                 const Center(
                   child: Text(
                     'No recent activity',
@@ -307,45 +353,6 @@ class _DashboardTabState extends State<_DashboardTab> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Column(
-      children: [
-        const SizedBox(height: 48),
-        const Icon(Icons.sensors, color: Colors.white12, size: 64),
-        const SizedBox(height: 24),
-        const Text(
-          'No mirrors found',
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: 15,
-            letterSpacing: 1,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Add your Aura to get started',
-          style: TextStyle(color: Colors.white24, fontSize: 13),
-        ),
-        const SizedBox(height: 32),
-        OutlinedButton(
-          onPressed: () {},
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Colors.white24),
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.zero,
-            ),
-          ),
-          child: const Text(
-            'ADD AURA',
-            style: TextStyle(letterSpacing: 4, fontSize: 12),
-          ),
-        ),
-      ],
     );
   }
 }
