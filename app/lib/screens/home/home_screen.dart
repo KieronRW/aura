@@ -76,49 +76,48 @@ class _DashboardTabState extends State<_DashboardTab> {
   Map<String, dynamic>? _deviceStatus;
   List<Map<String, dynamic>> _recentEvents = [];
   bool _loading = true;
+  RealtimeChannel? _statusChannel;
+  RealtimeChannel? _eventsChannel;
 
-RealtimeChannel? _statusChannel;
-RealtimeChannel? _eventsChannel;
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+    _subscribeToRealtime();
+  }
 
-@override
-void initState() {
-  super.initState();
-  _loadData();
-  _subscribeToRealtime();
-}
+  @override
+  void dispose() {
+    _statusChannel?.unsubscribe();
+    _eventsChannel?.unsubscribe();
+    super.dispose();
+  }
 
-void _subscribeToRealtime() {
-  _statusChannel = Supabase.instance.client
-      .channel('device_status_changes')
-      .onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: 'public',
-        table: 'device_status',
-        callback: (payload) {
-          if (mounted) _loadData();
-        },
-      )
-      .subscribe();
+  void _subscribeToRealtime() {
+    _statusChannel = Supabase.instance.client
+        .channel('device_status_changes')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'device_status',
+          callback: (payload) {
+            if (mounted) _loadData();
+          },
+        )
+        .subscribe();
 
-  _eventsChannel = Supabase.instance.client
-      .channel('recognition_events_changes')
-      .onPostgresChanges(
-        event: PostgresChangeEvent.insert,
-        schema: 'public',
-        table: 'recognition_events',
-        callback: (payload) {
-          if (mounted) _loadData();
-        },
-      )
-      .subscribe();
-}
-
-@override
-void dispose() {
-  _statusChannel?.unsubscribe();
-  _eventsChannel?.unsubscribe();
-  super.dispose();
-}
+    _eventsChannel = Supabase.instance.client
+        .channel('recognition_events_changes')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'recognition_events',
+          callback: (payload) {
+            if (mounted) _loadData();
+          },
+        )
+        .subscribe();
+  }
 
   Future<void> _loadData() async {
     final status = await SupabaseService.getDeviceStatus();
@@ -130,6 +129,15 @@ void dispose() {
         _loading = false;
       });
     }
+  }
+
+  bool _isActuallyOnline(Map<String, dynamic>? status) {
+    if (status == null) return false;
+    if (status['is_online'] != true) return false;
+    final lastSeen = status['last_seen_at'];
+    if (lastSeen == null) return false;
+    final lastSeenDt = DateTime.parse(lastSeen.toString());
+    return DateTime.now().toUtc().difference(lastSeenDt).inSeconds < 45;
   }
 
   String _formatTime(String? isoString) {
@@ -144,14 +152,14 @@ void dispose() {
     if (isoString == null) return '';
     final dt = DateTime.parse(isoString).toLocal();
     final now = DateTime.now();
-    if (dt.day == now.day) return 'Today';
-    if (dt.day == now.day - 1) return 'Yesterday';
+    if (dt.day == now.day && dt.month == now.month) return 'Today';
+    if (dt.day == now.day - 1 && dt.month == now.month) return 'Yesterday';
     return '${dt.day}/${dt.month}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final isOnline = _deviceStatus?['is_online'] == true;
+    final isOnline = _isActuallyOnline(_deviceStatus);
 
     return SafeArea(
       child: RefreshIndicator(
@@ -235,7 +243,9 @@ void dispose() {
                     ),
                     if (isOnline)
                       Text(
-                        (_deviceStatus?['current_state'] ?? '').toString().toUpperCase(),
+                        (_deviceStatus?['current_state'] ?? '')
+                            .toString()
+                            .toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white38,
                           fontSize: 10,
@@ -269,13 +279,15 @@ void dispose() {
                 ),
               )
             else
-              ..._recentEvents.map((event) => _EventRow(
-                    make: event['detected_make'] ?? 'Unknown vehicle',
-                    model: event['detected_model'],
-                    time: _formatTime(event['arrived_at']),
-                    date: _formatDate(event['arrived_at']),
-                    method: event['method'] ?? '',
-                  )),
+              ..._recentEvents.map(
+                (event) => _EventRow(
+                  make: event['detected_make'] ?? 'Unknown vehicle',
+                  model: event['detected_model'],
+                  time: _formatTime(event['arrived_at']),
+                  date: _formatDate(event['arrived_at']),
+                  method: event['method'] ?? '',
+                ),
+              ),
           ],
         ),
       ),
@@ -303,13 +315,10 @@ class _EventRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.white12),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.white12)),
       ),
       child: Row(
         children: [
-          // Time
           SizedBox(
             width: 48,
             child: Column(
@@ -325,16 +334,12 @@ class _EventRow extends StatelessWidget {
                 ),
                 Text(
                   date,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 16),
-          // Vehicle info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,17 +353,13 @@ class _EventRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
+                const Text(
                   'arrived',
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
               ],
             ),
           ),
-          // Method badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
