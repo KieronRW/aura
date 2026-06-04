@@ -78,16 +78,31 @@ class _DashboardTabState extends State<_DashboardTab> {
   bool _loading = true;
   RealtimeChannel? _statusChannel;
   RealtimeChannel? _eventsChannel;
+  late final _authSubscription = Supabase.instance.client.auth.onAuthStateChange
+      .listen((data) {
+        if (mounted) {
+          setState(() {
+            _deviceStatus = null;
+            _recentEvents = [];
+            _loading = true;
+          });
+          _loadData();
+        }
+      });
 
   @override
   void initState() {
     super.initState();
+    _deviceStatus = null;
+    _recentEvents = [];
+    _loading = true;
     _loadData();
     _subscribeToRealtime();
   }
 
   @override
   void dispose() {
+    _authSubscription.cancel();
     _statusChannel?.unsubscribe();
     _eventsChannel?.unsubscribe();
     super.dispose();
@@ -169,7 +184,6 @@ class _DashboardTabState extends State<_DashboardTab> {
         child: ListView(
           padding: const EdgeInsets.all(24.0),
           children: [
-            // Header
             const Text(
               'AURA',
               style: TextStyle(
@@ -198,6 +212,8 @@ class _DashboardTabState extends State<_DashboardTab> {
                   strokeWidth: 1,
                 ),
               )
+            else if (_deviceStatus == null)
+              _buildEmptyState()
             else
               Container(
                 padding: const EdgeInsets.all(20),
@@ -258,39 +274,78 @@ class _DashboardTabState extends State<_DashboardTab> {
 
             const SizedBox(height: 32),
 
-            // Recent activity
-            const Text(
-              'RECENT ACTIVITY',
-              style: TextStyle(
-                fontSize: 11,
-                letterSpacing: 4,
-                color: Colors.white38,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            if (_loading)
-              const SizedBox()
-            else if (_recentEvents.isEmpty)
-              const Center(
-                child: Text(
-                  'No recent activity',
-                  style: TextStyle(color: Colors.white24, fontSize: 13),
-                ),
-              )
-            else
-              ..._recentEvents.map(
-                (event) => _EventRow(
-                  make: event['detected_make'] ?? 'Unknown vehicle',
-                  model: event['detected_model'],
-                  time: _formatTime(event['arrived_at']),
-                  date: _formatDate(event['arrived_at']),
-                  method: event['method'] ?? '',
+            if (_deviceStatus != null) ...[
+              const Text(
+                'RECENT ACTIVITY',
+                style: TextStyle(
+                  fontSize: 11,
+                  letterSpacing: 4,
+                  color: Colors.white38,
                 ),
               ),
+              const SizedBox(height: 16),
+              if (_loading)
+                const SizedBox()
+              else if (_recentEvents.isEmpty)
+                const Center(
+                  child: Text(
+                    'No recent activity',
+                    style: TextStyle(color: Colors.white24, fontSize: 13),
+                  ),
+                )
+              else
+                ..._recentEvents.map(
+                  (event) => _EventRow(
+                    make: event['detected_make'] ?? 'Unknown vehicle',
+                    model: event['detected_model'],
+                    time: _formatTime(event['arrived_at']),
+                    date: _formatDate(event['arrived_at']),
+                    method: event['method'] ?? '',
+                  ),
+                ),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Column(
+      children: [
+        const SizedBox(height: 48),
+        const Icon(Icons.sensors, color: Colors.white12, size: 64),
+        const SizedBox(height: 24),
+        const Text(
+          'No mirrors found',
+          style: TextStyle(
+            color: Colors.white38,
+            fontSize: 15,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Add your Aura to get started',
+          style: TextStyle(color: Colors.white24, fontSize: 13),
+        ),
+        const SizedBox(height: 32),
+        OutlinedButton(
+          onPressed: () {},
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Colors.white24),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero,
+            ),
+          ),
+          child: const Text(
+            'ADD AURA',
+            style: TextStyle(letterSpacing: 4, fontSize: 12),
+          ),
+        ),
+      ],
     );
   }
 }
