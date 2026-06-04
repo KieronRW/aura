@@ -21,15 +21,15 @@ class SupabaseService {
           .eq('user_id', userId)
           .eq('is_active', true);
 
-      debugPrint(
-        'getInstallation: properties found = ${(properties as List).length}',
-      );
+      debugPrint('getInstallation: properties = $properties');
 
       if ((properties as List).isEmpty) return null;
 
       final propertyIds = (properties as List)
           .map((p) => p['id'] as String)
           .toList();
+
+      debugPrint('getInstallation: propertyIds = $propertyIds');
 
       final response = await _client
           .from('installations')
@@ -38,7 +38,7 @@ class SupabaseService {
           .eq('is_active', true)
           .maybeSingle();
 
-      debugPrint('getInstallation: installation found = ${response != null}');
+      debugPrint('getInstallation: installation = $response');
 
       return response;
     } catch (e) {
