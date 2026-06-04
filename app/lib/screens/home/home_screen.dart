@@ -6,7 +6,7 @@ import '../../services/supabase_service.dart';
 import '../profiles/profiles_screen.dart';
 import '../automations/automations_screen.dart';
 import '../admin/admin_screen.dart';
-import '../onboarding/add_mirror_screen.dart';
+import '../onboarding/discover_mirror_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -208,7 +208,7 @@ class _DashboardTabState extends State<_DashboardTab> {
           onPressed: () async {
             final added = await Navigator.push<bool>(
               context,
-              MaterialPageRoute(builder: (_) => const AddMirrorScreen()),
+              MaterialPageRoute(builder: (_) => const DiscoverMirrorScreen()),
             );
             if (added == true && mounted) {
               setState(() => _loading = true);
