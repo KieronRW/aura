@@ -39,6 +39,7 @@ dependencies:
   provider: ^6.1.5+1
   cached_network_image: ^3.4.1
   intl: ^0.20.2
+  app_links: ^7.1.1
 
 dev_dependencies:
   flutter_test:
