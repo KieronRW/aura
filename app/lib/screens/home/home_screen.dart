@@ -74,15 +74,18 @@ class _DashboardTab extends StatefulWidget {
 }
 
 class _DashboardTabState extends State<_DashboardTab> {
+  Map<String, dynamic>? _installation;
   Map<String, dynamic>? _deviceStatus;
   List<Map<String, dynamic>> _recentEvents = [];
   bool _loading = true;
   RealtimeChannel? _statusChannel;
   RealtimeChannel? _eventsChannel;
+
   late final _authSubscription = Supabase.instance.client.auth.onAuthStateChange
       .listen((data) {
         if (mounted) {
           setState(() {
+            _installation = null;
             _deviceStatus = null;
             _recentEvents = [];
             _loading = true;
@@ -94,6 +97,7 @@ class _DashboardTabState extends State<_DashboardTab> {
   @override
   void initState() {
     super.initState();
+    _installation = null;
     _deviceStatus = null;
     _recentEvents = [];
     _loading = true;
@@ -136,10 +140,17 @@ class _DashboardTabState extends State<_DashboardTab> {
   }
 
   Future<void> _loadData() async {
-    final status = await SupabaseService.getDeviceStatus();
-    final events = await SupabaseService.getRecentEvents();
+    final installation = await SupabaseService.getInstallation();
+    final status = installation != null
+        ? await SupabaseService.getDeviceStatus()
+        : null;
+    final events = installation != null
+        ? await SupabaseService.getRecentEvents()
+        : <Map<String, dynamic>>[];
+
     if (mounted) {
       setState(() {
+        _installation = installation;
         _deviceStatus = status;
         _recentEvents = events;
         _loading = false;
@@ -224,6 +235,7 @@ class _DashboardTabState extends State<_DashboardTab> {
   @override
   Widget build(BuildContext context) {
     final isOnline = _isActuallyOnline(_deviceStatus);
+    final mirrorName = _installation?['name'] ?? 'Aura Mirror';
 
     return SafeArea(
       child: RefreshIndicator(
@@ -260,7 +272,7 @@ class _DashboardTabState extends State<_DashboardTab> {
                   strokeWidth: 1,
                 ),
               )
-            else if (_deviceStatus == null)
+            else if (_installation == null)
               _buildEmptyState()
             else
               Container(
@@ -284,9 +296,9 @@ class _DashboardTabState extends State<_DashboardTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Aura Mirror 1',
-                            style: TextStyle(
+                          Text(
+                            mirrorName,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
                               letterSpacing: 1,
@@ -322,7 +334,7 @@ class _DashboardTabState extends State<_DashboardTab> {
 
             const SizedBox(height: 32),
 
-            if (_deviceStatus != null) ...[
+            if (_installation != null) ...[
               const Text(
                 'RECENT ACTIVITY',
                 style: TextStyle(
