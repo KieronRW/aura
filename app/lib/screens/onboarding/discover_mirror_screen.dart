@@ -38,9 +38,14 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
 
   Future<void> _startDiscovery() async {
     _discovery = BonsoirDiscovery(type: '_aura._tcp');
+    await _discovery!.initialize(); // Add this line
     await _discovery!.start();
 
     _discovery!.eventStream?.listen((event) async {
+      debugPrint(
+        'Bonsoir event: ${event.runtimeType} - ${event.service?.name}',
+      );
+
       if (event is BonsoirDiscoveryServiceResolvedEvent) {
         final service = event.service;
         final hosts = service.hostAddresses;

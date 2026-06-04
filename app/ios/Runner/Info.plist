@@ -6,7 +6,8 @@
 	<string>Aura needs local network access to discover mirrors on your WiFi</string>
 	<key>NSBonjourServices</key>
 	<array>
-    <string>_aura._tcp</string>
+		<string>_aura._tcp</string>
+		<string>_aura._tcp.</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Aura needs camera access to scan your mirror's QR code</string>
