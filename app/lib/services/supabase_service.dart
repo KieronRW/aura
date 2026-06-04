@@ -9,12 +9,27 @@ class SupabaseService {
 
   static Future<Map<String, dynamic>?> getInstallation() async {
     try {
+      // First get properties owned by current user
+      final properties = await _client
+          .from('properties')
+          .select('id')
+          .eq('user_id', _client.auth.currentUser!.id)
+          .eq('is_active', true);
+
+      if (properties.isEmpty) return null;
+
+      final propertyIds = (properties as List)
+          .map((p) => p['id'] as String)
+          .toList();
+
+      // Then get installation for those properties
       final response = await _client
           .from('installations')
-          .select('id, name, properties!inner(user_id)')
-          .eq('properties.user_id', _client.auth.currentUser!.id)
+          .select('*')
+          .inFilter('property_id', propertyIds)
           .eq('is_active', true)
           .maybeSingle();
+
       return response;
     } catch (e) {
       return null;
