@@ -1,4 +1,4 @@
-// Home screen — four tab navigation: Home, Profiles, Automations, Admin
+// Home screen — four tab navigation: Home, Profiles, Automations, Settings
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,6 +7,7 @@ import '../profiles/profiles_screen.dart';
 import '../automations/automations_screen.dart';
 import '../admin/admin_screen.dart';
 import '../onboarding/discover_mirror_screen.dart';
+import '../aura/aura_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -58,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
             activeIcon: Icon(Icons.settings),
-            label: 'SETTINGs',
+            label: 'SETTINGS',
           ),
         ],
       ),
@@ -191,7 +192,7 @@ class _DashboardTabState extends State<_DashboardTab> {
         const Icon(Icons.sensors, color: Colors.white12, size: 64),
         const SizedBox(height: 24),
         const Text(
-          'No mirrors found',
+          'No Aura found',
           style: TextStyle(
             color: Colors.white38,
             fontSize: 15,
@@ -235,7 +236,7 @@ class _DashboardTabState extends State<_DashboardTab> {
   @override
   Widget build(BuildContext context) {
     final isOnline = _isActuallyOnline(_deviceStatus);
-    final mirrorName = _installation?['name'] ?? 'Aura Mirror';
+    final auraName = _installation?['name'] ?? 'Aura';
 
     return SafeArea(
       child: RefreshIndicator(
@@ -275,60 +276,83 @@ class _DashboardTabState extends State<_DashboardTab> {
             else if (_installation == null)
               _buildEmptyState()
             else
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111111),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: isOnline ? Colors.greenAccent : Colors.redAccent,
-                        shape: BoxShape.circle,
-                      ),
+              GestureDetector(
+                onTap: () async {
+                  final result = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          AuraDetailScreen(installation: _installation!),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            mirrorName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isOnline
-                                ? 'Online · ${_deviceStatus?['local_ip'] ?? ''}'
-                                : 'Offline',
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isOnline)
-                      Text(
-                        (_deviceStatus?['current_state'] ?? '')
-                            .toString()
-                            .toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10,
-                          letterSpacing: 2,
+                  );
+                  if (result == true && mounted) {
+                    setState(() => _loading = true);
+                    _loadData();
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111111),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: isOnline
+                              ? Colors.greenAccent
+                              : Colors.redAccent,
+                          shape: BoxShape.circle,
                         ),
                       ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              auraName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isOnline
+                                  ? 'Online · ${_deviceStatus?['local_ip'] ?? ''}'
+                                  : 'Offline',
+                              style: const TextStyle(
+                                color: Colors.white38,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isOnline)
+                        Text(
+                          (_deviceStatus?['current_state'] ?? '')
+                              .toString()
+                              .toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 10,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: Colors.white24,
+                        size: 18,
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
