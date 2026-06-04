@@ -30,7 +30,7 @@ class DiscoveryService:
 
             ip = _local_ip()
             safe_key = re.sub(r"[^A-Za-z0-9-]+", "-", self._installation_key).strip("-")
-            service_name = f"AURA-{safe_key}.{self._SERVICE_TYPE}"
+            service_name = f"{safe_key}.{self._SERVICE_TYPE}"
             self._zeroconf = Zeroconf()
             self._info = ServiceInfo(
                 self._SERVICE_TYPE,
