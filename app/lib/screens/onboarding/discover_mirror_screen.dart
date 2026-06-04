@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:multicast_dns/multicast_dns.dart';
+import 'package:bonsoir/bonsoir.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -17,13 +17,14 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
   final List<Map<String, dynamic>> _discovered = [];
   bool _scanning = true;
   bool _claiming = false;
+  BonsoirDiscovery? _discovery;
   Timer? _scanTimer;
 
   @override
   void initState() {
     super.initState();
     _startDiscovery();
-    _scanTimer = Timer(const Duration(seconds: 15), () {
+    _scanTimer = Timer(const Duration(seconds: 20), () {
       if (mounted) setState(() => _scanning = false);
     });
   }
@@ -31,51 +32,46 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
   @override
   void dispose() {
     _scanTimer?.cancel();
+    _discovery?.stop();
     super.dispose();
   }
 
   Future<void> _startDiscovery() async {
-    final MDnsClient client = MDnsClient();
-    await client.start();
+    _discovery = BonsoirDiscovery(type: '_aura._tcp');
+    await _discovery!.start();
 
-    await for (final PtrResourceRecord ptr in client.lookup<PtrResourceRecord>(
-      ResourceRecordQuery.serverPointer('_aura._tcp.local'),
-    )) {
-      await for (final SrvResourceRecord srv
-          in client.lookup<SrvResourceRecord>(
-            ResourceRecordQuery.service(ptr.domainName),
-          )) {
-        await for (final IPAddressResourceRecord ip
-            in client.lookup<IPAddressResourceRecord>(
-              ResourceRecordQuery.addressIPv4(srv.target),
-            )) {
-          final device = {
-            'name': ptr.domainName.replaceAll('._aura._tcp.local', ''),
-            'host': ip.address.address,
-            'port': srv.port,
-          };
+    _discovery!.eventStream?.listen((event) async {
+      if (event is BonsoirDiscoveryServiceResolvedEvent) {
+        final service = event.service;
+        final hosts = service.hostAddresses;
+        final port = service.port;
 
-          // Fetch /info from the device
-          try {
-            final response = await http
-                .get(Uri.parse('http://${ip.address.address}:${srv.port}/info'))
-                .timeout(const Duration(seconds: 3));
-            if (response.statusCode == 200) {
-              final info = json.decode(response.body);
-              device['installation_key'] = info['installation_key'];
-              device['display_name'] = info['name'] ?? 'Aura Mirror';
-              device['software_version'] = info['software_version'];
+        if (hosts.isEmpty) return;
+        final ip = hosts.first;
+
+        try {
+          final response = await http
+              .get(Uri.parse('http://$ip:$port/info'))
+              .timeout(const Duration(seconds: 3));
+
+          if (response.statusCode == 200) {
+            final info = json.decode(response.body);
+            if (info['installation_key'] != null) {
+              final device = {
+                'host': ip,
+                'port': port,
+                'installation_key': info['installation_key'],
+                'display_name': info['name'] ?? 'Aura Mirror',
+                'software_version': info['software_version'],
+              };
+              if (mounted && !_discovered.any((d) => d['host'] == ip)) {
+                setState(() => _discovered.add(device));
+              }
             }
-          } catch (_) {}
-
-          if (mounted && !_discovered.any((d) => d['host'] == device['host'])) {
-            setState(() => _discovered.add(device));
           }
-        }
+        } catch (_) {}
       }
-    }
-
-    client.stop();
+    });
   }
 
   Future<void> _claimDevice(Map<String, dynamic> device) async {
@@ -217,6 +213,19 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
     } catch (_) {}
   }
 
+  Future<void> _rescan() async {
+    await _discovery?.stop();
+    setState(() {
+      _discovered.clear();
+      _scanning = true;
+    });
+    _startDiscovery();
+    _scanTimer?.cancel();
+    _scanTimer = Timer(const Duration(seconds: 20), () {
+      if (mounted) setState(() => _scanning = false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -295,19 +304,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
                       ),
                       const SizedBox(height: 32),
                       TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _discovered.clear();
-                            _scanning = true;
-                          });
-                          _startDiscovery();
-                          _scanTimer?.cancel();
-                          _scanTimer = Timer(const Duration(seconds: 15), () {
-                            if (mounted) {
-                              setState(() => _scanning = false);
-                            }
-                          });
-                        },
+                        onPressed: _rescan,
                         child: const Text(
                           'SCAN AGAIN',
                           style: TextStyle(
@@ -391,7 +388,6 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
 
               const Spacer(),
 
-              // QR fallback
               Center(
                 child: TextButton(
                   onPressed: () async {
@@ -402,7 +398,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
                       ),
                     );
                     if (added == true && mounted) {
-                      Navigator.pop(context, true);
+                      if (context.mounted) Navigator.pop(context, true);
                     }
                   },
                   child: const Text(
