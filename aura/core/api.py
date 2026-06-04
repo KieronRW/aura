@@ -126,3 +126,52 @@ def force_display(payload: DisplayPayload):
         logger.warning("force_recognition_cb failed: %s", exc)
         raise HTTPException(500, detail=str(exc))
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Discovery / Onboarding
+# ---------------------------------------------------------------------------
+
+@app.get("/info")
+def get_info():
+    return {
+        "installation_key": _state.get("installation_key", ""),
+        "name":             _state.get("name", ""),
+        "software_version": _state.get("software_version", ""),
+        "camera_ok":        _state.get("camera_ok", False),
+        "is_online":        True,
+    }
+
+
+class ClaimPayload(BaseModel):
+    supabase_url: str
+    supabase_key: str
+    installation_key: str
+
+
+@app.post("/claim")
+def claim_installation(payload: ClaimPayload):
+    try:
+        from supabase import create_client
+        client = create_client(payload.supabase_url, payload.supabase_key)
+
+        response = (
+            client.table("installations")
+            .select("id, status")
+            .eq("installation_key", payload.installation_key)
+            .execute()
+        )
+        if not response.data:
+            return {"ok": False, "error": "Installation not found"}
+
+        if response.data[0].get("status") == "active":
+            return {"ok": False, "error": "Installation already claimed"}
+
+        client.table("installations").update({"status": "active"}).eq(
+            "installation_key", payload.installation_key
+        ).execute()
+
+        return {"ok": True}
+    except Exception as exc:
+        logger.warning("Claim failed: %s", exc)
+        return {"ok": False, "error": str(exc)}

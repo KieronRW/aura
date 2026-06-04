@@ -69,6 +69,7 @@ from aura.config.settings import (
 )
 from aura.core import api
 from aura.core import detector as yolo_detector
+from aura.core.discovery import DiscoveryService
 from aura.core.camera import Camera, MotionState
 from aura.core.cloud import is_connected, log_recognition, push_heartbeat, sync_settings, sync_vehicles, update_departure
 from aura.core.display_server import DisplayServer
@@ -308,6 +309,7 @@ def main() -> None:
     logger.info("AURA v%s starting up", _VERSION)
 
     _start_time = time.monotonic()
+    _installation_key = os.getenv("INSTALLATION_ID", "")
     _state: dict = {
         "current_state":               "idle",
         "vehicle_present":             False,
@@ -323,6 +325,9 @@ def main() -> None:
         "trigger_recognition_cb":      None,
         "force_idle_cb":               None,
         "force_recognition_cb":        None,
+        "installation_key":            _installation_key,
+        "name":                        socket.gethostname(),
+        "software_version":            _VERSION,
     }
     api.init(_state)
 
@@ -349,6 +354,13 @@ def main() -> None:
         logger.info("API server starting on http://0.0.0.0:%d", API_PORT)
     except Exception:
         logger.warning("Failed to start API server — continuing without API")
+
+    _discovery = DiscoveryService(
+        installation_key=_installation_key,
+        version=_VERSION,
+        port=API_PORT,
+    )
+    _discovery.start()
 
     # Start camera
     camera = Camera()
@@ -624,6 +636,7 @@ def main() -> None:
                 }] + _state["recent_events"])[:20]
 
     finally:
+        _discovery.stop()
         http_server.shutdown()
         kb_thread.join(timeout=1)
         logger.info("Stopping camera service")
