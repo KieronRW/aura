@@ -58,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
             activeIcon: Icon(Icons.settings),
-            label: 'ADMIN',
+            label: 'SETTINGs',
           ),
         ],
       ),
