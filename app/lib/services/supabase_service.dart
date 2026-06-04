@@ -1,5 +1,6 @@
 // Supabase service — all database calls in one place, no UI logic here
 
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseService {
@@ -9,20 +10,27 @@ class SupabaseService {
 
   static Future<Map<String, dynamic>?> getInstallation() async {
     try {
-      // First get properties owned by current user
+      final userId = _client.auth.currentUser?.id;
+      debugPrint('getInstallation: user_id = $userId');
+
+      if (userId == null) return null;
+
       final properties = await _client
           .from('properties')
           .select('id')
-          .eq('user_id', _client.auth.currentUser!.id)
+          .eq('user_id', userId)
           .eq('is_active', true);
 
-      if (properties.isEmpty) return null;
+      debugPrint(
+        'getInstallation: properties found = ${(properties as List).length}',
+      );
+
+      if ((properties as List).isEmpty) return null;
 
       final propertyIds = (properties as List)
           .map((p) => p['id'] as String)
           .toList();
 
-      // Then get installation for those properties
       final response = await _client
           .from('installations')
           .select('*')
@@ -30,8 +38,11 @@ class SupabaseService {
           .eq('is_active', true)
           .maybeSingle();
 
+      debugPrint('getInstallation: installation found = ${response != null}');
+
       return response;
     } catch (e) {
+      debugPrint('getInstallation error: $e');
       return null;
     }
   }
@@ -50,6 +61,7 @@ class SupabaseService {
           .maybeSingle();
       return response;
     } catch (e) {
+      debugPrint('getDeviceStatus error: $e');
       return null;
     }
   }
@@ -71,6 +83,7 @@ class SupabaseService {
           .limit(limit);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
+      debugPrint('getRecentEvents error: $e');
       return [];
     }
   }
@@ -90,6 +103,7 @@ class SupabaseService {
           .order('display_name');
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
+      debugPrint('getProfiles error: $e');
       return [];
     }
   }
@@ -108,6 +122,7 @@ class SupabaseService {
           .order('make');
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
+      debugPrint('getVehiclesForProfile error: $e');
       return [];
     }
   }
