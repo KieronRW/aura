@@ -1,5 +1,3 @@
-// Add Mirror screen — QR code scan to claim a new Aura mirror
-
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,7 +12,7 @@ class AddMirrorScreen extends StatefulWidget {
 class _AddMirrorScreenState extends State<AddMirrorScreen> {
   final MobileScannerController _scanner = MobileScannerController();
   bool _processing = false;
-  String? _error;
+  bool _scanned = false;
 
   @override
   void dispose() {
@@ -23,10 +21,11 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
-    if (_processing) return;
+    if (_processing || _scanned) return;
     final barcode = capture.barcodes.firstOrNull;
     if (barcode?.rawValue == null) return;
 
+    _scanned = true;
     setState(() => _processing = true);
     await _scanner.stop();
 
@@ -39,7 +38,6 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
     final userId = client.auth.currentUser!.id;
 
     try {
-      // Check if installation exists and is unclaimed
       final installation = await client
           .from('installations')
           .select('id, status, name')
@@ -63,7 +61,6 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
         return;
       }
 
-      // Get or create a property for this user
       var property = await client
           .from('properties')
           .select('id')
@@ -79,7 +76,6 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
         property = newProperty;
       }
 
-      // Claim the mirror
       await client
           .from('installations')
           .update({
@@ -91,7 +87,6 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
           .eq('id', installation['id']);
 
       if (mounted) {
-        // Show name dialog
         _showNameDialog(installation['name'] ?? 'My Aura');
       }
     } catch (e) {
@@ -100,11 +95,20 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
   }
 
   void _showError(String message) {
+    if (!mounted) return;
     setState(() {
-      _error = message;
       _processing = false;
+      _scanned = false;
     });
     _scanner.start();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   void _showNameDialog(String defaultName) {
@@ -141,8 +145,9 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
         actions: [
           TextButton(
             onPressed: () async {
+              final name = controller.text.trim();
               Navigator.pop(context);
-              await _updateMirrorName(controller.text.trim());
+              await _updateMirrorName(name);
               if (mounted) Navigator.pop(context, true);
             },
             child: const Text(
@@ -186,10 +191,7 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
       ),
       body: Stack(
         children: [
-          // QR Scanner
           MobileScanner(controller: _scanner, onDetect: _onDetect),
-
-          // Overlay
           SafeArea(
             child: Column(
               children: [
@@ -213,20 +215,17 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
                   ),
                 ),
                 const Spacer(),
-                if (_error != null)
-                  Container(
-                    margin: const EdgeInsets.all(24),
-                    padding: const EdgeInsets.all(16),
-                    color: Colors.red.withValues(alpha: 0.2),
-                    child: Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 13,
-                      ),
+                Center(
+                  child: Container(
+                    width: 200,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white38, width: 2),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
+                ),
+                const Spacer(),
                 if (_processing)
                   const Padding(
                     padding: EdgeInsets.all(24),
