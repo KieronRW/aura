@@ -1,4 +1,5 @@
 import logging
+import re
 import socket
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,8 @@ class DiscoveryService:
             from zeroconf import ServiceInfo, Zeroconf
 
             ip = _local_ip()
-            service_name = f"AURA-{self._installation_key}.{self._SERVICE_TYPE}"
+            safe_key = re.sub(r"[^A-Za-z0-9-]+", "-", self._installation_key).strip("-")
+            service_name = f"AURA-{safe_key}.{self._SERVICE_TYPE}"
             self._zeroconf = Zeroconf()
             self._info = ServiceInfo(
                 self._SERVICE_TYPE,
