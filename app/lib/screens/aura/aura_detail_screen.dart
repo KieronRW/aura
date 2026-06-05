@@ -1,8 +1,12 @@
 // Aura Detail screen — status, activity, settings for a specific Aura
 
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
+
+// In-memory signed URL cache — shared across all _EventRow instances
+final Map<String, String> _signedUrlCache = {};
 
 class AuraDetailScreen extends StatefulWidget {
   final Map<String, dynamic> installation;
@@ -500,8 +504,17 @@ class _EventRowState extends State<_EventRow> {
   }
 
   Future<void> _loadImage() async {
+    // Check in-memory signed URL cache first
+    if (_signedUrlCache.containsKey(widget.imagePath)) {
+      setState(() => _imageUrl = _signedUrlCache[widget.imagePath]);
+      return;
+    }
+
     setState(() => _imageLoading = true);
     final url = await SupabaseService.getSignedImageUrl(widget.imagePath!);
+    if (url != null) {
+      _signedUrlCache[widget.imagePath!] = url;
+    }
     if (mounted) {
       setState(() {
         _imageUrl = url;
@@ -519,7 +532,7 @@ class _EventRowState extends State<_EventRow> {
       ),
       child: Row(
         children: [
-          // Thumbnail
+          // Thumbnail with disk caching via CachedNetworkImage
           Container(
             width: 56,
             height: 56,
@@ -539,10 +552,20 @@ class _EventRowState extends State<_EventRow> {
                     ),
                   )
                 : _imageUrl != null
-                ? Image.network(
-                    _imageUrl!,
+                ? CachedNetworkImage(
+                    imageUrl: _imageUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
+                    placeholder: (context, url) => const Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1,
+                          color: Colors.white24,
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => const Icon(
                       Icons.directions_car_outlined,
                       color: Colors.white24,
                       size: 24,
