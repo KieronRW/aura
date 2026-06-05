@@ -65,6 +65,11 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
   }
 
   Future<void> _loadData() async {
+    // Don't show spinner if we already have cached data
+    if (_recentEvents.isEmpty) {
+      if (mounted) setState(() => _loading = true);
+    }
+
     final status = await SupabaseService.getDeviceStatusById(
       widget.installation['id'],
     );
