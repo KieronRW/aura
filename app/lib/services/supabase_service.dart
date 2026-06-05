@@ -149,6 +149,8 @@ class SupabaseService {
           .from('recognition_events')
           .select('*')
           .eq('installation_id', installationId)
+          .not('detected_make', 'is', null)
+          .neq('detected_make', '')
           .order('arrived_at', ascending: false)
           .limit(limit);
       return List<Map<String, dynamic>>.from(response);
