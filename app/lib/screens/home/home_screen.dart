@@ -78,11 +78,13 @@ class _DashboardTabState extends State<_DashboardTab> {
   List<Map<String, dynamic>> _properties = [];
   Map<String, dynamic>? _selectedProperty;
   List<Map<String, dynamic>> _installations = [];
-  Map<String, dynamic>? _deviceStatus;
-  List<Map<String, dynamic>> _recentEvents = [];
+
+  // Per-installation device status cache keyed by installation id
+  final Map<String, Map<String, dynamic>> _statusCache = {};
+
   bool _loading = true;
+  bool _backgroundRefreshing = false;
   RealtimeChannel? _statusChannel;
-  RealtimeChannel? _eventsChannel;
 
   late final _authSubscription = Supabase.instance.client.auth.onAuthStateChange
       .listen((data) {
@@ -91,8 +93,7 @@ class _DashboardTabState extends State<_DashboardTab> {
             _properties = [];
             _selectedProperty = null;
             _installations = [];
-            _deviceStatus = null;
-            _recentEvents = [];
+            _statusCache.clear();
             _loading = true;
           });
           _loadData();
@@ -110,7 +111,6 @@ class _DashboardTabState extends State<_DashboardTab> {
   void dispose() {
     _authSubscription.cancel();
     _statusChannel?.unsubscribe();
-    _eventsChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -122,19 +122,7 @@ class _DashboardTabState extends State<_DashboardTab> {
           schema: 'public',
           table: 'device_status',
           callback: (payload) {
-            if (mounted) _loadInstallations();
-          },
-        )
-        .subscribe();
-
-    _eventsChannel = Supabase.instance.client
-        .channel('recognition_events_changes')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'recognition_events',
-          callback: (payload) {
-            if (mounted) _loadInstallations();
+            if (mounted) _refreshStatusInBackground();
           },
         )
         .subscribe();
@@ -142,45 +130,70 @@ class _DashboardTabState extends State<_DashboardTab> {
 
   Future<void> _loadData() async {
     final properties = await SupabaseService.getProperties();
+
     if (mounted) {
+      final selected = _selectedProperty != null
+          ? properties.firstWhere(
+              (p) => p['id'] == _selectedProperty!['id'],
+              orElse: () => properties.isNotEmpty ? properties.first : {},
+            )
+          : (properties.isNotEmpty ? properties.first : null);
+
       setState(() {
         _properties = properties;
-        _selectedProperty = properties.isNotEmpty ? properties.first : null;
+        _selectedProperty = selected?.isNotEmpty == true ? selected : null;
       });
-      await _loadInstallations();
+
+      await _loadInstallations(showLoading: _installations.isEmpty);
     }
   }
 
-  Future<void> _loadInstallations() async {
+  Future<void> _loadInstallations({bool showLoading = false}) async {
     if (_selectedProperty == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
 
+    if (showLoading && mounted) setState(() => _loading = true);
+
     final installations = await SupabaseService.getInstallationsByProperty(
       _selectedProperty!['id'],
     );
 
-    // Get device status for first installation
-    Map<String, dynamic>? status;
-    List<Map<String, dynamic>> events = [];
-
-    if (installations.isNotEmpty) {
-      final installation = installations.first;
-      status = await SupabaseService.getDeviceStatusById(installation['id']);
-      events = await SupabaseService.getRecentEventsByInstallation(
-        installation['id'],
-      );
-    }
-
     if (mounted) {
       setState(() {
         _installations = installations;
-        _deviceStatus = status;
-        _recentEvents = events;
         _loading = false;
       });
     }
+
+    // Load status for each installation
+    for (final installation in installations) {
+      final status = await SupabaseService.getDeviceStatusById(
+        installation['id'],
+      );
+      if (mounted && status != null) {
+        setState(() {
+          _statusCache[installation['id']] = status;
+        });
+      }
+    }
+  }
+
+  Future<void> _refreshStatusInBackground() async {
+    if (_backgroundRefreshing) return;
+    _backgroundRefreshing = true;
+    for (final installation in _installations) {
+      final status = await SupabaseService.getDeviceStatusById(
+        installation['id'],
+      );
+      if (mounted && status != null) {
+        setState(() {
+          _statusCache[installation['id']] = status;
+        });
+      }
+    }
+    _backgroundRefreshing = false;
   }
 
   void _showPropertySelector() {
@@ -221,23 +234,12 @@ class _DashboardTabState extends State<_DashboardTab> {
                   Navigator.pop(context);
                   setState(() {
                     _selectedProperty = property;
-                    _loading = true;
+                    _installations = [];
+                    _statusCache.clear();
                   });
-                  _loadInstallations();
+                  _loadInstallations(showLoading: true);
                 },
               ),
-            ),
-            const Divider(color: Colors.white12),
-            ListTile(
-              leading: const Icon(Icons.add, color: Colors.white38, size: 20),
-              title: const Text(
-                'Add Location',
-                style: TextStyle(color: Colors.white38, fontSize: 14),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: navigate to add location screen
-              },
             ),
             const SizedBox(height: 8),
           ],
@@ -253,21 +255,6 @@ class _DashboardTabState extends State<_DashboardTab> {
     if (lastSeen == null) return false;
     final lastSeenDt = DateTime.parse(lastSeen.toString());
     return DateTime.now().toUtc().difference(lastSeenDt).inSeconds < 45;
-  }
-
-  String _formatTime(String? isoString) {
-    if (isoString == null) return '';
-    final dt = DateTime.parse(isoString).toLocal();
-    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _formatDate(String? isoString) {
-    if (isoString == null) return '';
-    final dt = DateTime.parse(isoString).toLocal();
-    final now = DateTime.now();
-    if (dt.day == now.day && dt.month == now.month) return 'Today';
-    if (dt.day == now.day - 1 && dt.month == now.month) return 'Yesterday';
-    return '${dt.day}/${dt.month}';
   }
 
   Widget _buildEmptyState() {
@@ -297,7 +284,6 @@ class _DashboardTabState extends State<_DashboardTab> {
               MaterialPageRoute(builder: (_) => const DiscoverMirrorScreen()),
             );
             if (added == true && mounted) {
-              setState(() => _loading = true);
               _loadData();
             }
           },
@@ -330,7 +316,7 @@ class _DashboardTabState extends State<_DashboardTab> {
         child: ListView(
           padding: const EdgeInsets.all(24.0),
           children: [
-            // Property selector header
+            // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -358,8 +344,9 @@ class _DashboardTabState extends State<_DashboardTab> {
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: () async {
+                // Add Aura button
+                GestureDetector(
+                  onTap: () async {
                     final added = await Navigator.push<bool>(
                       context,
                       MaterialPageRoute(
@@ -367,11 +354,26 @@ class _DashboardTabState extends State<_DashboardTab> {
                       ),
                     );
                     if (added == true && mounted) {
-                      setState(() => _loading = true);
                       _loadData();
                     }
                   },
-                  icon: const Icon(Icons.add, color: Colors.white, size: 22),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: const Text(
+                      '+ AURA',
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -389,9 +391,7 @@ class _DashboardTabState extends State<_DashboardTab> {
               _buildEmptyState()
             else
               ..._installations.map((installation) {
-                final status = installation['id'] == _installations.first['id']
-                    ? _deviceStatus
-                    : null;
+                final status = _statusCache[installation['id']];
                 final online = _isActuallyOnline(status);
                 return GestureDetector(
                   onTap: () async {
@@ -403,7 +403,6 @@ class _DashboardTabState extends State<_DashboardTab> {
                       ),
                     );
                     if (result == true && mounted) {
-                      setState(() => _loading = true);
                       _loadData();
                     }
                   },
@@ -474,124 +473,8 @@ class _DashboardTabState extends State<_DashboardTab> {
                   ),
                 );
               }),
-
-            const SizedBox(height: 32),
-
-            if (_installations.isNotEmpty) ...[
-              const Text(
-                'RECENT ACTIVITY',
-                style: TextStyle(
-                  fontSize: 11,
-                  letterSpacing: 4,
-                  color: Colors.white38,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_recentEvents.isEmpty)
-                const Center(
-                  child: Text(
-                    'No recent activity',
-                    style: TextStyle(color: Colors.white24, fontSize: 13),
-                  ),
-                )
-              else
-                ..._recentEvents.map(
-                  (event) => _EventRow(
-                    make: event['detected_make'] ?? 'Unknown vehicle',
-                    model: event['detected_model'],
-                    time: _formatTime(event['arrived_at']),
-                    date: _formatDate(event['arrived_at']),
-                    method: event['method'] ?? '',
-                  ),
-                ),
-            ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _EventRow extends StatelessWidget {
-  final String make;
-  final String? model;
-  final String time;
-  final String date;
-  final String method;
-
-  const _EventRow({
-    required this.make,
-    required this.model,
-    required this.time,
-    required this.date,
-    required this.method,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 48,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  time,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
-                Text(
-                  date,
-                  style: const TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  model != null ? '$make · $model' : make,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'arrived',
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.white12),
-            ),
-            child: Text(
-              method.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 9,
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
