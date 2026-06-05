@@ -148,14 +148,18 @@ class _DashboardTabState extends State<_DashboardTab> {
             : null;
       });
 
-      await _loadInstallations();
+      await _loadInstallations(showLoading: _installations.isEmpty);
     }
   }
 
-  Future<void> _loadInstallations() async {
+  Future<void> _loadInstallations({bool showLoading = false}) async {
     if (_selectedProperty == null) {
       if (mounted) setState(() => _loading = false);
       return;
+    }
+
+    if (showLoading && _installations.isEmpty) {
+      if (mounted) setState(() => _loading = true);
     }
 
     final installations = await SupabaseService.getInstallationsByProperty(
