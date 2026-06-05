@@ -6,6 +6,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SupabaseService {
   static final _client = Supabase.instance.client;
 
+  // ── Properties ────────────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getProperties() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return [];
+
+      final response = await _client
+          .from('properties')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .order('name');
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      return [];
+    }
+  }
+
   // ── Installation ──────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getInstallation() async {
@@ -47,6 +66,24 @@ class SupabaseService {
     }
   }
 
+  // ── Installations by property ─────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getInstallationsByProperty(
+    String propertyId,
+  ) async {
+    try {
+      final response = await _client
+          .from('installations')
+          .select('*')
+          .eq('property_id', propertyId)
+          .eq('is_active', true)
+          .order('name');
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      return [];
+    }
+  }
+
   // ── Device Status ─────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getDeviceStatus() async {
@@ -62,6 +99,21 @@ class SupabaseService {
       return response;
     } catch (e) {
       debugPrint('getDeviceStatus error: $e');
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getDeviceStatusById(
+    String installationId,
+  ) async {
+    try {
+      final response = await _client
+          .from('device_status')
+          .select('*')
+          .eq('installation_id', installationId)
+          .maybeSingle();
+      return response;
+    } catch (e) {
       return null;
     }
   }
@@ -84,6 +136,23 @@ class SupabaseService {
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('getRecentEvents error: $e');
+      return [];
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getRecentEventsByInstallation(
+    String installationId, {
+    int limit = 20,
+  }) async {
+    try {
+      final response = await _client
+          .from('recognition_events')
+          .select('*')
+          .eq('installation_id', installationId)
+          .order('arrived_at', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
       return [];
     }
   }
