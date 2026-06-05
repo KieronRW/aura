@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
 import '../profiles/profiles_screen.dart';
 import '../automations/automations_screen.dart';
-import '../admin/admin_screen.dart';
+import '../settings/settings_screen.dart';
 import '../onboarding/discover_mirror_screen.dart';
 import '../aura/aura_detail_screen.dart';
 
@@ -23,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _DashboardTab(),
     ProfilesScreen(),
     AutomationsScreen(),
-    AdminScreen(),
+    SettingsScreen(),
   ];
 
   @override

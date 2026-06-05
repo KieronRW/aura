@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/login_screen.dart';
 import 'diagnostics_screen.dart';
+import 'locations_screen.dart';
 
-class AdminScreen extends StatelessWidget {
-  const AdminScreen({super.key});
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +40,20 @@ class AdminScreen extends StatelessWidget {
             title: 'Subscription',
             subtitle: 'Free plan',
             onTap: () {},
+          ),
+
+          const SizedBox(height: 32),
+
+          // Locations section
+          _SectionHeader(title: 'LOCATIONS'),
+          _SettingsRow(
+            icon: Icons.location_on_outlined,
+            title: 'Manage Locations',
+            subtitle: 'Properties and Auras',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LocationsScreen()),
+            ),
           ),
 
           const SizedBox(height: 32),
