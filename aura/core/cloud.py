@@ -114,12 +114,36 @@ def sync_settings() -> dict:
         return {}
 
 
+def upload_recognition_image(frame, event_id: str) -> str | None:
+    """Encode frame as JPEG and upload to Supabase Storage. Returns storage path or None."""
+    client = _get_client()
+    if client is None:
+        return None
+    try:
+        import cv2
+        ok, buf = cv2.imencode(".jpg", frame)
+        if not ok:
+            log.warning("upload_recognition_image: cv2.imencode failed")
+            return None
+        path = f"{_INSTALLATION_ID}/{event_id}.jpg"
+        client.storage.from_("recognition-images").upload(
+            path,
+            buf.tobytes(),
+            {"content-type": "image/jpeg"},
+        )
+        return path
+    except Exception as exc:
+        log.warning("upload_recognition_image failed: %s", exc)
+        return None
+
+
 def log_recognition(
     detected_make: str,
     detected_model: str,
     confidence: float,
     method: str,
     matched_vehicle_id: int | None = None,
+    image_frame=None,
 ) -> dict | None:
     """Insert a recognition event. Returns the inserted row or None on failure."""
     client = _get_client()
@@ -140,10 +164,21 @@ def log_recognition(
     }
     try:
         response = client.table("recognition_events").insert(payload).execute()
-        return response.data[0] if response.data else None
+        row = response.data[0] if response.data else None
     except Exception as exc:
         log.warning("log_recognition failed: %s", exc)
         return None
+
+    if row and image_frame is not None:
+        image_path = upload_recognition_image(image_frame, str(row["id"]))
+        if image_path:
+            try:
+                client.table("recognition_events").update({"image_path": image_path}).eq("id", row["id"]).execute()
+                row["image_path"] = image_path
+            except Exception as exc:
+                log.warning("log_recognition: image_path update failed for event %s: %s", row["id"], exc)
+
+    return row
 
 
 def update_departure(event_id: int) -> bool:
