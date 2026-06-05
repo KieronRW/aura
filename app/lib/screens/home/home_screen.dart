@@ -78,10 +78,7 @@ class _DashboardTabState extends State<_DashboardTab> {
   List<Map<String, dynamic>> _properties = [];
   Map<String, dynamic>? _selectedProperty;
   List<Map<String, dynamic>> _installations = [];
-
-  // Per-installation device status cache keyed by installation id
   final Map<String, Map<String, dynamic>> _statusCache = {};
-
   bool _loading = true;
   bool _backgroundRefreshing = false;
   RealtimeChannel? _statusChannel;
@@ -129,6 +126,11 @@ class _DashboardTabState extends State<_DashboardTab> {
   }
 
   Future<void> _loadData() async {
+    // Only show loading spinner on first load — subsequent refreshes use cache
+    if (_installations.isEmpty) {
+      setState(() => _loading = true);
+    }
+
     final properties = await SupabaseService.getProperties();
 
     if (mounted) {
@@ -141,20 +143,20 @@ class _DashboardTabState extends State<_DashboardTab> {
 
       setState(() {
         _properties = properties;
-        _selectedProperty = selected?.isNotEmpty == true ? selected : null;
+        _selectedProperty = selected != null && (selected as Map).isNotEmpty
+            ? selected
+            : null;
       });
 
-      await _loadInstallations(showLoading: _installations.isEmpty);
+      await _loadInstallations();
     }
   }
 
-  Future<void> _loadInstallations({bool showLoading = false}) async {
+  Future<void> _loadInstallations() async {
     if (_selectedProperty == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
-
-    if (showLoading && mounted) setState(() => _loading = true);
 
     final installations = await SupabaseService.getInstallationsByProperty(
       _selectedProperty!['id'],
@@ -167,7 +169,7 @@ class _DashboardTabState extends State<_DashboardTab> {
       });
     }
 
-    // Load status for each installation
+    // Load status for each installation into cache
     for (final installation in installations) {
       final status = await SupabaseService.getDeviceStatusById(
         installation['id'],
@@ -236,8 +238,9 @@ class _DashboardTabState extends State<_DashboardTab> {
                     _selectedProperty = property;
                     _installations = [];
                     _statusCache.clear();
+                    _loading = true;
                   });
-                  _loadInstallations(showLoading: true);
+                  _loadInstallations();
                 },
               ),
             ),
@@ -276,30 +279,6 @@ class _DashboardTabState extends State<_DashboardTab> {
           'Add your Aura to get started',
           style: TextStyle(color: Colors.white24, fontSize: 13),
         ),
-        const SizedBox(height: 32),
-        OutlinedButton(
-          onPressed: () async {
-            final added = await Navigator.push<bool>(
-              context,
-              MaterialPageRoute(builder: (_) => const DiscoverMirrorScreen()),
-            );
-            if (added == true && mounted) {
-              _loadData();
-            }
-          },
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Colors.white24),
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.zero,
-            ),
-          ),
-          child: const Text(
-            'ADD AURA',
-            style: TextStyle(letterSpacing: 4, fontSize: 12),
-          ),
-        ),
       ],
     );
   }
@@ -308,172 +287,157 @@ class _DashboardTabState extends State<_DashboardTab> {
   Widget build(BuildContext context) {
     final propertyName = _selectedProperty?['name'] ?? 'AURA';
 
-    return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: _loadData,
-        color: Colors.white,
-        backgroundColor: const Color(0xFF111111),
-        child: ListView(
-          padding: const EdgeInsets.all(24.0),
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: _properties.length > 1 ? _showPropertySelector : null,
-                  child: Row(
-                    children: [
-                      Text(
-                        propertyName.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w200,
-                          letterSpacing: 6,
-                          color: Colors.white,
-                        ),
-                      ),
-                      if (_properties.length > 1) ...[
-                        const SizedBox(width: 6),
-                        const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Colors.white38,
-                          size: 20,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                // Add Aura button
-                GestureDetector(
-                  onTap: () async {
-                    final added = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const DiscoverMirrorScreen(),
-                      ),
-                    );
-                    if (added == true && mounted) {
-                      _loadData();
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white24),
-                    ),
-                    child: const Text(
-                      '+ AURA',
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 11,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+    return Scaffold(
+      backgroundColor: Colors.black,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final added = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  DiscoverMirrorScreen(propertyId: _selectedProperty?['id']),
             ),
-
-            const SizedBox(height: 32),
-
-            if (_loading)
-              const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white24,
-                  strokeWidth: 1,
-                ),
-              )
-            else if (_installations.isEmpty)
-              _buildEmptyState()
-            else
-              ..._installations.map((installation) {
-                final status = _statusCache[installation['id']];
-                final online = _isActuallyOnline(status);
-                return GestureDetector(
-                  onTap: () async {
-                    final result = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            AuraDetailScreen(installation: installation),
+          );
+          if (added == true && mounted) {
+            _loadData();
+          }
+        },
+        backgroundColor: const Color(0xFF222222),
+        foregroundColor: Colors.white,
+        elevation: 4,
+        child: const Icon(Icons.camera_alt_outlined),
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          color: Colors.white,
+          backgroundColor: const Color(0xFF111111),
+          child: ListView(
+            padding: const EdgeInsets.all(24.0),
+            children: [
+              // Header
+              GestureDetector(
+                onTap: _properties.length > 1 ? _showPropertySelector : null,
+                child: Row(
+                  children: [
+                    Text(
+                      propertyName.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w200,
+                        letterSpacing: 6,
+                        color: Colors.white,
                       ),
-                    );
-                    if (result == true && mounted) {
-                      _loadData();
-                    }
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF111111),
-                      border: Border.all(color: Colors.white12),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: online
-                                ? Colors.greenAccent
-                                : Colors.redAccent,
-                            shape: BoxShape.circle,
-                          ),
+                    if (_properties.length > 1) ...[
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Colors.white38,
+                        size: 20,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              if (_loading)
+                const Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.white24,
+                    strokeWidth: 1,
+                  ),
+                )
+              else if (_installations.isEmpty)
+                _buildEmptyState()
+              else
+                ..._installations.map((installation) {
+                  final status = _statusCache[installation['id']];
+                  final online = _isActuallyOnline(status);
+                  return GestureDetector(
+                    onTap: () async {
+                      final result = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              AuraDetailScreen(installation: installation),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                installation['name'] ?? 'Aura',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                online
-                                    ? 'Online · ${status?['local_ip'] ?? ''}'
-                                    : 'Offline',
-                                style: const TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (online)
-                          Text(
-                            (status?['current_state'] ?? '')
-                                .toString()
-                                .toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 10,
-                              letterSpacing: 2,
+                      );
+                      if (result == true && mounted) {
+                        _loadData();
+                      }
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111111),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: online
+                                  ? Colors.greenAccent
+                                  : Colors.redAccent,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                        const SizedBox(width: 8),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: Colors.white24,
-                          size: 18,
-                        ),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  installation['name'] ?? 'Aura',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  online
+                                      ? 'Online · ${status?['local_ip'] ?? ''}'
+                                      : 'Offline',
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (online)
+                            Text(
+                              (status?['current_state'] ?? '')
+                                  .toString()
+                                  .toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white38,
+                                fontSize: 10,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: Colors.white24,
+                            size: 18,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              }),
-          ],
+                  );
+                }),
+            ],
+          ),
         ),
       ),
     );

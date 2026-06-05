@@ -7,7 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'add_mirror_screen.dart';
 
 class DiscoverMirrorScreen extends StatefulWidget {
-  const DiscoverMirrorScreen({super.key});
+  final String? propertyId;
+
+  const DiscoverMirrorScreen({super.key, this.propertyId});
 
   @override
   State<DiscoverMirrorScreen> createState() => _DiscoverMirrorScreenState();
@@ -38,19 +40,13 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
 
   Future<void> _startDiscovery() async {
     _discovery = BonsoirDiscovery(type: '_aura._tcp');
-    await _discovery!.initialize(); // Add this line
+    await _discovery!.initialize();
     await _discovery!.start();
 
     _discovery!.eventStream?.listen((event) async {
-      debugPrint(
-        'Bonsoir event: ${event.runtimeType} - ${event.service?.name}',
-      );
-
       if (event is BonsoirDiscoveryServiceFoundEvent) {
         final service = event.service;
         final attributes = service.attributes;
-
-        // Use attributes from the mDNS broadcast directly
         final ip = attributes['ip'];
         final port = int.tryParse(attributes['port'] ?? '8000') ?? 8000;
 
@@ -68,7 +64,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
                 'host': ip,
                 'port': port,
                 'installation_key': info['installation_key'],
-                'display_name': info['name'] ?? 'Aura Mirror',
+                'display_name': info['name'] ?? 'Aura',
                 'software_version': info['software_version'],
               };
               if (mounted && !_discovered.any((d) => d['host'] == ip)) {
@@ -98,33 +94,40 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
           .maybeSingle();
 
       if (installation == null) {
-        _showError('Mirror not found in system.');
+        _showError('Aura not found in system.');
         return;
       }
 
       if (installation['status'] == 'stolen') {
-        _showError('This mirror has been reported stolen.');
+        _showError('This Aura has been reported stolen.');
         return;
       }
 
       if (installation['status'] == 'active') {
-        _showError('This mirror is already registered.');
+        _showError('This Aura is already registered.');
         return;
       }
 
-      var property = await client
-          .from('properties')
-          .select('id')
-          .eq('user_id', userId)
-          .maybeSingle();
+      // Use the property passed in from the home screen if available
+      Map<String, dynamic>? property;
 
-      if (property == null) {
-        final newProperty = await client
+      if (widget.propertyId != null) {
+        property = {'id': widget.propertyId};
+      } else {
+        property = await client
             .from('properties')
-            .insert({'user_id': userId, 'name': 'My Home', 'timezone': 'UTC'})
             .select('id')
-            .single();
-        property = newProperty;
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (property == null) {
+          final newProperty = await client
+              .from('properties')
+              .insert({'user_id': userId, 'name': 'My Home', 'timezone': 'UTC'})
+              .select('id')
+              .single();
+          property = newProperty;
+        }
       }
 
       await client
@@ -160,6 +163,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
   }
 
   void _showNameDialog(String defaultName) {
+    final nav = Navigator.of(context);
     final controller = TextEditingController(text: defaultName);
     showDialog(
       context: context,
@@ -167,7 +171,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF111111),
         title: const Text(
-          'NAME YOUR MIRROR',
+          'NAME YOUR AURA',
           style: TextStyle(
             color: Colors.white,
             fontSize: 14,
@@ -194,9 +198,9 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
           TextButton(
             onPressed: () async {
               final name = controller.text.trim();
-              Navigator.pop(context);
-              await _updateMirrorName(name);
-              if (mounted) Navigator.pop(context, true);
+              nav.pop();
+              await _updateAuraName(name);
+              nav.pop(true);
             },
             child: const Text(
               'DONE',
@@ -208,7 +212,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
     );
   }
 
-  Future<void> _updateMirrorName(String name) async {
+  Future<void> _updateAuraName(String name) async {
     if (name.isEmpty) return;
     try {
       final client = Supabase.instance.client;
@@ -257,7 +261,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'NEARBY MIRRORS',
+                'NEARBY',
                 style: TextStyle(
                   fontSize: 11,
                   letterSpacing: 4,
@@ -296,7 +300,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
                   child: Column(
                     children: [
                       const Text(
-                        'No mirrors found nearby',
+                        'No Aura found nearby',
                         style: TextStyle(color: Colors.white38, fontSize: 14),
                       ),
                       const SizedBox(height: 8),
@@ -352,7 +356,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      device['display_name'] ?? 'Aura Mirror',
+                                      device['display_name'] ?? 'Aura',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 14,
@@ -398,6 +402,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
               Center(
                 child: TextButton(
                   onPressed: () async {
+                    final nav = Navigator.of(context);
                     final added = await Navigator.push<bool>(
                       context,
                       MaterialPageRoute(
@@ -405,7 +410,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
                       ),
                     );
                     if (added == true && mounted) {
-                      if (context.mounted) Navigator.pop(context, true);
+                      nav.pop(true);
                     }
                   },
                   child: const Text(
