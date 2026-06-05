@@ -259,6 +259,7 @@ def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue
                 log_recognition(
                     result.make or "", result.model or "", result.confidence,
                     result.method_used, vehicle["id"] if vehicle else None,
+                    image_frame=frame,
                 )
                 display_queue.put(("recognition", result.make or "", result.model or "", greeting, badge_url))
 
@@ -435,6 +436,7 @@ def main() -> None:
                 log_recognition(
                     startup_result.make or "", startup_result.model or "", startup_result.confidence,
                     startup_result.method_used, vehicle["id"] if vehicle else None,
+                    image_frame=frame,
                 )
                 display.send_recognition(make=startup_result.make or "", model=startup_result.model or "", greeting=greeting, badge_url=badge_url)
                 last_recognition_sent_at = time.monotonic()
@@ -606,6 +608,7 @@ def main() -> None:
                 event = log_recognition(
                     result.make or "", result.model or "", result.confidence,
                     result.method_used, vehicle["id"] if vehicle else None,
+                    image_frame=frame,
                 )
                 last_event_id = event["id"] if event else None
 
