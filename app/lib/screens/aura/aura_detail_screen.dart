@@ -61,8 +61,12 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
   }
 
   Future<void> _loadData() async {
-    final status = await SupabaseService.getDeviceStatus();
-    final events = await SupabaseService.getRecentEvents();
+    final status = await SupabaseService.getDeviceStatusById(
+      widget.installation['id'],
+    );
+    final events = await SupabaseService.getRecentEventsByInstallation(
+      widget.installation['id'],
+    );
     if (mounted) {
       setState(() {
         _deviceStatus = status;
@@ -369,7 +373,7 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
                         model: event['detected_model'],
                         time: _formatTime(event['arrived_at']),
                         date: _formatDate(event['arrived_at']),
-                        method: event['method'] ?? '',
+                        imagePath: event['image_path'],
                       ),
                     ),
 
@@ -464,20 +468,47 @@ class _SettingsRow extends StatelessWidget {
   }
 }
 
-class _EventRow extends StatelessWidget {
+class _EventRow extends StatefulWidget {
   final String make;
   final String? model;
   final String time;
   final String date;
-  final String method;
+  final String? imagePath;
 
   const _EventRow({
     required this.make,
     required this.model,
     required this.time,
     required this.date,
-    required this.method,
+    this.imagePath,
   });
+
+  @override
+  State<_EventRow> createState() => _EventRowState();
+}
+
+class _EventRowState extends State<_EventRow> {
+  String? _imageUrl;
+  bool _imageLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.imagePath != null) {
+      _loadImage();
+    }
+  }
+
+  Future<void> _loadImage() async {
+    setState(() => _imageLoading = true);
+    final url = await SupabaseService.getSignedImageUrl(widget.imagePath!);
+    if (mounted) {
+      setState(() {
+        _imageUrl = url;
+        _imageLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -488,41 +519,65 @@ class _EventRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 48,
+          // Thumbnail
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFF111111),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: _imageLoading
+                ? const Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1,
+                        color: Colors.white24,
+                      ),
+                    ),
+                  )
+                : _imageUrl != null
+                ? Image.network(
+                    _imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.directions_car_outlined,
+                      color: Colors.white24,
+                      size: 24,
+                    ),
+                  )
+                : const Icon(
+                    Icons.directions_car_outlined,
+                    color: Colors.white24,
+                    size: 24,
+                  ),
+          ),
+
+          const SizedBox(width: 16),
+
+          // Details
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  time,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  widget.model != null
+                      ? '${widget.make} · ${widget.model}'
+                      : widget.make,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                  ),
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  date,
+                  '${widget.date} · ${widget.time}',
                   style: const TextStyle(color: Colors.white38, fontSize: 11),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              model != null ? '$make · $model' : make,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.white12),
-            ),
-            child: Text(
-              method.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 9,
-                letterSpacing: 1,
-              ),
             ),
           ),
         ],

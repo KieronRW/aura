@@ -157,6 +157,20 @@ class SupabaseService {
     }
   }
 
+  // ── Storage ───────────────────────────────────────────────
+
+  static Future<String?> getSignedImageUrl(String path) async {
+    try {
+      final response = await _client.storage
+          .from('recognition-images')
+          .createSignedUrl(path, 3600); // 1 hour expiry
+      return response;
+    } catch (e) {
+      debugPrint('getSignedImageUrl error: $e');
+      return null;
+    }
+  }
+
   // ── Profiles ──────────────────────────────────────────────
 
   static Future<List<Map<String, dynamic>>> getProfiles() async {
