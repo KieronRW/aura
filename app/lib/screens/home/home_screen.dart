@@ -19,18 +19,19 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    _DashboardTab(),
-    ProfilesScreen(),
-    AutomationsScreen(),
-    SettingsScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: _screens[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: const [
+          _DashboardTab(),
+          ProfilesScreen(),
+          AutomationsScreen(),
+          SettingsScreen(),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -126,7 +127,6 @@ class _DashboardTabState extends State<_DashboardTab> {
   }
 
   Future<void> _loadData() async {
-    // Only show loading spinner on first load — subsequent refreshes use cache
     if (_installations.isEmpty) {
       setState(() => _loading = true);
     }
@@ -173,7 +173,6 @@ class _DashboardTabState extends State<_DashboardTab> {
       });
     }
 
-    // Load status for each installation into cache
     for (final installation in installations) {
       final status = await SupabaseService.getDeviceStatusById(
         installation['id'],
@@ -319,7 +318,6 @@ class _DashboardTabState extends State<_DashboardTab> {
           child: ListView(
             padding: const EdgeInsets.all(24.0),
             children: [
-              // Header
               GestureDetector(
                 onTap: _properties.length > 1 ? _showPropertySelector : null,
                 child: Row(
