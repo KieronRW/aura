@@ -137,6 +137,95 @@ class _LocationsScreenState extends State<LocationsScreen> {
     }
   }
 
+  void _showEditDialog(Map<String, dynamic> property) {
+    final nameController = TextEditingController(text: property['name']);
+    final addressController = TextEditingController(
+      text: property['address'] ?? '',
+    );
+    final nav = Navigator.of(context);
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF111111),
+        title: const Text(
+          'EDIT LOCATION',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            letterSpacing: 3,
+            fontWeight: FontWeight.w300,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                labelStyle: TextStyle(color: Colors.white38),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: addressController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Address (optional)',
+                labelStyle: TextStyle(color: Colors.white38),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => nav.pop(),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(color: Colors.white38, letterSpacing: 2),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final name = nameController.text.trim();
+              if (name.isNotEmpty) {
+                final address = addressController.text.trim();
+                await Supabase.instance.client
+                    .from('properties')
+                    .update({
+                      'name': name,
+                      'address': address.isNotEmpty ? address : null,
+                    })
+                    .eq('id', property['id']);
+                await _loadProperties();
+              }
+              nav.pop();
+            },
+            child: const Text(
+              'SAVE',
+              style: TextStyle(color: Colors.white, letterSpacing: 2),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showRenameDialog(Map<String, dynamic> property) {
     final controller = TextEditingController(text: property['name']);
     final nav = Navigator.of(context);
@@ -336,13 +425,22 @@ class _LocationsScreenState extends State<LocationsScreen> {
                             size: 20,
                           ),
                           onSelected: (value) {
-                            if (value == 'rename') {
+                            if (value == 'edit') {
+                              _showEditDialog(property);
+                            } else if (value == 'rename') {
                               _showRenameDialog(property);
                             } else if (value == 'delete') {
                               _showDeleteDialog(property);
                             }
                           },
                           itemBuilder: (_) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text(
+                                'Edit',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
                             const PopupMenuItem(
                               value: 'rename',
                               child: Text(

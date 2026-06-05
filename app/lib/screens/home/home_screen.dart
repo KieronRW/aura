@@ -305,7 +305,7 @@ class _DashboardTabState extends State<_DashboardTab> {
         backgroundColor: const Color(0xFF222222),
         foregroundColor: Colors.white,
         elevation: 4,
-        child: const Icon(Icons.camera_alt_outlined),
+        child: const Icon(Icons.add),
       ),
       body: SafeArea(
         child: RefreshIndicator(
