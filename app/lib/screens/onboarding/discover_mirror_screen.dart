@@ -46,28 +46,27 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
   Future<void> _startDiscovery() async {
     _discovery = BonsoirDiscovery(type: '_aura._tcp');
     await _discovery!.initialize();
-    await _discovery!.start();
 
+    // Set up listener BEFORE start() so no events are missed
     _discovery!.eventStream?.listen((event) async {
+      debugPrint('Discovery event: ${event.runtimeType}');
+
       if (event is BonsoirDiscoveryServiceFoundEvent) {
         final service = event.service;
         final attributes = service.attributes;
         final ip = attributes['ip'];
         final port = int.tryParse(attributes['port'] ?? '8000') ?? 8000;
-
-        // Get installation_key directly from mDNS attributes — no HTTP call needed
         final key = attributes['installation_key'];
+
+        debugPrint('Discovery: ip=$ip key=$key ownedKeys=${widget.ownedKeys}');
 
         if (ip == null || key == null) return;
 
-        debugPrint(
-          'Discovery: key=$key owned=${widget.ownedKeys} skip=${widget.ownedKeys.contains(key)}',
-        );
+        if (widget.ownedKeys.contains(key)) {
+          debugPrint('Discovery: SKIPPING $key — already owned');
+          return;
+        }
 
-        // Skip synchronously — no async needed
-        if (widget.ownedKeys.contains(key)) return;
-
-        // Fetch display name from /info — best effort, not required
         String displayName = 'Aura';
         try {
           final response = await http
@@ -91,6 +90,8 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
         }
       }
     });
+
+    await _discovery!.start();
   }
 
   Future<void> _claimDevice(Map<String, dynamic> device) async {
