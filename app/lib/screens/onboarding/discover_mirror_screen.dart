@@ -55,36 +55,40 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
         final ip = attributes['ip'];
         final port = int.tryParse(attributes['port'] ?? '8000') ?? 8000;
 
-        if (ip == null) return;
+        // Get installation_key directly from mDNS attributes — no HTTP call needed
+        final key = attributes['installation_key'];
 
+        if (ip == null || key == null) return;
+
+        debugPrint(
+          'Discovery: key=$key owned=${widget.ownedKeys} skip=${widget.ownedKeys.contains(key)}',
+        );
+
+        // Skip synchronously — no async needed
+        if (widget.ownedKeys.contains(key)) return;
+
+        // Fetch display name from /info — best effort, not required
+        String displayName = 'Aura';
         try {
           final response = await http
               .get(Uri.parse('http://$ip:$port/info'))
               .timeout(const Duration(seconds: 3));
-
           if (response.statusCode == 200) {
             final info = json.decode(response.body);
-            final key = info['installation_key'];
-            if (key == null) return;
-
-            debugPrint(
-              'Discovery: key=$key owned=${widget.ownedKeys} skip=${widget.ownedKeys.contains(key)}',
-            );
-
-            if (widget.ownedKeys.contains(key)) return;
-
-            final device = {
-              'host': ip,
-              'port': port,
-              'installation_key': key,
-              'display_name': info['name'] ?? 'Aura',
-              'software_version': info['software_version'],
-            };
-            if (mounted && !_discovered.any((d) => d['host'] == ip)) {
-              setState(() => _discovered.add(device));
-            }
+            displayName = info['name'] ?? 'Aura';
           }
         } catch (_) {}
+
+        final device = {
+          'host': ip,
+          'port': port,
+          'installation_key': key,
+          'display_name': displayName,
+        };
+
+        if (mounted && !_discovered.any((d) => d['host'] == ip)) {
+          setState(() => _discovered.add(device));
+        }
       }
     });
   }
