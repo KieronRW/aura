@@ -54,7 +54,7 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
     _eventsChannel = Supabase.instance.client
         .channel('aura_detail_events')
         .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
+          event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'recognition_events',
           callback: (payload) {
