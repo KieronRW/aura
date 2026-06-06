@@ -61,7 +61,6 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
       final fileName =
           '$vehicleId/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-      // Upload to storage
       await Supabase.instance.client.storage
           .from('reference-images')
           .uploadBinary(
@@ -70,14 +69,12 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             fileOptions: const FileOptions(contentType: 'image/jpeg'),
           );
 
-      // Insert record
       await Supabase.instance.client.from('vehicle_reference_images').insert({
         'vehicle_id': vehicleId,
-        'image_path': fileName,
+        'storage_path': fileName,
         'is_active': true,
       });
 
-      // Update reference_image_count on vehicle
       await Supabase.instance.client
           .from('vehicles')
           .update({
@@ -161,7 +158,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   Future<void> _deleteImage(Map<String, dynamic> image) async {
     try {
       await Supabase.instance.client.storage.from('reference-images').remove([
-        image['image_path'],
+        image['storage_path'],
       ]);
 
       await Supabase.instance.client
@@ -169,7 +166,6 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           .delete()
           .eq('id', image['id']);
 
-      // Update count
       await Supabase.instance.client
           .from('vehicles')
           .update({
@@ -226,7 +222,6 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            // Vehicle info
             const Text(
               'VEHICLE INFO',
               style: TextStyle(
@@ -243,7 +238,6 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
 
             const SizedBox(height: 32),
 
-            // Fingerprint status
             const Text(
               'RECOGNITION',
               style: TextStyle(
@@ -284,7 +278,6 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
 
             const SizedBox(height: 32),
 
-            // Reference images
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -352,7 +345,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 itemBuilder: (context, index) {
                   final image = _referenceImages[index];
                   return _ReferenceImageTile(
-                    imagePath: image['image_path'],
+                    storagePath: image['storage_path'],
                     onDelete: () => _deleteImage(image),
                   );
                 },
@@ -395,10 +388,13 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _ReferenceImageTile extends StatefulWidget {
-  final String imagePath;
+  final String storagePath;
   final VoidCallback onDelete;
 
-  const _ReferenceImageTile({required this.imagePath, required this.onDelete});
+  const _ReferenceImageTile({
+    required this.storagePath,
+    required this.onDelete,
+  });
 
   @override
   State<_ReferenceImageTile> createState() => _ReferenceImageTileState();
@@ -417,7 +413,7 @@ class _ReferenceImageTileState extends State<_ReferenceImageTile> {
     try {
       final url = await Supabase.instance.client.storage
           .from('reference-images')
-          .createSignedUrl(widget.imagePath, 3600);
+          .createSignedUrl(widget.storagePath, 3600);
       if (mounted) setState(() => _url = url);
     } catch (_) {}
   }
