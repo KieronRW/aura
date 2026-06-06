@@ -286,6 +286,11 @@ class _DashboardTabState extends State<_DashboardTab> {
     );
   }
 
+  Set<String> get _ownedInstallationKeys => _installations
+      .map((i) => i['installation_key'] as String? ?? '')
+      .where((k) => k.isNotEmpty)
+      .toSet();
+
   @override
   Widget build(BuildContext context) {
     final propertyName = _selectedProperty?['name'] ?? 'AURA';
@@ -297,8 +302,10 @@ class _DashboardTabState extends State<_DashboardTab> {
           final added = await Navigator.push<bool>(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  DiscoverMirrorScreen(propertyId: _selectedProperty?['id']),
+              builder: (_) => DiscoverMirrorScreen(
+                propertyId: _selectedProperty?['id'],
+                ownedKeys: _ownedInstallationKeys,
+              ),
             ),
           );
           if (added == true && mounted) {

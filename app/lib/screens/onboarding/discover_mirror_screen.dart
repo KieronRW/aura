@@ -8,8 +8,13 @@ import 'add_mirror_screen.dart';
 
 class DiscoverMirrorScreen extends StatefulWidget {
   final String? propertyId;
+  final Set<String> ownedKeys;
 
-  const DiscoverMirrorScreen({super.key, this.propertyId});
+  const DiscoverMirrorScreen({
+    super.key,
+    this.propertyId,
+    this.ownedKeys = const {},
+  });
 
   @override
   State<DiscoverMirrorScreen> createState() => _DiscoverMirrorScreenState();
@@ -59,31 +64,24 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
 
           if (response.statusCode == 200) {
             final info = json.decode(response.body);
-            if (info['installation_key'] != null) {
-              // Skip if already claimed by current user
-              final existing = await Supabase.instance.client
-                  .from('installations')
-                  .select('id, status, claimed_by')
-                  .eq('installation_key', info['installation_key'])
-                  .maybeSingle();
+            final key = info['installation_key'];
+            if (key == null) return;
 
-              final userId = Supabase.instance.client.auth.currentUser?.id;
-              if (existing != null &&
-                  existing['status'] == 'active' &&
-                  existing['claimed_by'] == userId) {
-                return;
-              }
+            debugPrint(
+              'Discovery: key=$key owned=${widget.ownedKeys} skip=${widget.ownedKeys.contains(key)}',
+            );
 
-              final device = {
-                'host': ip,
-                'port': port,
-                'installation_key': info['installation_key'],
-                'display_name': info['name'] ?? 'Aura',
-                'software_version': info['software_version'],
-              };
-              if (mounted && !_discovered.any((d) => d['host'] == ip)) {
-                setState(() => _discovered.add(device));
-              }
+            if (widget.ownedKeys.contains(key)) return;
+
+            final device = {
+              'host': ip,
+              'port': port,
+              'installation_key': key,
+              'display_name': info['name'] ?? 'Aura',
+              'software_version': info['software_version'],
+            };
+            if (mounted && !_discovered.any((d) => d['host'] == ip)) {
+              setState(() => _discovered.add(device));
             }
           }
         } catch (_) {}
