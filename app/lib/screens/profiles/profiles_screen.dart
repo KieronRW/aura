@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
+import 'add_profile_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfilesScreen extends StatefulWidget {
   const ProfilesScreen({super.key});
@@ -30,6 +32,32 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     }
   }
 
+  Future<void> _addProfile() async {
+    final installation = await SupabaseService.getInstallation();
+    if (installation == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No Aura found. Please add an Aura first.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    final added = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddProfileScreen(installationId: installation['id']),
+      ),
+    );
+    if (added == true && mounted) {
+      _loadProfiles();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -55,7 +83,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                         ),
                       ),
                       IconButton(
-                        onPressed: () {},
+                        onPressed: _addProfile,
                         icon: const Icon(Icons.add, color: Colors.white),
                         tooltip: 'Add profile',
                       ),
@@ -80,7 +108,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                     ..._profiles.map(
                       (profile) => _ProfileCard(
                         profile: profile,
-                        onTap: () => _showProfileDetail(context, profile),
+                        onTap: () => _showProfileDetail(profile),
                       ),
                     ),
                 ]),
@@ -92,10 +120,15 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     );
   }
 
-  void _showProfileDetail(BuildContext context, Map<String, dynamic> profile) {
+  void _showProfileDetail(Map<String, dynamic> profile) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => _ProfileDetailScreen(profile: profile)),
+      MaterialPageRoute(
+        builder: (_) => _ProfileDetailScreen(
+          profile: profile,
+          onVehicleAdded: _loadProfiles,
+        ),
+      ),
     );
   }
 }
@@ -121,7 +154,6 @@ class _ProfileCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Avatar
             Container(
               width: 44,
               height: 44,
@@ -143,7 +175,6 @@ class _ProfileCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 16),
-            // Name and vehicle count
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,14 +206,23 @@ class _ProfileCard extends StatelessWidget {
   }
 }
 
-class _ProfileDetailScreen extends StatelessWidget {
+class _ProfileDetailScreen extends StatefulWidget {
   final Map<String, dynamic> profile;
+  final VoidCallback onVehicleAdded;
 
-  const _ProfileDetailScreen({required this.profile});
+  const _ProfileDetailScreen({
+    required this.profile,
+    required this.onVehicleAdded,
+  });
 
   @override
+  State<_ProfileDetailScreen> createState() => _ProfileDetailScreenState();
+}
+
+class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
+  @override
   Widget build(BuildContext context) {
-    final vehicles = profile['vehicles'] as List? ?? [];
+    final vehicles = widget.profile['vehicles'] as List? ?? [];
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -191,10 +231,10 @@ class _ProfileDetailScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          profile['display_name'] ?? 'Profile',
+          (widget.profile['display_name'] ?? 'Profile').toUpperCase(),
           style: const TextStyle(
-            fontSize: 14,
-            letterSpacing: 3,
+            fontSize: 13,
+            letterSpacing: 4,
             fontWeight: FontWeight.w300,
           ),
         ),
@@ -214,7 +254,7 @@ class _ProfileDetailScreen extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    (profile['display_name'] as String? ?? '?')
+                    (widget.profile['display_name'] as String? ?? '?')
                         .substring(0, 1)
                         .toUpperCase(),
                     style: const TextStyle(
@@ -229,7 +269,7 @@ class _ProfileDetailScreen extends StatelessWidget {
             const SizedBox(height: 16),
             Center(
               child: Text(
-                profile['greeting'] ?? '',
+                widget.profile['owner_greeting'] ?? '',
                 style: const TextStyle(
                   color: Colors.white38,
                   fontSize: 13,
@@ -252,7 +292,20 @@ class _ProfileDetailScreen extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () async {
+                    final nav = Navigator.of(context);
+                    final added = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            _AddVehicleScreen(profileId: widget.profile['id']),
+                      ),
+                    );
+                    if (added == true && mounted) {
+                      widget.onVehicleAdded();
+                      nav.pop();
+                    }
+                  },
                   icon: const Icon(Icons.add, color: Colors.white, size: 20),
                 ),
               ],
@@ -299,7 +352,8 @@ class _VehicleRow extends StatelessWidget {
               children: [
                 Text(
                   vehicle['nickname'] ??
-                      '${vehicle['make']} ${vehicle['model'] ?? ''}'.trim(),
+                      '${vehicle['make'] ?? ''} ${vehicle['model'] ?? ''}'
+                          .trim(),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -308,7 +362,7 @@ class _VehicleRow extends StatelessWidget {
                 ),
                 if (vehicle['nickname'] != null)
                   Text(
-                    '${vehicle['make']} ${vehicle['model'] ?? ''}'.trim(),
+                    '${vehicle['make'] ?? ''} ${vehicle['model'] ?? ''}'.trim(),
                     style: const TextStyle(color: Colors.white38, fontSize: 12),
                   ),
               ],
@@ -331,6 +385,199 @@ class _VehicleRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AddVehicleScreen extends StatefulWidget {
+  final String profileId;
+
+  const _AddVehicleScreen({required this.profileId});
+
+  @override
+  State<_AddVehicleScreen> createState() => _AddVehicleScreenState();
+}
+
+class _AddVehicleScreenState extends State<_AddVehicleScreen> {
+  final _makeController = TextEditingController();
+  final _modelController = TextEditingController();
+  final _colourController = TextEditingController();
+  final _plateController = TextEditingController();
+  final _nicknameController = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _makeController.dispose();
+    _modelController.dispose();
+    _colourController.dispose();
+    _plateController.dispose();
+    _nicknameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final make = _makeController.text.trim();
+    if (make.isEmpty) {
+      setState(() => _error = 'Please enter the vehicle make');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      await Supabase.instance.client.from('vehicles').insert({
+        'profile_id': widget.profileId,
+        'make': make,
+        'model': _modelController.text.trim().isNotEmpty
+            ? _modelController.text.trim()
+            : null,
+        'colour': _colourController.text.trim().isNotEmpty
+            ? _colourController.text.trim()
+            : null,
+        'registration_plate': _plateController.text.trim().isNotEmpty
+            ? _plateController.text.trim()
+            : null,
+        'nickname': _nicknameController.text.trim().isNotEmpty
+            ? _nicknameController.text.trim()
+            : null,
+        'is_active': true,
+      });
+
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to save vehicle. Please try again.';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'ADD VEHICLE',
+          style: TextStyle(
+            fontSize: 13,
+            letterSpacing: 4,
+            fontWeight: FontWeight.w300,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _loading ? null : _save,
+            child: const Text(
+              'SAVE',
+              style: TextStyle(
+                color: Colors.white,
+                letterSpacing: 2,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const Text(
+              'VEHICLE DETAILS',
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 3,
+                color: Colors.white24,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildField(_makeController, 'Make *', 'e.g. Volkswagen'),
+            const SizedBox(height: 16),
+            _buildField(_modelController, 'Model', 'e.g. Polo GTI'),
+            const SizedBox(height: 16),
+            _buildField(_colourController, 'Colour', 'e.g. Silver'),
+            const SizedBox(height: 16),
+            _buildField(
+              _plateController,
+              'Registration plate',
+              'e.g. CA 123 456',
+            ),
+            const SizedBox(height: 16),
+            _buildField(
+              _nicknameController,
+              'Nickname (optional)',
+              'e.g. My GTI',
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+              ),
+            ],
+            if (_loading) ...[
+              const SizedBox(height: 24),
+              const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.white24,
+                  strokeWidth: 1,
+                ),
+              ),
+            ],
+            const SizedBox(height: 32),
+            const Text(
+              'REFERENCE IMAGES',
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 3,
+                color: Colors.white24,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You can add reference images after saving the vehicle. A minimum of 3 images from different angles is required for fingerprint recognition.',
+              style: TextStyle(
+                color: Colors.white24,
+                fontSize: 12,
+                height: 1.6,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField(
+    TextEditingController controller,
+    String label,
+    String hint,
+  ) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white),
+      textCapitalization: TextCapitalization.words,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white38),
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.white24),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Colors.white24),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Colors.white),
+        ),
       ),
     );
   }
