@@ -41,7 +41,7 @@ class _AddProfileScreenState extends State<AddProfileScreen> {
       await Supabase.instance.client.from('profiles').insert({
         'installation_id': widget.installationId,
         'display_name': name,
-        'owner_greeting': _greetingController.text.trim().isNotEmpty
+        'greeting': _greetingController.text.trim().isNotEmpty
             ? _greetingController.text.trim()
             : 'Welcome, $name',
         'is_active': true,
@@ -49,6 +49,7 @@ class _AddProfileScreenState extends State<AddProfileScreen> {
 
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
+      debugPrint('Add profile error: $e');
       setState(() {
         _error = 'Failed to save profile. Please try again.';
         _loading = false;

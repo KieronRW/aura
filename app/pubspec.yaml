@@ -43,6 +43,7 @@ dependencies:
   mobile_scanner: ^7.2.0
   http: ^1.6.0
   bonsoir: ^7.1.1
+  image_picker: ^1.2.2
 
 dev_dependencies:
   flutter_test:

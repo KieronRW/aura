@@ -2,8 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+		<string>Aura needs access to your photo library to upload vehicle reference images</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>Aura needs access to save photos</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Aura needs local network access to discover mirrors on your WiFi</string>
+		<string>Aura needs local network access to discover mirrors on your WiFi</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_aura._tcp</string>

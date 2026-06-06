@@ -1,9 +1,10 @@
 // Profiles screen — manage people and their vehicles
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
 import 'add_profile_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'vehicle_detail_screen.dart';
 
 class ProfilesScreen extends StatefulWidget {
   const ProfilesScreen({super.key});
@@ -243,7 +244,6 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            // Profile header
             Center(
               child: Container(
                 width: 80,
@@ -269,7 +269,7 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
             const SizedBox(height: 16),
             Center(
               child: Text(
-                widget.profile['owner_greeting'] ?? '',
+                widget.profile['greeting'] ?? '',
                 style: const TextStyle(
                   color: Colors.white38,
                   fontSize: 13,
@@ -279,7 +279,6 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
             ),
             const SizedBox(height: 40),
 
-            // Vehicles section
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -318,7 +317,19 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
                 style: TextStyle(color: Colors.white24, fontSize: 13),
               )
             else
-              ...vehicles.map((v) => _VehicleRow(vehicle: v)),
+              ...vehicles.map(
+                (v) => _VehicleRow(
+                  vehicle: v,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => VehicleDetailScreen(
+                        vehicle: Map<String, dynamic>.from(v),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -328,63 +339,73 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
 
 class _VehicleRow extends StatelessWidget {
   final dynamic vehicle;
+  final VoidCallback onTap;
 
-  const _VehicleRow({required this.vehicle});
+  const _VehicleRow({required this.vehicle, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.directions_car_outlined,
-            color: Colors.white38,
-            size: 20,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  vehicle['nickname'] ??
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.white12)),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.directions_car_outlined,
+              color: Colors.white38,
+              size: 20,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    vehicle['nickname'] ??
+                        '${vehicle['make'] ?? ''} ${vehicle['model'] ?? ''}'
+                            .trim(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  if (vehicle['nickname'] != null)
+                    Text(
                       '${vehicle['make'] ?? ''} ${vehicle['model'] ?? ''}'
                           .trim(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
-                if (vehicle['nickname'] != null)
-                  Text(
-                    '${vehicle['make'] ?? ''} ${vehicle['model'] ?? ''}'.trim(),
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.white12),
-            ),
-            child: Text(
-              vehicle['fingerprint_data'] != null ? 'ENROLLED' : 'PENDING',
-              style: TextStyle(
-                color: vehicle['fingerprint_data'] != null
-                    ? Colors.greenAccent
-                    : Colors.white24,
-                fontSize: 9,
-                letterSpacing: 1,
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
               ),
             ),
-          ),
-        ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Text(
+                vehicle['fingerprint_data'] != null ? 'ENROLLED' : 'PENDING',
+                style: TextStyle(
+                  color: vehicle['fingerprint_data'] != null
+                      ? Colors.greenAccent
+                      : Colors.white24,
+                  fontSize: 9,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Colors.white24, size: 18),
+          ],
+        ),
       ),
     );
   }
@@ -440,7 +461,7 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
         'colour': _colourController.text.trim().isNotEmpty
             ? _colourController.text.trim()
             : null,
-        'registration_plate': _plateController.text.trim().isNotEmpty
+        'registration': _plateController.text.trim().isNotEmpty
             ? _plateController.text.trim()
             : null,
         'nickname': _nicknameController.text.trim().isNotEmpty
@@ -451,6 +472,7 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
 
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
+      debugPrint('Add vehicle error: $e');
       setState(() {
         _error = 'Failed to save vehicle. Please try again.';
         _loading = false;
