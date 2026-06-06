@@ -605,12 +605,14 @@ def main() -> None:
                 greeting = (vehicle.get("owner_greeting") if vehicle else None) or f"Welcome, {name}"
                 badge_url = _badge_url(result.make)
 
-                event = log_recognition(
-                    result.make or "", result.model or "", result.confidence,
-                    result.method_used, vehicle["id"] if vehicle else None,
-                    image_frame=frame,
-                )
-                last_event_id = event["id"] if event else None
+                # Only log a new event if this is a new vehicle arrival
+                if last_event_id is None or (result.make and result.make != last_recognized_make):
+                    event = log_recognition(
+                        result.make or "", result.model or "", result.confidence,
+                        result.method_used, vehicle["id"] if vehicle else None,
+                        image_frame=frame,
+                    )
+                    last_event_id = event["id"] if event else None
 
                 display.send_recognition(
                     make=result.make or "",
