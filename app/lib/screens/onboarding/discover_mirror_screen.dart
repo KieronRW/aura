@@ -60,6 +60,20 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
           if (response.statusCode == 200) {
             final info = json.decode(response.body);
             if (info['installation_key'] != null) {
+              // Skip if already claimed by current user
+              final existing = await Supabase.instance.client
+                  .from('installations')
+                  .select('id, status, claimed_by')
+                  .eq('installation_key', info['installation_key'])
+                  .maybeSingle();
+
+              final userId = Supabase.instance.client.auth.currentUser?.id;
+              if (existing != null &&
+                  existing['status'] == 'active' &&
+                  existing['claimed_by'] == userId) {
+                return;
+              }
+
               final device = {
                 'host': ip,
                 'port': port,
@@ -108,7 +122,6 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
         return;
       }
 
-      // Use the property passed in from the home screen if available
       Map<String, dynamic>? property;
 
       if (widget.propertyId != null) {

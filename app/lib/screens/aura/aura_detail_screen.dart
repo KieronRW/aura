@@ -200,17 +200,22 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
           ),
           TextButton(
             onPressed: () async {
-              await Supabase.instance.client
-                  .from('installations')
-                  .update({
-                    'status': 'unclaimed',
-                    'claimed_at': null,
-                    'claimed_by': null,
-                    'property_id': null,
-                  })
-                  .eq('id', widget.installation['id']);
-              nav.pop();
-              nav.pop(true);
+              try {
+                await Supabase.instance.client
+                    .from('installations')
+                    .update({
+                      'status': 'unclaimed',
+                      'claimed_at': null,
+                      'claimed_by': null,
+                      'property_id': null,
+                    })
+                    .eq('id', widget.installation['id']);
+                debugPrint('Release successful');
+                nav.pop();
+                nav.pop(true);
+              } catch (e) {
+                debugPrint('Release failed: $e');
+              }
             },
             child: const Text(
               'RELEASE',
