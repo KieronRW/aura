@@ -49,6 +49,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           .from('vehicle_reference_images')
           .select('*')
           .eq('vehicle_id', widget.vehicle['id'])
+          .or('angle.is.null,angle.neq.auto')
           .order('created_at');
       if (mounted) {
         setState(() {
