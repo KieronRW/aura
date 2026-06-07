@@ -121,16 +121,16 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     );
   }
 
-  void _showProfileDetail(Map<String, dynamic> profile) {
-    Navigator.push(
+  void _showProfileDetail(Map<String, dynamic> profile) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => _ProfileDetailScreen(
-          profile: profile,
-          onVehicleAdded: _loadProfiles,
-        ),
+        builder: (_) =>
+            _ProfileDetailScreen(profile: profile, onRefresh: _loadProfiles),
       ),
     );
+    // Reload in case a vehicle was deleted
+    _loadProfiles();
   }
 }
 
@@ -209,22 +209,39 @@ class _ProfileCard extends StatelessWidget {
 
 class _ProfileDetailScreen extends StatefulWidget {
   final Map<String, dynamic> profile;
-  final VoidCallback onVehicleAdded;
+  final VoidCallback onRefresh;
 
-  const _ProfileDetailScreen({
-    required this.profile,
-    required this.onVehicleAdded,
-  });
+  const _ProfileDetailScreen({required this.profile, required this.onRefresh});
 
   @override
   State<_ProfileDetailScreen> createState() => _ProfileDetailScreenState();
 }
 
 class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
+  late List<dynamic> _vehicles;
+
+  @override
+  void initState() {
+    super.initState();
+    _vehicles = List.from(widget.profile['vehicles'] as List? ?? []);
+  }
+
+  Future<void> _reloadVehicles() async {
+    final profiles = await SupabaseService.getProfiles();
+    final updated = profiles.firstWhere(
+      (p) => p['id'] == widget.profile['id'],
+      orElse: () => widget.profile,
+    );
+    if (mounted) {
+      setState(() {
+        _vehicles = List.from(updated['vehicles'] as List? ?? []);
+      });
+    }
+    widget.onRefresh();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final vehicles = widget.profile['vehicles'] as List? ?? [];
-
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -292,7 +309,6 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
                 ),
                 IconButton(
                   onPressed: () async {
-                    final nav = Navigator.of(context);
                     final added = await Navigator.push<bool>(
                       context,
                       MaterialPageRoute(
@@ -304,8 +320,7 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
                       ),
                     );
                     if (added == true && mounted) {
-                      widget.onVehicleAdded();
-                      nav.pop();
+                      await _reloadVehicles();
                     }
                   },
                   icon: const Icon(Icons.add, color: Colors.white, size: 20),
@@ -314,23 +329,28 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
             ),
             const SizedBox(height: 12),
 
-            if (vehicles.isEmpty)
+            if (_vehicles.isEmpty)
               const Text(
                 'No vehicles registered',
                 style: TextStyle(color: Colors.white24, fontSize: 13),
               )
             else
-              ...vehicles.map(
+              ..._vehicles.map(
                 (v) => _VehicleRow(
                   vehicle: v,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VehicleDetailScreen(
-                        vehicle: Map<String, dynamic>.from(v),
+                  onTap: () async {
+                    final deleted = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => VehicleDetailScreen(
+                          vehicle: Map<String, dynamic>.from(v),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                    if (deleted == true && mounted) {
+                      await _reloadVehicles();
+                    }
+                  },
                 ),
               ),
           ],
@@ -442,7 +462,6 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-fill greeting from profile
     _greetingController.text = widget.profileGreeting;
   }
 
