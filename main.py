@@ -73,6 +73,7 @@ from aura.core.discovery import DiscoveryService
 from aura.core.camera import Camera, MotionState
 from aura.core.cloud import is_connected, log_recognition, push_heartbeat, sync_settings, sync_vehicles, update_departure
 from aura.core.display_server import DisplayServer
+from aura.core.enroller import ReferenceImageEnroller
 from aura.core.recognizer import Recognizer
 
 # ---------------------------------------------------------------------------
@@ -384,6 +385,9 @@ def main() -> None:
     _state["supabase_ok"] = is_connected()
     _state["synced_vehicles"] = _synced_vehicles
 
+    enroller = ReferenceImageEnroller()
+    enroller.start()
+
     recognizer = Recognizer()
     _display_queue: queue.Queue = queue.Queue()
 
@@ -642,6 +646,7 @@ def main() -> None:
 
     finally:
         _discovery.stop()
+        enroller.stop()
         http_server.shutdown()
         kb_thread.join(timeout=1)
         logger.info("Stopping camera service")
