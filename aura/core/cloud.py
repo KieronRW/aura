@@ -198,6 +198,52 @@ def log_recognition(
     return row
 
 
+def save_autolearn_image(vehicle_id: int, frame) -> bool:
+    """
+    Upload frame to reference-images storage and insert a vehicle_reference_images row.
+    Increments vehicles.reference_image_count. Returns True on success.
+    """
+    client = _get_client()
+    if client is None:
+        return False
+    try:
+        import cv2
+        ok, buf = cv2.imencode(".jpg", frame)
+        if not ok:
+            log.warning("save_autolearn_image: imencode failed")
+            return False
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        path = f"{vehicle_id}/auto_{timestamp}.jpg"
+
+        client.storage.from_("reference-images").upload(
+            path, buf.tobytes(), {"content-type": "image/jpeg"}
+        )
+        client.table("vehicle_reference_images").insert({
+            "vehicle_id": vehicle_id,
+            "storage_path": path,
+            "is_active": True,
+            "angle": "auto",
+        }).execute()
+
+        # Increment reference_image_count (read-then-write; auto-learn rate-limits to 1/hr)
+        resp = (
+            client.table("vehicles")
+            .select("reference_image_count")
+            .eq("id", vehicle_id)
+            .execute()
+        )
+        current = (resp.data[0].get("reference_image_count") or 0) if resp.data else 0
+        client.table("vehicles").update(
+            {"reference_image_count": current + 1}
+        ).eq("id", vehicle_id).execute()
+
+        return True
+    except Exception as exc:
+        log.warning("save_autolearn_image failed for vehicle %s: %s", vehicle_id, exc)
+        return False
+
+
 def update_departure(event_id: int) -> bool:
     """Set departed_at to now() on a recognition event. Returns True on success."""
     client = _get_client()

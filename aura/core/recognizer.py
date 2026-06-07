@@ -35,6 +35,7 @@ class RecognitionResult:
     method_used: str                   # "fingerprint", "vision", or "unknown"
     confidence_tier: str               # "high", "medium", "low"
     badge_path: str | None
+    best_fp_score: float = 0.0         # highest fingerprint score seen before Vision fallback
 
 
 @dataclass
@@ -48,7 +49,8 @@ class _VisionCacheEntry:
 class Recognizer:
     def __init__(self):
         self._vision_client = None
-        self._vision_cache: dict[str, _VisionCacheEntry] = {}  # md5 hex → entry
+        self._vision_cache: dict[str, _VisionCacheEntry] = {}
+        self._last_fp_score: float = 0.0  # best fingerprint score from most recent recognize() call  # md5 hex → entry
 
     # ------------------------------------------------------------------
     # Public
@@ -81,6 +83,7 @@ class Recognizer:
                 return None
 
         # Step 2 — fingerprint matching against synced vehicles
+        self._last_fp_score = 0.0
         result = self._match_fingerprint(cropped, detection, vehicles or [])
         if result:
             return result
@@ -89,6 +92,7 @@ class Recognizer:
         if GOOGLE_VISION_ENABLED:
             result = self._match_vision(frame, cropped, detection)
             if result:
+                result.best_fp_score = self._last_fp_score
                 return result
 
         # Step 4 — vehicle confirmed by YOLO but make/model unknown
@@ -161,6 +165,7 @@ class Recognizer:
             "No fingerprint match (best=%.4f threshold=%.2f)",
             best_score, FINGERPRINT_MATCH_THRESHOLD,
         )
+        self._last_fp_score = best_score
         return None
 
     # ------------------------------------------------------------------

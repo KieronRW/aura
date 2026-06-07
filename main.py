@@ -71,7 +71,7 @@ from aura.core import api
 from aura.core import detector as yolo_detector
 from aura.core.discovery import DiscoveryService
 from aura.core.camera import Camera, MotionState
-from aura.core.cloud import is_connected, log_recognition, push_heartbeat, sync_settings, sync_vehicles, update_departure
+from aura.core.cloud import is_connected, log_recognition, push_heartbeat, save_autolearn_image, sync_settings, sync_vehicles, update_departure
 from aura.core.display_server import DisplayServer
 from aura.core.enroller import ReferenceImageEnroller
 from aura.core.recognizer import Recognizer
@@ -438,6 +438,7 @@ def main() -> None:
     gone_since: float | None = None
     last_event_id: int | None = None
     last_vehicle_sync_at: float = time.monotonic()
+    autolearn_last_at: dict[int, float] = {}  # vehicle_id → monotonic time of last auto-learn
 
     # Startup scan: recognise any car already in frame
     logger.info("Startup: running initial recognition scan")
@@ -632,6 +633,25 @@ def main() -> None:
                         image_frame=frame,
                     )
                     last_event_id = event["id"] if event else None
+
+                # Auto-learn: capture a new reference image when Vision matched a known
+                # vehicle but the fingerprint came close without crossing the threshold.
+                _vehicle_id = vehicle["id"] if vehicle else None
+                if (
+                    result.method_used == "vision"
+                    and _vehicle_id is not None
+                    and result.confidence >= 0.85
+                    and 0.60 <= result.best_fp_score <= 0.72
+                    and (vehicle.get("reference_image_count") or 0) < 10
+                    and time.monotonic() - autolearn_last_at.get(_vehicle_id, 0.0) >= 3600.0
+                ):
+                    if save_autolearn_image(_vehicle_id, frame):
+                        autolearn_last_at[_vehicle_id] = time.monotonic()
+                        logger.info(
+                            "Auto-learn: saved frame for vehicle_id=%s"
+                            " (fp_score=%.4f, vision_conf=%.2f)",
+                            _vehicle_id, result.best_fp_score, result.confidence,
+                        )
 
                 display.send_recognition(
                     make=result.make or "",
