@@ -83,6 +83,7 @@ class _DashboardTabState extends State<_DashboardTab> {
   bool _loading = true;
   bool _backgroundRefreshing = false;
   RealtimeChannel? _statusChannel;
+  RealtimeChannel? _eventsChannel;
 
   late final _authSubscription = Supabase.instance.client.auth.onAuthStateChange
       .listen((data) {
@@ -109,6 +110,7 @@ class _DashboardTabState extends State<_DashboardTab> {
   void dispose() {
     _authSubscription.cancel();
     _statusChannel?.unsubscribe();
+    _eventsChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -121,6 +123,29 @@ class _DashboardTabState extends State<_DashboardTab> {
           table: 'device_status',
           callback: (payload) {
             if (mounted) _refreshStatusInBackground();
+          },
+        )
+        .subscribe();
+
+    _eventsChannel = Supabase.instance.client
+        .channel('recognition_events_inserts')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'recognition_events',
+          callback: (payload) {
+            if (!mounted) return;
+            final installationId =
+                payload.newRecord['installation_id'] as String?;
+            if (installationId == null) return;
+            final existing = _statusCache[installationId];
+            if (existing == null) return;
+            setState(() {
+              _statusCache[installationId] = {
+                ...existing,
+                'current_state': 'recognized',
+              };
+            });
           },
         )
         .subscribe();
@@ -365,6 +390,9 @@ class _DashboardTabState extends State<_DashboardTab> {
                 ..._installations.map((installation) {
                   final status = _statusCache[installation['id']];
                   final online = _isActuallyOnline(status);
+                  final currentState = (status?['current_state'] ?? '')
+                      .toString()
+                      .toUpperCase();
                   return GestureDetector(
                     onTap: () async {
                       final result = await Navigator.push<bool>(
@@ -387,7 +415,8 @@ class _DashboardTabState extends State<_DashboardTab> {
                       ),
                       child: Row(
                         children: [
-                          Container(
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 600),
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
@@ -415,6 +444,7 @@ class _DashboardTabState extends State<_DashboardTab> {
                                   online
                                       ? 'Online · ${status?['local_ip'] ?? ''}'
                                       : 'Offline',
+                                  key: ValueKey(online),
                                   style: const TextStyle(
                                     color: Colors.white38,
                                     fontSize: 12,
@@ -423,17 +453,22 @@ class _DashboardTabState extends State<_DashboardTab> {
                               ],
                             ),
                           ),
-                          if (online)
-                            Text(
-                              (status?['current_state'] ?? '')
-                                  .toString()
-                                  .toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white38,
-                                fontSize: 10,
-                                letterSpacing: 2,
-                              ),
-                            ),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 800),
+                            child: online
+                                ? Text(
+                                    currentState,
+                                    key: ValueKey(currentState),
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 10,
+                                      letterSpacing: 2,
+                                    ),
+                                  )
+                                : const SizedBox.shrink(
+                                    key: ValueKey('_no_state'),
+                                  ),
+                          ),
                           const SizedBox(width: 8),
                           const Icon(
                             Icons.chevron_right,
