@@ -18,6 +18,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   List<Map<String, dynamic>> _referenceImages = [];
   bool _loading = true;
   bool _uploading = false;
+  bool _deleting = false;
   final _picker = ImagePicker();
 
   @override
@@ -38,7 +39,6 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           _referenceImages = List<Map<String, dynamic>>.from(response);
           _loading = false;
         });
-        debugPrint('Reference images: $_referenceImages');
       }
     } catch (e) {
       debugPrint('Load reference images error: $e');
@@ -184,15 +184,89 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     }
   }
 
+  Future<void> _deleteVehicle() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF111111),
+        title: const Text(
+          'Delete Vehicle',
+          style: TextStyle(color: Colors.white, fontSize: 15, letterSpacing: 1),
+        ),
+        content: const Text(
+          'This will permanently delete this vehicle and all its reference images. This cannot be undone.',
+          style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.6),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(color: Colors.white38, letterSpacing: 1),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'DELETE',
+              style: TextStyle(color: Colors.redAccent, letterSpacing: 1),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _deleting = true);
+
+    try {
+      // Delete all reference images from storage
+      if (_referenceImages.isNotEmpty) {
+        final paths = _referenceImages
+            .map((img) => img['storage_path'] as String)
+            .toList();
+        await Supabase.instance.client.storage
+            .from('reference-images')
+            .remove(paths);
+      }
+
+      // Delete reference image rows
+      await Supabase.instance.client
+          .from('vehicle_reference_images')
+          .delete()
+          .eq('vehicle_id', widget.vehicle['id']);
+
+      // Delete vehicle row
+      await Supabase.instance.client
+          .from('vehicles')
+          .delete()
+          .eq('id', widget.vehicle['id']);
+
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      debugPrint('Delete vehicle error: $e');
+      if (mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete vehicle. Please try again.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   String get _enrollmentStatus {
     final count = _referenceImages.length;
-    if (widget.vehicle['fingerprint_data'] != null) return 'ENROLLED';
+    if (widget.vehicle['fingerprint_seeded'] == true) return 'ENROLLED';
     if (count >= 3) return 'READY TO ENROL';
     return 'PENDING ($count/3 images)';
   }
 
   Color get _enrollmentColor {
-    if (widget.vehicle['fingerprint_data'] != null) return Colors.greenAccent;
+    if (widget.vehicle['fingerprint_seeded'] == true) return Colors.greenAccent;
     if (_referenceImages.length >= 3) return Colors.orangeAccent;
     return Colors.white24;
   }
@@ -219,142 +293,173 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           ),
         ),
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            const Text(
-              'VEHICLE INFO',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 3,
+      body: _deleting
+          ? const Center(
+              child: CircularProgressIndicator(
                 color: Colors.white24,
+                strokeWidth: 1,
               ),
-            ),
-            const SizedBox(height: 12),
-            _InfoRow('Make', widget.vehicle['make'] ?? '—'),
-            _InfoRow('Model', widget.vehicle['model'] ?? '—'),
-            _InfoRow('Colour', widget.vehicle['colour'] ?? '—'),
-            _InfoRow('Registration', widget.vehicle['registration'] ?? '—'),
-
-            const SizedBox(height: 32),
-
-            const Text(
-              'RECOGNITION',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 3,
-                color: Colors.white24,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111111),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: Row(
+            )
+          : SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
                 children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: _enrollmentColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    _enrollmentStatus,
+                  const Text(
+                    'VEHICLE INFO',
                     style: TextStyle(
-                      color: _enrollmentColor,
-                      fontSize: 12,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'REFERENCE IMAGES',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 3,
-                    color: Colors.white24,
-                  ),
-                ),
-                if (!_uploading)
-                  GestureDetector(
-                    onTap: _showImageSourceDialog,
-                    child: const Icon(
-                      Icons.add_a_photo_outlined,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  )
-                else
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1,
+                      fontSize: 10,
+                      letterSpacing: 3,
                       color: Colors.white24,
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Minimum 3 images required from different angles for fingerprint recognition.',
-              style: TextStyle(
-                color: Colors.white24,
-                fontSize: 12,
-                height: 1.6,
-              ),
-            ),
-            const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  _InfoRow('Make', widget.vehicle['make'] ?? '—'),
+                  _InfoRow('Model', widget.vehicle['model'] ?? '—'),
+                  _InfoRow('Colour', widget.vehicle['colour'] ?? '—'),
+                  _InfoRow(
+                    'Registration',
+                    widget.vehicle['registration'] ?? '—',
+                  ),
+                  _InfoRow('Greeting', widget.vehicle['owner_greeting'] ?? '—'),
 
-            if (_loading)
-              const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white24,
-                  strokeWidth: 1,
-                ),
-              )
-            else if (_referenceImages.isEmpty)
-              const Text(
-                'No reference images yet. Add at least 3 to enable fingerprint recognition.',
-                style: TextStyle(color: Colors.white24, fontSize: 13),
-              )
-            else
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 4,
-                  mainAxisSpacing: 4,
-                ),
-                itemCount: _referenceImages.length,
-                itemBuilder: (context, index) {
-                  final image = _referenceImages[index];
-                  return _ReferenceImageTile(
-                    key: ValueKey(image['id']),
-                    storagePath: image['storage_path'],
-                    onDelete: () => _deleteImage(image),
-                  );
-                },
+                  const SizedBox(height: 32),
+
+                  const Text(
+                    'RECOGNITION',
+                    style: TextStyle(
+                      fontSize: 10,
+                      letterSpacing: 3,
+                      color: Colors.white24,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111111),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: _enrollmentColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          _enrollmentStatus,
+                          style: TextStyle(
+                            color: _enrollmentColor,
+                            fontSize: 12,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'REFERENCE IMAGES',
+                        style: TextStyle(
+                          fontSize: 10,
+                          letterSpacing: 3,
+                          color: Colors.white24,
+                        ),
+                      ),
+                      if (!_uploading)
+                        GestureDetector(
+                          onTap: _showImageSourceDialog,
+                          child: const Icon(
+                            Icons.add_a_photo_outlined,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        )
+                      else
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1,
+                            color: Colors.white24,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Minimum 3 images required from different angles for fingerprint recognition.',
+                    style: TextStyle(
+                      color: Colors.white24,
+                      fontSize: 12,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (_loading)
+                    const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white24,
+                        strokeWidth: 1,
+                      ),
+                    )
+                  else if (_referenceImages.isEmpty)
+                    const Text(
+                      'No reference images yet. Add at least 3 to enable fingerprint recognition.',
+                      style: TextStyle(color: Colors.white24, fontSize: 13),
+                    )
+                  else
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 4,
+                            mainAxisSpacing: 4,
+                          ),
+                      itemCount: _referenceImages.length,
+                      itemBuilder: (context, index) {
+                        final image = _referenceImages[index];
+                        return _ReferenceImageTile(
+                          key: ValueKey(image['id']),
+                          storagePath: image['storage_path'],
+                          onDelete: () => _deleteImage(image),
+                        );
+                      },
+                    ),
+
+                  const SizedBox(height: 48),
+
+                  const Divider(color: Colors.white12),
+                  const SizedBox(height: 24),
+
+                  TextButton(
+                    onPressed: _deleteVehicle,
+                    child: const Text(
+                      'DELETE VEHICLE',
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 13,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                ],
               ),
-          ],
-        ),
-      ),
+            ),
     );
   }
 }
