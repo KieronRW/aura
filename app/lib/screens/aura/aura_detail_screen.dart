@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
 import 'camera_settings_screen.dart';
+import 'network_settings_screen.dart';
 
 // In-memory signed URL cache — shared across all _EventRow instances
 final Map<String, String> _signedUrlCache = {};
@@ -288,14 +289,6 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
                               fontSize: 14,
                             ),
                           ),
-                          if (isOnline)
-                            Text(
-                              _deviceStatus?['local_ip'] ?? '',
-                              style: const TextStyle(
-                                color: Colors.white38,
-                                fontSize: 12,
-                              ),
-                            ),
                         ],
                       ),
                     ),
@@ -352,7 +345,18 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
                 icon: Icons.wifi_outlined,
                 title: 'Network',
                 subtitle: _deviceStatus?['local_ip'] ?? 'DHCP',
-                onTap: () {},
+                onTap: () {
+                  final localIp = _deviceStatus?['local_ip'] as String? ?? '';
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => NetworkSettingsScreen(
+                        installation: widget.installation,
+                        localIp: localIp,
+                      ),
+                    ),
+                  );
+                },
               ),
               _SettingsRow(
                 icon: Icons.tune_outlined,

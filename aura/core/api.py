@@ -1,5 +1,8 @@
 import asyncio
 import logging
+import subprocess
+import threading
+import time as _time
 from typing import Any, Optional
 
 import uvicorn
@@ -238,3 +241,168 @@ async def camera_stream():
         generate(),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
+
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+
+def _prefix_to_mask(prefix: int) -> str:
+    mask = (0xFFFFFFFF << (32 - max(0, min(32, prefix)))) & 0xFFFFFFFF
+    return ".".join(str((mask >> (8 * i)) & 0xFF) for i in [3, 2, 1, 0])
+
+
+def _mask_to_prefix(mask: str) -> int:
+    try:
+        parts = [int(x) for x in mask.split(".")]
+        return sum(bin(p).count("1") for p in parts)
+    except (ValueError, AttributeError):
+        return 24
+
+
+def _active_connection() -> tuple[str, str, str] | None:
+    """Return (conn_name, device, conn_type) for the first active ethernet/wifi connection."""
+    result = subprocess.run(
+        ["nmcli", "-t", "--escape", "no", "-f", "NAME,DEVICE,TYPE,STATE",
+         "connection", "show", "--active"],
+        capture_output=True, text=True, timeout=10,
+    )
+    for line in result.stdout.strip().splitlines():
+        parts = line.rsplit(":", 3)
+        if len(parts) < 4:
+            continue
+        name, device, t, state = parts[0], parts[1], parts[2], parts[3]
+        if state == "activated" and t in ("802-3-ethernet", "802-11-wireless"):
+            conn_type = "wifi" if "wireless" in t else "ethernet"
+            return name, device, conn_type
+    return None
+
+
+@app.get("/network/settings")
+def get_network_settings():
+    try:
+        conn = _active_connection()
+        if conn is None:
+            raise HTTPException(503, detail="No active network connection found")
+        conn_name, device, conn_type = conn
+
+        method_out = subprocess.run(
+            ["nmcli", "--get-values", "ipv4.method", "connection", "show", conn_name],
+            capture_output=True, text=True, timeout=10,
+        ).stdout.strip()
+        method = "static" if method_out == "manual" else "dhcp"
+
+        dev_out = subprocess.run(
+            ["nmcli", "-t", "--escape", "no", "-f", "IP4.ADDRESS,IP4.GATEWAY,IP4.DNS",
+             "device", "show", device],
+            capture_output=True, text=True, timeout=10,
+        )
+
+        ip_address, prefix, gateway = "", 24, ""
+        dns_servers: list[str] = []
+
+        for line in dev_out.stdout.strip().splitlines():
+            if ":" not in line:
+                continue
+            key, _, value = line.partition(":")
+            key, value = key.strip(), value.strip()
+            if key.startswith("IP4.ADDRESS") and value:
+                if "/" in value:
+                    ip_address, p = value.rsplit("/", 1)
+                    prefix = int(p)
+                else:
+                    ip_address = value
+            elif key == "IP4.GATEWAY" and value:
+                gateway = value
+            elif key.startswith("IP4.DNS") and value:
+                dns_servers.append(value)
+
+        return {
+            "interface": device,
+            "connection_type": conn_type,
+            "connection_name": conn_name,
+            "method": method,
+            "ip_address": ip_address,
+            "subnet_mask": _prefix_to_mask(prefix),
+            "gateway": gateway,
+            "dns_primary": dns_servers[0] if dns_servers else "",
+            "dns_secondary": dns_servers[1] if len(dns_servers) > 1 else "",
+        }
+    except HTTPException:
+        raise
+    except FileNotFoundError:
+        raise HTTPException(501, detail="nmcli not available on this system")
+    except Exception as exc:
+        logger.exception("get_network_settings failed")
+        raise HTTPException(500, detail=str(exc))
+
+
+class NetworkSettingsPayload(BaseModel):
+    method: str                  # "dhcp" or "static"
+    ip_address: str = ""
+    subnet_mask: str = ""
+    gateway: str = ""
+    dns_primary: str = ""
+    dns_secondary: str = ""
+
+
+@app.post("/network/settings")
+def post_network_settings(payload: NetworkSettingsPayload):
+    if payload.method not in ("dhcp", "static"):
+        raise HTTPException(400, detail="method must be 'dhcp' or 'static'")
+
+    try:
+        conn = _active_connection()
+        if conn is None:
+            raise HTTPException(503, detail="No active network connection found")
+        conn_name, _device, _conn_type = conn
+
+        if payload.method == "dhcp":
+            subprocess.run(
+                ["nmcli", "connection", "modify", conn_name,
+                 "ipv4.method", "auto",
+                 "ipv4.addresses", "",
+                 "ipv4.gateway", "",
+                 "ipv4.dns", ""],
+                check=True, capture_output=True, timeout=10,
+            )
+        else:
+            if not all([payload.ip_address, payload.subnet_mask, payload.gateway]):
+                raise HTTPException(
+                    400, detail="ip_address, subnet_mask, and gateway are required"
+                )
+            prefix = _mask_to_prefix(payload.subnet_mask)
+            cidr = f"{payload.ip_address}/{prefix}"
+            dns_parts = [d for d in [payload.dns_primary, payload.dns_secondary] if d]
+            dns_str = ",".join(dns_parts)
+
+            cmd = [
+                "nmcli", "connection", "modify", conn_name,
+                "ipv4.method", "manual",
+                "ipv4.addresses", cidr,
+                "ipv4.gateway", payload.gateway,
+                "ipv4.dns", dns_str,
+            ]
+            subprocess.run(cmd, check=True, capture_output=True, timeout=10)
+
+        # Bring connection up after a short delay so the HTTP response can escape first
+        def _apply() -> None:
+            _time.sleep(0.5)
+            subprocess.run(
+                ["nmcli", "connection", "up", conn_name],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20,
+            )
+
+        threading.Thread(target=_apply, daemon=True).start()
+        return {"ok": True}
+
+    except HTTPException:
+        raise
+    except FileNotFoundError:
+        raise HTTPException(501, detail="nmcli not available on this system")
+    except subprocess.CalledProcessError as exc:
+        logger.warning("nmcli error: %s", exc.stderr)
+        raise HTTPException(500, detail=f"nmcli error: {exc.stderr.strip()}")
+    except Exception as exc:
+        logger.exception("post_network_settings failed")
+        raise HTTPException(500, detail=str(exc))
