@@ -385,8 +385,23 @@ def main() -> None:
     _state["supabase_ok"] = is_connected()
     _state["synced_vehicles"] = _synced_vehicles
 
-    enroller = ReferenceImageEnroller()
-    enroller.start()
+    def _resync_vehicles() -> None:
+        nonlocal _synced_vehicles
+        fresh = sync_vehicles()
+        if fresh:
+            _synced_vehicles = fresh
+            _state["synced_vehicles"] = _synced_vehicles
+            logger.info(
+                "Enroller triggered vehicle re-sync: %d vehicles loaded",
+                len(_synced_vehicles),
+            )
+
+    enroller = None
+    try:
+        enroller = ReferenceImageEnroller(on_vehicle_updated=_resync_vehicles)
+        enroller.start()
+    except Exception:
+        logger.exception("Failed to initialise enroller")
 
     recognizer = Recognizer()
     _display_queue: queue.Queue = queue.Queue()
@@ -646,7 +661,8 @@ def main() -> None:
 
     finally:
         _discovery.stop()
-        enroller.stop()
+        if enroller is not None:
+            enroller.stop()
         http_server.shutdown()
         kb_thread.join(timeout=1)
         logger.info("Stopping camera service")

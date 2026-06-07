@@ -38,6 +38,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           _referenceImages = List<Map<String, dynamic>>.from(response);
           _loading = false;
         });
+        debugPrint('Reference images: $_referenceImages');
       }
     } catch (e) {
       debugPrint('Load reference images error: $e');
@@ -345,6 +346,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 itemBuilder: (context, index) {
                   final image = _referenceImages[index];
                   return _ReferenceImageTile(
+                    key: ValueKey(image['id']),
                     storagePath: image['storage_path'],
                     onDelete: () => _deleteImage(image),
                   );
@@ -392,6 +394,7 @@ class _ReferenceImageTile extends StatefulWidget {
   final VoidCallback onDelete;
 
   const _ReferenceImageTile({
+    super.key,
     required this.storagePath,
     required this.onDelete,
   });
@@ -415,45 +418,44 @@ class _ReferenceImageTileState extends State<_ReferenceImageTile> {
           .from('reference-images')
           .createSignedUrl(widget.storagePath, 3600);
       if (mounted) setState(() => _url = url);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Signed URL error: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onLongPress: () {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: const Color(0xFF111111),
-          builder: (_) => SafeArea(
-            child: ListTile(
-              leading: const Icon(
-                Icons.delete_outline,
-                color: Colors.redAccent,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          color: const Color(0xFF111111),
+          child: _url != null
+              ? Image.network(_url!, fit: BoxFit.cover)
+              : const Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1,
+                    color: Colors.white24,
+                  ),
+                ),
+        ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: GestureDetector(
+            onTap: widget.onDelete,
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
               ),
-              title: const Text(
-                'Delete image',
-                style: TextStyle(color: Colors.redAccent),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                widget.onDelete();
-              },
+              child: const Icon(Icons.close, color: Colors.redAccent, size: 14),
             ),
           ),
-        );
-      },
-      child: Container(
-        color: const Color(0xFF111111),
-        child: _url != null
-            ? Image.network(_url!, fit: BoxFit.cover)
-            : const Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 1,
-                  color: Colors.white24,
-                ),
-              ),
-      ),
+        ),
+      ],
     );
   }
 }

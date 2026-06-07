@@ -71,6 +71,8 @@ def sync_vehicles() -> list[dict]:
 
     Joins vehicles → profiles → installations and filters by
     installations.installation_key = INSTALLATION_ID.
+    Each vehicle dict gains a 'reference_fingerprints' key: a list of
+    fingerprint_data JSON strings from vehicle_reference_images.
     """
     client = _get_client()
     if client is None:
@@ -84,9 +86,24 @@ def sync_vehicles() -> list[dict]:
             .execute()
         )
         vehicles = response.data or []
-        # Strip nested join data — downstream consumers only need vehicle fields
         for v in vehicles:
             v.pop("profiles", None)
+
+        if vehicles:
+            vehicle_ids = [v["id"] for v in vehicles]
+            ref_resp = (
+                client.table("vehicle_reference_images")
+                .select("vehicle_id, fingerprint_data")
+                .in_("vehicle_id", vehicle_ids)
+                .not_.is_("fingerprint_data", "null")
+                .execute()
+            )
+            ref_map: dict[int, list[str]] = {}
+            for row in (ref_resp.data or []):
+                ref_map.setdefault(row["vehicle_id"], []).append(row["fingerprint_data"])
+            for v in vehicles:
+                v["reference_fingerprints"] = ref_map.get(v["id"], [])
+
         return vehicles
     except Exception as exc:
         log.warning("sync_vehicles failed: %s", exc)

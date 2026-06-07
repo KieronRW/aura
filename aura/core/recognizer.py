@@ -118,20 +118,29 @@ class Recognizer:
         best_vehicle = None
 
         for vehicle in vehicles:
-            raw = vehicle.get("fingerprint_data")
-            if not raw:
-                continue
-            try:
-                stored_fp = json_to_fingerprint(raw if isinstance(raw, str) else str(raw))
-            except Exception:
-                logger.warning("Could not deserialise fingerprint for vehicle id=%s", vehicle["id"])
+            ref_fps = vehicle.get("reference_fingerprints") or []
+            if not ref_fps:
                 continue
 
-            score = compare_fingerprints(query_fp, stored_fp)
-            logger.debug("Fingerprint score vs '%s': %.4f", vehicle["owner_name"], score)
+            vehicle_best = 0.0
+            for raw in ref_fps:
+                try:
+                    stored_fp = json_to_fingerprint(raw if isinstance(raw, str) else str(raw))
+                    score = compare_fingerprints(query_fp, stored_fp)
+                    if score > vehicle_best:
+                        vehicle_best = score
+                except Exception:
+                    logger.warning(
+                        "Could not deserialise reference fingerprint for vehicle id=%s",
+                        vehicle["id"],
+                    )
 
-            if score > best_score:
-                best_score = score
+            logger.debug(
+                "Fingerprint best score vs '%s' (%d refs): %.4f",
+                vehicle["owner_name"], len(ref_fps), vehicle_best,
+            )
+            if vehicle_best > best_score:
+                best_score = vehicle_best
                 best_vehicle = vehicle
 
         if best_vehicle and best_score >= FINGERPRINT_MATCH_THRESHOLD:

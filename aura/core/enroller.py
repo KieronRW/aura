@@ -8,12 +8,7 @@ import cv2
 import numpy as np
 from dotenv import load_dotenv
 
-from aura.core.fingerprint import (
-    Fingerprint,
-    extract_fingerprint,
-    fingerprint_to_json,
-    json_to_fingerprint,
-)
+from aura.core.fingerprint import extract_fingerprint, fingerprint_to_json
 
 load_dotenv(Path(__file__).parent.parent / "config" / ".env")
 
@@ -43,9 +38,10 @@ class ReferenceImageEnroller:
     into vehicles.fingerprint_data and sets vehicles.fingerprint_seeded = true.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, on_vehicle_updated=None) -> None:
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
+        self._on_vehicle_updated = on_vehicle_updated
 
     def start(self) -> None:
         log.info(
@@ -203,6 +199,12 @@ class ReferenceImageEnroller:
             log.warning("Enroller: update failed for id=%s: %s", row_id, exc)
             return
 
+        if self._on_vehicle_updated:
+            try:
+                self._on_vehicle_updated()
+            except Exception:
+                log.exception("Enroller: on_vehicle_updated callback failed")
+
         self._maybe_seed_vehicle(vehicle_id, client)
 
     def _maybe_seed_vehicle(self, vehicle_id, client) -> None:
@@ -228,40 +230,17 @@ class ReferenceImageEnroller:
             return
 
         log.info(
-            "Enroller: vehicle %s has %d fingerprinted images — aggregating",
+            "Enroller: vehicle %s has %d fingerprinted images — ready to seed",
             vehicle_id, len(seeded_rows),
         )
 
-        all_descriptors: list[np.ndarray] = []
-        all_histograms: list[np.ndarray] = []
-
-        for row in seeded_rows:
-            try:
-                fp = json_to_fingerprint(row["fingerprint_data"])
-                all_histograms.append(fp.histogram)
-                if fp.descriptors is not None:
-                    all_descriptors.append(fp.descriptors)
-            except Exception as exc:
-                log.warning("Enroller: could not parse fingerprint row: %s", exc)
-
-        if not all_descriptors:
-            log.warning("Enroller: no valid descriptors for vehicle %s — skipping seed", vehicle_id)
-            return
-
-        combined = Fingerprint(
-            histogram=np.mean(all_histograms, axis=0).astype(np.float32),
-            descriptors=np.vstack(all_descriptors),
-        )
-        combined_json = fingerprint_to_json(combined)
-
         try:
             client.table("vehicles").update({
-                "fingerprint_data": combined_json,
                 "fingerprint_seeded": True,
             }).eq("id", vehicle_id).execute()
             log.info(
-                "Enroller: seeded vehicle %s — %d combined descriptors from %d images",
-                vehicle_id, len(combined.descriptors), len(seeded_rows),
+                "Enroller: marked vehicle %s as fingerprint_seeded (%d reference images)",
+                vehicle_id, len(seeded_rows),
             )
         except Exception as exc:
             log.warning("Enroller: failed to seed vehicle %s: %s", vehicle_id, exc)
