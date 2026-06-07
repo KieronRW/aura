@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 from dotenv import load_dotenv
 
-from aura.core.fingerprint import Fingerprint, extract_fingerprint, fingerprint_to_json
+from aura.core.fingerprint import Fingerprint, extract_fingerprint, fingerprint_to_json, json_to_fingerprint
 
 load_dotenv(Path(__file__).parent.parent / "config" / ".env")
 
@@ -27,6 +27,31 @@ def _fingerprint_from_bytes(image_bytes: bytes) -> Fingerprint | None:
     if img is None:
         return None
     return extract_fingerprint(img)
+
+
+def _mean_pairwise_cosine(rows: list[dict]) -> float | None:
+    """
+    Return mean pairwise cosine similarity across all reference-image embeddings.
+    Embeddings are L2-normalised, so similarity[i,j] = dot(e_i, e_j).
+    The N×N matrix is computed in one matmul; diagonal (self-similarity = 1.0)
+    is excluded from the mean.  Returns None if fewer than 2 embeddings parse.
+    """
+    embeddings = []
+    for row in rows:
+        try:
+            fp = json_to_fingerprint(row["fingerprint_data"])
+            embeddings.append(fp.embedding)
+        except Exception as exc:
+            log.warning("Enroller: skipping row in pairwise score — %s", exc)
+
+    if len(embeddings) < 2:
+        return None
+
+    mat = np.stack(embeddings)          # (N, D)
+    sim = mat @ mat.T                   # (N, N) — cosine similarities, already normalised
+    N = len(embeddings)
+    score = float((sim.sum() - N) / (N * (N - 1)))   # mean of off-diagonal entries
+    return round(max(0.0, min(1.0, score)), 4)
 
 
 class ReferenceImageEnroller:
@@ -233,13 +258,18 @@ class ReferenceImageEnroller:
             vehicle_id, len(seeded_rows),
         )
 
+        fingerprint_score = _mean_pairwise_cosine(seeded_rows)
+
+        update_payload: dict = {"fingerprint_seeded": True}
+        if fingerprint_score is not None:
+            update_payload["fingerprint_score"] = fingerprint_score
+
         try:
-            client.table("vehicles").update({
-                "fingerprint_seeded": True,
-            }).eq("id", vehicle_id).execute()
+            client.table("vehicles").update(update_payload).eq("id", vehicle_id).execute()
             log.info(
-                "Enroller: marked vehicle %s as fingerprint_seeded (%d reference images)",
+                "Enroller: seeded vehicle %s — %d reference images, consistency score=%.4f",
                 vehicle_id, len(seeded_rows),
+                fingerprint_score if fingerprint_score is not None else float("nan"),
             )
         except Exception as exc:
             log.warning("Enroller: failed to seed vehicle %s: %s", vehicle_id, exc)
