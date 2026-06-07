@@ -65,7 +65,6 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
   }
 
   Future<void> _loadData() async {
-    // Don't show spinner if we already have cached data
     if (_recentEvents.isEmpty) {
       if (mounted) setState(() => _loading = true);
     }
@@ -210,7 +209,6 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
                       'property_id': null,
                     })
                     .eq('id', widget.installation['id']);
-                debugPrint('Release successful');
                 nav.pop();
                 nav.pop(true);
               } catch (e) {
@@ -261,7 +259,6 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              // Status card
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -318,7 +315,6 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
 
               const SizedBox(height: 32),
 
-              // Settings section
               const Text(
                 'AURA SETTINGS',
                 style: TextStyle(
@@ -355,7 +351,6 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
 
               const SizedBox(height: 32),
 
-              // Recent activity
               const Text(
                 'RECENT ACTIVITY',
                 style: TextStyle(
@@ -385,6 +380,7 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
                       (event) => _EventRow(
                         make: event['detected_make'] ?? 'Unknown',
                         model: event['detected_model'],
+                        method: event['method'],
                         time: _formatTime(event['arrived_at']),
                         date: _formatDate(event['arrived_at']),
                         imagePath: event['image_path'],
@@ -393,7 +389,6 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
 
               const SizedBox(height: 32),
 
-              // Danger zone
               const Text(
                 'DANGER ZONE',
                 style: TextStyle(
@@ -485,6 +480,7 @@ class _SettingsRow extends StatelessWidget {
 class _EventRow extends StatefulWidget {
   final String make;
   final String? model;
+  final String? method;
   final String time;
   final String date;
   final String? imagePath;
@@ -492,6 +488,7 @@ class _EventRow extends StatefulWidget {
   const _EventRow({
     required this.make,
     required this.model,
+    required this.method,
     required this.time,
     required this.date,
     this.imagePath,
@@ -514,7 +511,6 @@ class _EventRowState extends State<_EventRow> {
   }
 
   Future<void> _loadImage() async {
-    // Check in-memory signed URL cache first
     if (_signedUrlCache.containsKey(widget.imagePath)) {
       setState(() => _imageUrl = _signedUrlCache[widget.imagePath]);
       return;
@@ -533,6 +529,28 @@ class _EventRowState extends State<_EventRow> {
     }
   }
 
+  IconData get _methodIcon {
+    switch (widget.method) {
+      case 'fingerprint':
+        return Icons.fingerprint;
+      case 'vision':
+        return Icons.auto_awesome;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  Color get _methodColor {
+    switch (widget.method) {
+      case 'fingerprint':
+        return Colors.greenAccent;
+      case 'vision':
+        return Colors.white38;
+      default:
+        return Colors.white24;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -542,7 +560,6 @@ class _EventRowState extends State<_EventRow> {
       ),
       child: Row(
         children: [
-          // Thumbnail with disk caching via CachedNetworkImage
           Container(
             width: 56,
             height: 56,
@@ -590,7 +607,6 @@ class _EventRowState extends State<_EventRow> {
 
           const SizedBox(width: 16),
 
-          // Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,6 +629,8 @@ class _EventRowState extends State<_EventRow> {
               ],
             ),
           ),
+
+          Icon(_methodIcon, color: _methodColor, size: 16),
         ],
       ),
     );

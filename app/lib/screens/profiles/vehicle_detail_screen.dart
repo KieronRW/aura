@@ -275,13 +275,21 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
 
   String get _enrollmentStatus {
     final count = _referenceImages.length;
-    if (_vehicleData['fingerprint_seeded'] == true) return 'ENROLLED';
+    final score = (_vehicleData['fingerprint_score'] as num?)?.toDouble();
+    if (_vehicleData['fingerprint_seeded'] == true) {
+      if (score != null && score >= 0.65) return 'ENROLLED';
+      return 'ENROLLED (LOW QUALITY)';
+    }
     if (count >= 3) return 'READY TO ENROL';
     return 'PENDING ($count/3 images)';
   }
 
   Color get _enrollmentColor {
-    if (_vehicleData['fingerprint_seeded'] == true) return Colors.greenAccent;
+    final score = (_vehicleData['fingerprint_score'] as num?)?.toDouble();
+    if (_vehicleData['fingerprint_seeded'] == true) {
+      if (score != null && score >= 0.65) return Colors.greenAccent;
+      return Colors.orangeAccent;
+    }
     if (_referenceImages.length >= 3) return Colors.orangeAccent;
     return Colors.white24;
   }
@@ -361,14 +369,25 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          _enrollmentStatus,
-                          style: TextStyle(
-                            color: _enrollmentColor,
-                            fontSize: 12,
-                            letterSpacing: 1,
+                        Expanded(
+                          child: Text(
+                            _enrollmentStatus,
+                            style: TextStyle(
+                              color: _enrollmentColor,
+                              fontSize: 12,
+                              letterSpacing: 1,
+                            ),
                           ),
                         ),
+                        if (_vehicleData['fingerprint_score'] != null)
+                          Text(
+                            '${((_vehicleData['fingerprint_score'] as num).toDouble() * 100).toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                              color: Colors.white24,
+                              fontSize: 11,
+                              letterSpacing: 1,
+                            ),
+                          ),
                       ],
                     ),
                   ),
