@@ -128,7 +128,7 @@ class _DashboardTabState extends State<_DashboardTab> {
         .subscribe();
 
     _eventsChannel = Supabase.instance.client
-        .channel('recognition_events_inserts')
+        .channel('recognition_events_changes')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
@@ -144,6 +144,26 @@ class _DashboardTabState extends State<_DashboardTab> {
               _statusCache[installationId] = {
                 ...existing,
                 'current_state': 'recognized',
+              };
+            });
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'recognition_events',
+          callback: (payload) {
+            if (!mounted) return;
+            if (payload.newRecord['departed_at'] == null) return;
+            final installationId =
+                payload.newRecord['installation_id'] as String?;
+            if (installationId == null) return;
+            final existing = _statusCache[installationId];
+            if (existing == null) return;
+            setState(() {
+              _statusCache[installationId] = {
+                ...existing,
+                'current_state': 'idle',
               };
             });
           },
