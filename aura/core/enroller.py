@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 from dotenv import load_dotenv
 
-from aura.core.fingerprint import extract_fingerprint, fingerprint_to_json
+from aura.core.fingerprint import Fingerprint, extract_fingerprint, fingerprint_to_json
 
 load_dotenv(Path(__file__).parent.parent / "config" / ".env")
 
