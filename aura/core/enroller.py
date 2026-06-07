@@ -9,10 +9,10 @@ import numpy as np
 from dotenv import load_dotenv
 
 from aura.core.fingerprint import (
+    Fingerprint,
     extract_fingerprint,
     fingerprint_to_json,
     json_to_fingerprint,
-    Fingerprint,
 )
 
 load_dotenv(Path(__file__).parent.parent / "config" / ".env")
@@ -36,10 +36,11 @@ def _fingerprint_from_bytes(image_bytes: bytes) -> Fingerprint | None:
 
 class ReferenceImageEnroller:
     """
-    Subscribes to vehicle_reference_images INSERTs and computes ORB fingerprints
-    for each new reference image. Once a vehicle has MIN_IMAGES_FOR_SEED images
-    all fingerprinted, aggregates them into vehicles.fingerprint_data and sets
-    vehicles.fingerprint_seeded = true.
+    Processes vehicle_reference_images rows that have no fingerprint_data yet.
+    On startup runs an immediate backfill poll, then subscribes to Realtime for
+    future INSERTs. Falls back to periodic polling if Realtime is unavailable.
+    Once a vehicle has MIN_IMAGES_FOR_SEED fingerprinted images, aggregates them
+    into vehicles.fingerprint_data and sets vehicles.fingerprint_seeded = true.
     """
 
     def __init__(self) -> None:
@@ -47,6 +48,10 @@ class ReferenceImageEnroller:
         self._stop = threading.Event()
 
     def start(self) -> None:
+        log.info(
+            "Enroller: start() called — URL configured: %s, KEY configured: %s",
+            bool(_SUPABASE_URL), bool(_SUPABASE_KEY),
+        )
         if not _SUPABASE_URL or not _SUPABASE_KEY:
             log.info("Enroller: Supabase not configured — skipping")
             return
@@ -63,25 +68,42 @@ class ReferenceImageEnroller:
 
     def _run(self) -> None:
         try:
-            self._run_realtime()
+            from supabase import create_client
+            sync_client = create_client(_SUPABASE_URL, _SUPABASE_KEY)
+        except Exception:
+            log.exception("Enroller: could not create Supabase client")
+            return
+
+        # Always backfill existing unprocessed rows immediately on startup
+        log.info("Enroller: running startup backfill poll")
+        self._poll_once(sync_client)
+
+        if self._stop.is_set():
+            return
+
+        # Subscribe to Realtime for future INSERTs; fall back to polling if unavailable
+        try:
+            self._run_realtime(sync_client)
         except Exception:
             log.exception("Enroller: realtime loop failed — falling back to polling")
-            self._run_polling()
+            self._run_polling(sync_client)
 
-    def _run_realtime(self) -> None:
+    # ------------------------------------------------------------------
+    # Realtime path
+    # ------------------------------------------------------------------
+
+    def _run_realtime(self, sync_client) -> None:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            loop.run_until_complete(self._realtime_main())
+            loop.run_until_complete(self._realtime_main(sync_client))
         finally:
             loop.close()
 
-    async def _realtime_main(self) -> None:
-        from supabase import acreate_client, create_client
+    async def _realtime_main(self, sync_client) -> None:
+        from supabase import acreate_client
 
-        sync_client = create_client(_SUPABASE_URL, _SUPABASE_KEY)
         rt_client = await acreate_client(_SUPABASE_URL, _SUPABASE_KEY)
-
         queue: asyncio.Queue = asyncio.Queue()
         loop = asyncio.get_running_loop()
 
@@ -96,7 +118,8 @@ class ReferenceImageEnroller:
             schema="public",
             table="vehicle_reference_images",
             callback=_on_insert,
-        ).subscribe()
+        )
+        await channel.subscribe()
         log.info("Enroller: subscribed to vehicle_reference_images INSERT events")
 
         while not self._stop.is_set():
@@ -115,31 +138,29 @@ class ReferenceImageEnroller:
     # Polling fallback
     # ------------------------------------------------------------------
 
-    def _run_polling(self) -> None:
-        try:
-            from supabase import create_client
-            client = create_client(_SUPABASE_URL, _SUPABASE_KEY)
-        except Exception as exc:
-            log.warning("Enroller: could not create Supabase client: %s", exc)
-            return
-
+    def _run_polling(self, sync_client) -> None:
         log.info("Enroller: running in polling mode (30 s interval)")
         while not self._stop.is_set():
-            try:
-                resp = (
-                    client.table("vehicle_reference_images")
-                    .select("id, storage_path, vehicle_id")
-                    .is_("fingerprint_data", "null")
-                    .execute()
-                )
-                for row in (resp.data or []):
-                    self._process(row, client)
-            except Exception:
-                log.exception("Enroller: polling error")
+            self._poll_once(sync_client)
             self._stop.wait(30.0)
 
+    def _poll_once(self, client) -> None:
+        try:
+            resp = (
+                client.table("vehicle_reference_images")
+                .select("id, storage_path, vehicle_id")
+                .is_("fingerprint_data", "null")
+                .execute()
+            )
+            rows = resp.data or []
+            log.info("Enroller: poll found %d unprocessed row(s)", len(rows))
+            for row in rows:
+                self._process(row, client)
+        except Exception:
+            log.exception("Enroller: poll error")
+
     # ------------------------------------------------------------------
-    # Record processing (sync — safe to call from executor or polling)
+    # Record processing (sync — called from executor or polling)
     # ------------------------------------------------------------------
 
     def _process(self, record: dict, client) -> None:
