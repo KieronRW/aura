@@ -640,7 +640,7 @@ def main() -> None:
                 if (
                     result.method_used == "vision"
                     and _vehicle_id is not None
-                    and result.confidence >= 0.85
+                    and result.confidence >= 0.75
                     and 0.60 <= result.best_fp_score <= 0.72
                     and (vehicle.get("reference_image_count") or 0) < 10
                     and time.monotonic() - autolearn_last_at.get(_vehicle_id, 0.0) >= 3600.0
