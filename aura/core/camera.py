@@ -38,6 +38,12 @@ class Camera:
         self._running = False
         self._thread: threading.Thread | None = None
 
+        self._hflip: bool = False
+        self._vflip: bool = False
+        self._rotation: int = 0
+        self._motion_threshold: float = MOTION_THRESHOLD
+        self._restart_requested: bool = False
+
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
@@ -84,6 +90,34 @@ class Camera:
     def capture_still(self) -> np.ndarray | None:
         return self.get_frame()
 
+    def apply_controls(self, controls: dict) -> bool:
+        """Apply Picamera2 controls to the live camera. Returns True if applied."""
+        cam = self._cam
+        if cam is None:
+            logger.warning("apply_controls: camera not running")
+            return False
+        try:
+            cam.set_controls(controls)
+            logger.info("Camera controls applied: %s", controls)
+            return True
+        except Exception:
+            logger.exception("apply_controls failed")
+            return False
+
+    def set_transform(self, hflip: bool, vflip: bool, rotation: int) -> None:
+        """Update flip/rotation and restart the camera loop to apply the new transform."""
+        with self._lock:
+            self._hflip = hflip
+            self._vflip = vflip
+            self._rotation = rotation
+            self._restart_requested = True
+        logger.info("Camera transform set: hflip=%s vflip=%s rotation=%d — restart pending", hflip, vflip, rotation)
+
+    def set_motion_threshold(self, threshold: float) -> None:
+        with self._lock:
+            self._motion_threshold = max(1.0, threshold)
+        logger.info("Motion threshold set to %.1f", threshold)
+
     # ------------------------------------------------------------------
     # Background loop
     # ------------------------------------------------------------------
@@ -99,14 +133,23 @@ class Camera:
     def _camera_loop(self):
         from picamera2 import Picamera2
 
+        hflip, vflip = self._hflip, self._vflip
+        try:
+            from libcamera import Transform
+            transform = Transform(hflip=int(hflip), vflip=int(vflip))
+            config_kwargs = {"transform": transform}
+        except Exception:
+            config_kwargs = {}
+
         cam = Picamera2()
         preview_config = cam.create_preview_configuration(
-            main={"size": (CAMERA_WIDTH, CAMERA_HEIGHT), "format": "RGB888"}
+            main={"size": (CAMERA_WIDTH, CAMERA_HEIGHT), "format": "RGB888"},
+            **config_kwargs,
         )
         cam.configure(preview_config)
         cam.start()
         self._cam = cam
-        logger.info("Picamera2 started (%dx%d)", CAMERA_WIDTH, CAMERA_HEIGHT)
+        logger.info("Picamera2 started (%dx%d) hflip=%s vflip=%s rotation=%d", CAMERA_WIDTH, CAMERA_HEIGHT, hflip, vflip, self._rotation)
 
         prev_gray: np.ndarray | None = None
         prev_frame_gray: np.ndarray | None = None
@@ -117,9 +160,19 @@ class Camera:
             while self._running:
                 raw = cam.capture_array()
                 bgr = cv2.cvtColor(raw, cv2.COLOR_RGB2BGR)
+                rot = self._rotation
+                if rot == 90:
+                    bgr = cv2.rotate(bgr, cv2.ROTATE_90_CLOCKWISE)
+                elif rot == 180:
+                    bgr = cv2.rotate(bgr, cv2.ROTATE_180)
+                elif rot == 270:
+                    bgr = cv2.rotate(bgr, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
                 with self._lock:
                     self._frame = bgr
+                    if self._restart_requested:
+                        self._restart_requested = False
+                        break
 
                 gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
                 gray = cv2.GaussianBlur(gray, (21, 21), 0)
@@ -192,7 +245,7 @@ class Camera:
             presence_since = self._presence_since
 
         # Compute new state
-        if motion_area < MOTION_THRESHOLD:
+        if motion_area < self._motion_threshold:
             new_state = MotionState.IDLE
             new_presence_since = None
         elif not large_object:

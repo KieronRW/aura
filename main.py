@@ -374,6 +374,7 @@ def main() -> None:
         sys.exit(1)
 
     _state["camera_ok"] = True
+    _state["camera"] = camera
     _state["trigger_recognition_cb"] = camera.force_presence
 
     _synced_vehicles = sync_vehicles()
@@ -384,6 +385,15 @@ def main() -> None:
     )
     _state["supabase_ok"] = is_connected()
     _state["synced_vehicles"] = _synced_vehicles
+
+    # Apply persisted camera settings to the live camera
+    try:
+        from aura.core.camera_settings import apply_settings as _apply_cam_settings, get_settings as _get_cam_settings
+        _cam_settings = _get_cam_settings()
+        _apply_cam_settings(_cam_settings, camera)
+        logger.info("Camera settings applied from Supabase: %s", _cam_settings)
+    except Exception:
+        logger.exception("Failed to apply camera settings on startup")
 
     def _resync_vehicles() -> None:
         nonlocal _synced_vehicles

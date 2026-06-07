@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
+import 'camera_settings_screen.dart';
 
 // In-memory signed URL cache — shared across all _EventRow instances
 final Map<String, String> _signedUrlCache = {};
@@ -334,7 +335,18 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
                 icon: Icons.camera_outlined,
                 title: 'Camera',
                 subtitle: 'Sensitivity, quality',
-                onTap: () {},
+                onTap: () {
+                  final localIp = _deviceStatus?['local_ip'] as String? ?? '';
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CameraSettingsScreen(
+                        installation: widget.installation,
+                        localIp: localIp,
+                      ),
+                    ),
+                  );
+                },
               ),
               _SettingsRow(
                 icon: Icons.wifi_outlined,

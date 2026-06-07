@@ -1,9 +1,11 @@
+import asyncio
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -175,3 +177,64 @@ def claim_installation(payload: ClaimPayload):
     except Exception as exc:
         logger.warning("Claim failed: %s", exc)
         return {"ok": False, "error": str(exc)}
+
+
+# ---------------------------------------------------------------------------
+# Camera
+# ---------------------------------------------------------------------------
+
+class CameraSettingsPayload(BaseModel):
+    brightness: Optional[int] = None           # 0–100
+    contrast: Optional[int] = None             # 0–100
+    exposure: Optional[int] = None             # -50 to 50
+    horizontal_flip: Optional[bool] = None
+    vertical_flip: Optional[bool] = None
+    rotation: Optional[int] = None             # 0, 90, 180, 270
+    motion_sensitivity: Optional[int] = None   # 0–100
+
+
+@app.get("/camera/settings")
+def get_camera_settings():
+    from aura.core import camera_settings
+    return camera_settings.get_settings()
+
+
+@app.post("/camera/settings")
+def post_camera_settings(payload: CameraSettingsPayload):
+    from aura.core import camera_settings
+    params = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not params:
+        raise HTTPException(400, detail="No settings provided")
+    camera = _state.get("camera")
+    if camera is not None:
+        camera_settings.apply_settings(params, camera)
+    saved = camera_settings.save_settings(params)
+    return {"ok": True, "saved": saved, "applied": camera is not None}
+
+
+@app.get("/camera/stream")
+async def camera_stream():
+    import cv2
+    camera = _state.get("camera")
+    if camera is None:
+        raise HTTPException(503, detail="Camera not available")
+
+    async def generate():
+        while True:
+            frame = camera.get_frame()
+            if frame is not None:
+                ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                if ok:
+                    data = buf.tobytes()
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n"
+                        b"Content-Length: " + str(len(data)).encode() + b"\r\n\r\n"
+                        + data + b"\r\n"
+                    )
+            await asyncio.sleep(0.1)
+
+    return StreamingResponse(
+        generate(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
