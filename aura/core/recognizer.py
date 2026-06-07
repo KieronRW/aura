@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 # Vision results are cached against a stable image hash for this many seconds
 _VISION_CACHE_TTL = 300  # 5 minutes
 
+# Fingerprint threshold used when there is no internet connection
+_OFFLINE_FP_THRESHOLD = 0.60
+
 
 @dataclass
 class RecognitionResult:
@@ -83,13 +86,21 @@ class Recognizer:
                 return None
 
         # Step 2 — fingerprint matching against synced vehicles
+        online = self._is_online()
+        if not online:
+            logger.info(
+                "Offline mode: using reduced fingerprint threshold (%.2f)",
+                _OFFLINE_FP_THRESHOLD,
+            )
+        fp_threshold = FINGERPRINT_MATCH_THRESHOLD if online else _OFFLINE_FP_THRESHOLD
+
         self._last_fp_score = 0.0
-        result = self._match_fingerprint(cropped, detection, vehicles or [])
+        result = self._match_fingerprint(cropped, detection, vehicles or [], threshold=fp_threshold)
         if result:
             return result
 
-        # Step 3 — Google Vision fallback
-        if GOOGLE_VISION_ENABLED:
+        # Step 3 — Google Vision fallback (skipped when offline)
+        if GOOGLE_VISION_ENABLED and online:
             result = self._match_vision(frame, cropped, detection)
             if result:
                 result.best_fp_score = self._last_fp_score
@@ -111,7 +122,14 @@ class Recognizer:
     # Step 2 — fingerprint
     # ------------------------------------------------------------------
 
-    def _match_fingerprint(self, cropped: np.ndarray, detection, vehicles: list[dict]) -> RecognitionResult | None:
+    def _match_fingerprint(
+        self,
+        cropped: np.ndarray,
+        detection,
+        vehicles: list[dict],
+        *,
+        threshold: float = FINGERPRINT_MATCH_THRESHOLD,
+    ) -> RecognitionResult | None:
         if not vehicles:
             logger.debug("No registered vehicles available")
             return None
@@ -147,7 +165,7 @@ class Recognizer:
                 best_score = vehicle_best
                 best_vehicle = vehicle
 
-        if best_vehicle and best_score >= FINGERPRINT_MATCH_THRESHOLD:
+        if best_vehicle and best_score >= threshold:
             logger.info(
                 "Fingerprint match: '%s' score=%.4f", best_vehicle["owner_name"], best_score
             )
@@ -163,7 +181,7 @@ class Recognizer:
 
         logger.info(
             "No fingerprint match (best=%.4f threshold=%.2f)",
-            best_score, FINGERPRINT_MATCH_THRESHOLD,
+            best_score, threshold,
         )
         self._last_fp_score = best_score
         return None
