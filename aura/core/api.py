@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import shlex
 import subprocess
 import threading
 import time as _time
@@ -358,13 +359,13 @@ def post_network_settings(payload: NetworkSettingsPayload):
         conn_name, _device, _conn_type = conn
 
         if payload.method == "dhcp":
+            # Use shell=True so empty-string args clear the nmcli fields exactly as
+            # they would when run interactively; list-form empty strings can be a no-op.
             subprocess.run(
-                ["nmcli", "connection", "modify", conn_name,
-                 "ipv4.method", "auto",
-                 "ipv4.addresses", "",
-                 "ipv4.gateway", "",
-                 "ipv4.dns", ""],
-                check=True, capture_output=True, timeout=10,
+                "nmcli connection modify "
+                + shlex.quote(conn_name)
+                + ' ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns ""',
+                shell=True, check=True, capture_output=True, text=True, timeout=10,
             )
         else:
             if not all([payload.ip_address, payload.subnet_mask, payload.gateway]):
@@ -385,9 +386,15 @@ def post_network_settings(payload: NetworkSettingsPayload):
             ]
             subprocess.run(cmd, check=True, capture_output=True, timeout=10)
 
-        # Bring connection up after a short delay so the HTTP response can escape first
+        # Restart the connection in a background thread so the HTTP response escapes
+        # first. connection down + up forces NM to re-read the modified profile;
+        # connection up alone on an already-active link can be a no-op.
         def _apply() -> None:
-            _time.sleep(0.5)
+            _time.sleep(1.0)
+            subprocess.run(
+                ["nmcli", "connection", "down", conn_name],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10,
+            )
             subprocess.run(
                 ["nmcli", "connection", "up", conn_name],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20,
