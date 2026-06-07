@@ -55,12 +55,14 @@ class _LocationsScreenState extends State<LocationsScreen> {
             TextField(
               controller: nameController,
               autofocus: true,
+              maxLength: 20,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 labelText: 'Name',
                 labelStyle: TextStyle(color: Colors.white38),
                 hintText: 'e.g. Summer Ridge, Office',
                 hintStyle: TextStyle(color: Colors.white24),
+                counterStyle: TextStyle(color: Colors.white24),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.white24),
                 ),
@@ -163,10 +165,12 @@ class _LocationsScreenState extends State<LocationsScreen> {
             TextField(
               controller: nameController,
               autofocus: true,
+              maxLength: 20,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 labelText: 'Name',
                 labelStyle: TextStyle(color: Colors.white38),
+                counterStyle: TextStyle(color: Colors.white24),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.white24),
                 ),
@@ -246,8 +250,10 @@ class _LocationsScreenState extends State<LocationsScreen> {
         content: TextField(
           controller: controller,
           autofocus: true,
+          maxLength: 20,
           style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(
+            counterStyle: TextStyle(color: Colors.white24),
             enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.white24),
             ),
@@ -405,6 +411,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                                   fontSize: 14,
                                   fontWeight: FontWeight.w300,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                               if (property['address'] != null)
                                 Text(
@@ -413,6 +420,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                                     color: Colors.white38,
                                     fontSize: 12,
                                   ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                             ],
                           ),
