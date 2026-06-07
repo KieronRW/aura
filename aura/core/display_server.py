@@ -18,6 +18,7 @@ class DisplayServer:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
         self._ready = threading.Event()
+        self._is_idle: bool = True  # suppress log until first non-idle → idle transition
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -62,11 +63,14 @@ class DisplayServer:
             "badge_url": badge_url or "",
         })
         logger.info("Broadcasting recognition — make=%s model=%s", make, model)
+        self._is_idle = False
         self._broadcast(payload)
 
     def send_idle(self):
         payload = json.dumps({"state": "idle"})
-        logger.info("Broadcasting idle")
+        if not self._is_idle:
+            logger.info("Broadcasting idle")
+            self._is_idle = True
         self._broadcast(payload)
 
     # ------------------------------------------------------------------
