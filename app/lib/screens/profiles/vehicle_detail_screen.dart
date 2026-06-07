@@ -15,6 +15,7 @@ class VehicleDetailScreen extends StatefulWidget {
 }
 
 class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
+  late Map<String, dynamic> _vehicleData;
   List<Map<String, dynamic>> _referenceImages = [];
   bool _loading = true;
   bool _uploading = false;
@@ -24,7 +25,22 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _vehicleData = Map<String, dynamic>.from(widget.vehicle);
     _loadReferenceImages();
+    _refreshVehicle();
+  }
+
+  Future<void> _refreshVehicle() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('vehicles')
+          .select('*')
+          .eq('id', widget.vehicle['id'])
+          .single();
+      if (mounted) setState(() => _vehicleData = response);
+    } catch (e) {
+      debugPrint('Refresh vehicle error: $e');
+    }
   }
 
   Future<void> _loadReferenceImages() async {
@@ -85,6 +101,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           .eq('id', vehicleId);
 
       await _loadReferenceImages();
+      await _refreshVehicle();
     } catch (e) {
       debugPrint('Upload reference image error: $e');
       if (mounted) {
@@ -179,6 +196,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           .eq('id', widget.vehicle['id']);
 
       await _loadReferenceImages();
+      await _refreshVehicle();
     } catch (e) {
       debugPrint('Delete reference image error: $e');
     }
@@ -221,7 +239,6 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     setState(() => _deleting = true);
 
     try {
-      // Delete all reference images from storage
       if (_referenceImages.isNotEmpty) {
         final paths = _referenceImages
             .map((img) => img['storage_path'] as String)
@@ -231,13 +248,11 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             .remove(paths);
       }
 
-      // Delete reference image rows
       await Supabase.instance.client
           .from('vehicle_reference_images')
           .delete()
           .eq('vehicle_id', widget.vehicle['id']);
 
-      // Delete vehicle row
       await Supabase.instance.client
           .from('vehicles')
           .delete()
@@ -260,13 +275,13 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
 
   String get _enrollmentStatus {
     final count = _referenceImages.length;
-    if (widget.vehicle['fingerprint_seeded'] == true) return 'ENROLLED';
+    if (_vehicleData['fingerprint_seeded'] == true) return 'ENROLLED';
     if (count >= 3) return 'READY TO ENROL';
     return 'PENDING ($count/3 images)';
   }
 
   Color get _enrollmentColor {
-    if (widget.vehicle['fingerprint_seeded'] == true) return Colors.greenAccent;
+    if (_vehicleData['fingerprint_seeded'] == true) return Colors.greenAccent;
     if (_referenceImages.length >= 3) return Colors.orangeAccent;
     return Colors.white24;
   }
@@ -274,9 +289,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final vehicleName =
-        widget.vehicle['nickname'] ??
-        '${widget.vehicle['make'] ?? ''} ${widget.vehicle['model'] ?? ''}'
-            .trim();
+        _vehicleData['nickname'] ??
+        '${_vehicleData['make'] ?? ''} ${_vehicleData['model'] ?? ''}'.trim();
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -313,14 +327,11 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _InfoRow('Make', widget.vehicle['make'] ?? '—'),
-                  _InfoRow('Model', widget.vehicle['model'] ?? '—'),
-                  _InfoRow('Colour', widget.vehicle['colour'] ?? '—'),
-                  _InfoRow(
-                    'Registration',
-                    widget.vehicle['registration'] ?? '—',
-                  ),
-                  _InfoRow('Greeting', widget.vehicle['owner_greeting'] ?? '—'),
+                  _InfoRow('Make', _vehicleData['make'] ?? '—'),
+                  _InfoRow('Model', _vehicleData['model'] ?? '—'),
+                  _InfoRow('Colour', _vehicleData['colour'] ?? '—'),
+                  _InfoRow('Registration', _vehicleData['registration'] ?? '—'),
+                  _InfoRow('Greeting', _vehicleData['owner_greeting'] ?? '—'),
 
                   const SizedBox(height: 32),
 
@@ -440,7 +451,6 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                     ),
 
                   const SizedBox(height: 48),
-
                   const Divider(color: Colors.white12),
                   const SizedBox(height: 24),
 
