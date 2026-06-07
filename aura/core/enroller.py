@@ -184,7 +184,6 @@ class ReferenceImageEnroller:
             log.warning("Enroller: could not decode image %s — skipping", storage_path)
             return
 
-        descriptor_count = len(fp.descriptors) if fp.descriptors is not None else 0
         fp_json = fingerprint_to_json(fp)
 
         try:
@@ -192,8 +191,8 @@ class ReferenceImageEnroller:
                 {"fingerprint_data": fp_json}
             ).eq("id", row_id).execute()
             log.info(
-                "Enroller: wrote fingerprint_data for ref image id=%s (%d descriptors)",
-                row_id, descriptor_count,
+                "Enroller: wrote fingerprint_data for ref image id=%s (embedding dim=%d)",
+                row_id, len(fp.embedding),
             )
         except Exception as exc:
             log.warning("Enroller: update failed for id=%s: %s", row_id, exc)
