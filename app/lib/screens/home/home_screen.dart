@@ -1,5 +1,7 @@
 // Home screen — four tab navigation: Home, Profiles, Automations, Settings
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
@@ -83,6 +85,7 @@ class _DashboardTabState extends State<_DashboardTab> {
   bool _loading = true;
   bool _backgroundRefreshing = false;
   RealtimeChannel? _statusChannel;
+  Timer? _onlineCheckTimer;
 
   late final _authSubscription = Supabase.instance.client.auth.onAuthStateChange
       .listen((data) {
@@ -103,12 +106,17 @@ class _DashboardTabState extends State<_DashboardTab> {
     super.initState();
     _loadData();
     _subscribeToRealtime();
+    _onlineCheckTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) { if (mounted) setState(() {}); },
+    );
   }
 
   @override
   void dispose() {
     _authSubscription.cancel();
     _statusChannel?.unsubscribe();
+    _onlineCheckTimer?.cancel();
     super.dispose();
   }
 
