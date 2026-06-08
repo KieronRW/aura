@@ -95,9 +95,23 @@ class ReferenceImageEnroller:
             log.exception("Enroller: could not create Supabase client")
             return
 
-        # Always backfill existing unprocessed rows immediately on startup
+        # Always backfill existing unprocessed rows immediately on startup.
+        # Retry up to 3 times with a 10 s delay so a slow network on boot
+        # doesn't permanently skip the backfill.
         log.info("Enroller: running startup backfill poll")
-        self._poll_once(sync_client)
+        for attempt in range(1, 4):
+            if self._poll_once(sync_client):
+                break
+            if attempt < 3 and not self._stop.is_set():
+                log.warning(
+                    "Enroller: startup backfill attempt %d/3 failed — retrying in 10 s",
+                    attempt,
+                )
+                self._stop.wait(10.0)
+            else:
+                log.warning(
+                    "Enroller: startup backfill failed after %d attempt(s)", attempt
+                )
 
         if self._stop.is_set():
             return
@@ -162,10 +176,14 @@ class ReferenceImageEnroller:
     def _run_polling(self, sync_client) -> None:
         log.info("Enroller: running in polling mode (30 s interval)")
         while not self._stop.is_set():
-            self._poll_once(sync_client)
+            try:
+                self._poll_once(sync_client)
+            except Exception:
+                log.exception("Enroller: unexpected error in poll loop")
             self._stop.wait(30.0)
 
-    def _poll_once(self, client) -> None:
+    def _poll_once(self, client) -> bool:
+        """Query for unprocessed rows and fingerprint each one. Returns True on success."""
         try:
             resp = (
                 client.table("vehicle_reference_images")
@@ -177,8 +195,10 @@ class ReferenceImageEnroller:
             log.info("Enroller: poll found %d unprocessed row(s)", len(rows))
             for row in rows:
                 self._process(row, client)
+            return True
         except Exception:
             log.exception("Enroller: poll error")
+            return False
 
     # ------------------------------------------------------------------
     # Record processing (sync — called from executor or polling)
