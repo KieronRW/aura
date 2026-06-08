@@ -145,7 +145,12 @@ def apply_settings(params: dict[str, Any], camera) -> None:
 
     if "contrast" in params:
         contrast = max(0, min(100, int(params["contrast"])))
-        controls["Contrast"] = round(contrast * 32.0 / 100.0, 4)
+        # Piecewise: 0→0.0, 50→1.0 (neutral/default), 100→32.0
+        if contrast <= 50:
+            picam_contrast = contrast / 50.0
+        else:
+            picam_contrast = 1.0 + (contrast - 50) * 31.0 / 50.0
+        controls["Contrast"] = round(picam_contrast, 4)
 
     if "exposure" in params:
         exposure = max(-50, min(50, int(params["exposure"])))
