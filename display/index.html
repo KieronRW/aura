@@ -342,7 +342,7 @@
     let ws                = null;
     let manualOverride    = false;
     let lastPreArrivalAt  = 0;           // Date.now() of last visitor_pre_arrival message
-    const PRE_ARRIVAL_LINGER = 20000;    // ms — don't let idle override a fresh pre-arrival
+    const PRE_ARRIVAL_LINGER = 3000;     // ms — don't let idle override a fresh pre-arrival
 
     // ── Screen transitions ──────────────────────────────────────────
 
@@ -435,8 +435,6 @@
       });
 
       ws.addEventListener('message', ({ data }) => {
-        document.body.style.background = 'red';
-        setTimeout(() => { document.body.style.background = ''; }, 500);
         let msg;
         try { msg = JSON.parse(data); } catch { return; }
         console.log('[AURA] ws message state:', msg.state);
