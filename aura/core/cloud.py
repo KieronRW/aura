@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import socket
@@ -75,35 +76,50 @@ def get_installation_uuid() -> str | None:
 def subscribe_visitor_updates(installation_uuid: str, on_change) -> None:
     """Start a background Realtime subscription for visitors table UPDATE events.
 
-    Calls on_change() (from a background thread) whenever any visitor row for
-    this installation is updated.  Fails silently if Supabase or Realtime is
-    unavailable — the periodic sync in main.py remains the fallback.
+    Calls on_change() whenever any visitor row for this installation is updated.
+    Uses acreate_client + a dedicated asyncio event loop in a daemon thread —
+    the same pattern used by ReferenceImageEnroller for INSERT subscriptions.
+    Falls back silently if Supabase is unavailable; the 5-minute periodic sync
+    in main.py remains the safety net.
     """
-    client = _get_client()
-    if client is None:
-        log.warning("subscribe_visitor_updates: Supabase client unavailable — skipping")
+    if not _SUPABASE_URL or not _SUPABASE_KEY:
+        log.warning("subscribe_visitor_updates: Supabase not configured — skipping")
         return
 
-    def _callback(payload):
-        log.debug("Realtime: visitors UPDATE received — %s", payload)
-        try:
-            on_change()
-        except Exception as exc:
-            log.warning("Realtime visitor on_change error: %s", exc)
+    async def _realtime_main() -> None:
+        from supabase import acreate_client
+        rt_client = await acreate_client(_SUPABASE_URL, _SUPABASE_KEY)
 
-    def _run():
+        def _callback(payload, *_) -> None:
+            log.debug("Realtime: visitors UPDATE received — %s", payload)
+            try:
+                on_change()
+            except Exception as exc:
+                log.warning("Realtime visitor on_change error: %s", exc)
+
+        channel = rt_client.channel(f"aura-visitors-{installation_uuid}")
+        channel.on_postgres_changes(
+            event="UPDATE",
+            schema="public",
+            table="visitors",
+            filter=f"installation_id=eq.{installation_uuid}",
+            callback=_callback,
+        )
+        await channel.subscribe()
+        log.info("Realtime: subscribed to visitors UPDATE (uuid=%s)", installation_uuid)
+
+        while True:
+            await asyncio.sleep(1.0)
+
+    def _run() -> None:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            channel = client.channel(f"aura-visitors-{installation_uuid}")
-            channel.on_postgres_changes(
-                event="UPDATE",
-                schema="public",
-                table="visitors",
-                filter=f"installation_id=eq.{installation_uuid}",
-                callback=_callback,
-            ).subscribe()
-            log.info("Realtime: subscribed to visitors UPDATE (uuid=%s)", installation_uuid)
+            loop.run_until_complete(_realtime_main())
         except Exception as exc:
             log.warning("Realtime visitor subscription failed: %s", exc)
+        finally:
+            loop.close()
 
     threading.Thread(target=_run, daemon=True, name="realtime-visitors").start()
 
