@@ -341,21 +341,14 @@
     let reconnectTimer    = null;
     let ws                = null;
     let manualOverride    = false;
-    let lastPreArrivalAt  = 0;           // Date.now() of last visitor_pre_arrival message
-    const PRE_ARRIVAL_LINGER = 3000;     // ms — don't let idle override a fresh pre-arrival
+    let lastNonIdleAt = 0;               // Date.now() of last non-idle state message
 
     // ── Screen transitions ──────────────────────────────────────────
 
     function showIdle(force = false) {
       if (!force && manualOverride) return;
       if (currentState === 'idle') return;
-      // Don't let a stray idle broadcast wipe out a visitor pre-arrival that just arrived.
-      // Wait until no pre-arrival has been received for longer than the Pi's broadcast interval.
-      if (!force && (currentState === 'visitor_pre_arrival' || currentState === 'visitor_bay_occupied') &&
-          Date.now() - lastPreArrivalAt < PRE_ARRIVAL_LINGER) {
-        console.log('[AURA] showIdle suppressed — visitor pre-arrival is fresh');
-        return;
-      }
+      if (!force && Date.now() - lastNonIdleAt < 8000) return;
       currentState = 'idle';
       recScreen.classList.remove('active');
       visitorScreen.classList.remove('active');
@@ -364,7 +357,7 @@
 
     function showVisitorPreArrival(data) {
       console.log('[AURA] showVisitorPreArrival:', data.visitor_name, '|', data.message);
-      lastPreArrivalAt = Date.now();
+      lastNonIdleAt = Date.now();
       currentState = 'visitor_pre_arrival';
       visitorMessage.textContent = data.message || '';
       idleScreen.classList.remove('active');
@@ -373,7 +366,7 @@
     }
 
     function showVisitorBayOccupied(data) {
-      lastPreArrivalAt = Date.now();
+      lastNonIdleAt = Date.now();
       currentState = 'visitor_bay_occupied';
       visitorMessage.textContent = data.message || '';
       idleScreen.classList.remove('active');
@@ -382,6 +375,7 @@
     }
 
     function showRecognition(data) {
+      lastNonIdleAt = Date.now();
       currentState = 'recognition';
       idleScreen.classList.remove('active');
       visitorScreen.classList.remove('active');
