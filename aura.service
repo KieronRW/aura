@@ -7,7 +7,9 @@ Wants=network-online.target
 Type=simple
 User=aura
 WorkingDirectory=/home/aura/aura
-ExecStartPre=/bin/sh -c 'LIBSEAT_BACKEND=seatd labwc &'
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=LIBSEAT_BACKEND=seatd
+ExecStartPre=/bin/sh -c 'labwc &'
 ExecStart=/usr/bin/python3 /home/aura/aura/main.py
 Restart=on-failure
 RestartSec=10
