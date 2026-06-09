@@ -83,6 +83,15 @@ class DisplayServer:
         self._is_idle = False
         self._broadcast(payload)
 
+    def send_visitor_bay_occupied(self, message: str):
+        payload = json.dumps({
+            "state":   "visitor_bay_occupied",
+            "message": message,
+        })
+        logger.info("Broadcasting visitor bay occupied — %s", message)
+        self._is_idle = False
+        self._broadcast(payload)
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------

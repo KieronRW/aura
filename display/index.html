@@ -351,7 +351,7 @@
       if (currentState === 'idle') return;
       // Don't let a stray idle broadcast wipe out a visitor pre-arrival that just arrived.
       // Wait until no pre-arrival has been received for longer than the Pi's broadcast interval.
-      if (!force && currentState === 'visitor_pre_arrival' &&
+      if (!force && (currentState === 'visitor_pre_arrival' || currentState === 'visitor_bay_occupied') &&
           Date.now() - lastPreArrivalAt < PRE_ARRIVAL_LINGER) {
         console.log('[AURA] showIdle suppressed — visitor pre-arrival is fresh');
         return;
@@ -372,8 +372,20 @@
       visitorScreen.classList.add('active');
     }
 
+    function showVisitorBayOccupied(data) {
+      lastPreArrivalAt = Date.now();
+      currentState = 'visitor_bay_occupied';
+      visitorMessage.textContent = data.message || '';
+      idleScreen.classList.remove('active');
+      recScreen.classList.remove('active');
+      visitorScreen.classList.add('active');
+    }
+
     function showRecognition(data) {
       currentState = 'recognition';
+      idleScreen.classList.remove('active');
+      visitorScreen.classList.remove('active');
+      recScreen.classList.add('active');
 
       const parts = [data.make, data.model].filter(Boolean);
       recMM.textContent       = parts.join('  ·  ');
@@ -442,6 +454,8 @@
           showRecognition(msg);
         } else if (msg.state === 'visitor_pre_arrival') {
           showVisitorPreArrival(msg);
+        } else if (msg.state === 'visitor_bay_occupied') {
+          showVisitorBayOccupied(msg);
         } else {
           showIdle();
         }

@@ -790,12 +790,15 @@ def main() -> None:
                                 f"{result.make or 'Vehicle'} at gate",
                             )
 
-                    display.send_recognition(
-                        make=result.make or "",
-                        model=result.model or "",
-                        greeting=greeting,
-                        badge_url=badge_url,
-                    )
+                    if visitor:
+                        display.send_recognition(
+                            make=result.make or "",
+                            model=result.model or "",
+                            greeting=greeting,
+                            badge_url=badge_url,
+                        )
+                    else:
+                        display.send_visitor_bay_occupied(greeting)
                     last_recognition_sent_at = time.monotonic()
                     last_recognized_make = result.make or ""
                     last_hold_check_at = 0.0
