@@ -73,6 +73,16 @@ class DisplayServer:
             self._is_idle = True
         self._broadcast(payload)
 
+    def send_visitor_pre_arrival(self, name: str, message: str):
+        payload = json.dumps({
+            "state":        "visitor_pre_arrival",
+            "visitor_name": name,
+            "message":      message,
+        })
+        logger.info("Broadcasting visitor pre-arrival — %s", name)
+        self._is_idle = False
+        self._broadcast(payload)
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------

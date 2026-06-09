@@ -73,6 +73,7 @@ from aura.core.discovery import DiscoveryService
 from aura.core.camera import Camera, MotionState
 from aura.core.cloud import (
     get_expected_visitors,
+    get_installation_uuid,
     is_connected,
     log_recognition,
     log_unknown_vehicle,
@@ -91,9 +92,10 @@ from aura.core.recognizer import Recognizer
 # Constants
 # ---------------------------------------------------------------------------
 
-_RECOGNITION_COOLDOWN = 3        # seconds between recognition attempts
+_RECOGNITION_COOLDOWN  = 3        # seconds between recognition attempts
 _VEHICLE_SYNC_INTERVAL = 300     # re-sync vehicles from Supabase every 5 minutes
 _HEARTBEAT_INTERVAL    = 30      # push device_status heartbeat every 30 seconds
+_PRE_ARRIVAL_INTERVAL  = 10      # seconds between cycling pre-arrival visitor messages
 _BADGES_DIR = Path(__file__).parent / "assets" / "badges"
 _BADGE_BASE_URL = "http://localhost:8080/assets/badges"
 _DEFAULT_BADGE_URL = f"{_BADGE_BASE_URL}/default.png"
@@ -133,15 +135,44 @@ def _find_vehicle_by_make(make: str | None, vehicles: list[dict]) -> dict | None
 
 
 def _find_visitor(result, visitors: list[dict]) -> dict | None:
-    """Match a recognition result against expected visitors by make (case-insensitive)."""
+    """Match a recognition result against expected visitors by vehicle_make (case-insensitive)."""
     if not visitors or not result.make:
         return None
     make_lower = result.make.lower()
     for v in visitors:
-        v_make = (v.get("make") or "").lower().strip()
+        v_make = (v.get("vehicle_make") or "").lower().strip()
         if v_make and (v_make in make_lower or make_lower.startswith(v_make)):
             return v
     return None
+
+
+def _get_active_visitors(visitors: list[dict], installation_uuid: str | None) -> list[dict]:
+    """Filter synced visitors to those currently within their time window and matching this installation."""
+    now = datetime.now(timezone.utc)
+    active = []
+    for v in visitors:
+        expected_from = v.get("expected_from")
+        expected_until = v.get("expected_until")
+        if expected_from:
+            try:
+                from_dt = datetime.fromisoformat(expected_from.replace("Z", "+00:00"))
+                if now < from_dt:
+                    continue
+            except ValueError:
+                continue
+        if expected_until:
+            try:
+                until_dt = datetime.fromisoformat(expected_until.replace("Z", "+00:00"))
+                if now > until_dt:
+                    continue
+            except ValueError:
+                continue
+        installation_ids = v.get("installation_ids")
+        if installation_ids and installation_uuid:
+            if installation_uuid not in installation_ids:
+                continue
+        active.append(v)
+    return active
 
 # ---------------------------------------------------------------------------
 # Banner
@@ -403,9 +434,10 @@ def main() -> None:
     _synced_vehicles = sync_vehicles()
     _synced_visitors = get_expected_visitors()
     _synced_settings = sync_settings()
+    _installation_uuid = get_installation_uuid()
     logger.info(
-        "Supabase sync: %d vehicles, %d visitors, %d settings",
-        len(_synced_vehicles), len(_synced_visitors), len(_synced_settings),
+        "Supabase sync: %d vehicles, %d visitors, %d settings, uuid=%s",
+        len(_synced_vehicles), len(_synced_visitors), len(_synced_settings), _installation_uuid,
     )
     _state["supabase_ok"] = is_connected()
     _state["synced_vehicles"] = _synced_vehicles
@@ -473,6 +505,8 @@ def main() -> None:
     last_event_id: int | None = None
     last_vehicle_sync_at: float = time.monotonic()
     autolearn_last_at: dict[int, float] = {}  # vehicle_id → monotonic time of last auto-learn
+    last_pre_arrival_at: float = 0.0
+    pre_arrival_index: int = 0
 
     # Startup scan: recognise any car already in frame
     logger.info("Startup: running initial recognition scan")
@@ -615,8 +649,18 @@ def main() -> None:
             if state != MotionState.PRESENCE:
                 if state == MotionState.IDLE:
                     _write_idle()
-                    if time.monotonic() - last_recognition_sent_at >= 10.0:
-                        display.send_idle()
+                    if now_mono - last_recognition_sent_at >= 10.0:
+                        active_pre = _get_active_visitors(_synced_visitors, _installation_uuid)
+                        if active_pre:
+                            if now_mono - last_pre_arrival_at >= _PRE_ARRIVAL_INTERVAL:
+                                last_pre_arrival_at = now_mono
+                                v = active_pre[pre_arrival_index % len(active_pre)]
+                                pre_arrival_index += 1
+                                vname = v.get("name") or "Visitor"
+                                msg = v.get("pre_arrival_message") or f"Welcome {vname}, please park here"
+                                display.send_visitor_pre_arrival(vname, msg)
+                        else:
+                            display.send_idle()
                     _state["current_state"] = "idle"
                     _state["vehicle_present"] = False
                 time.sleep(0.25)
@@ -655,10 +699,20 @@ def main() -> None:
                 visitor_id = None
                 needs_review = False
 
+                bay_occupied_greeting: str | None = None
                 if not vehicle:
-                    visitor = _find_visitor(result, _synced_visitors)
+                    active_visitors_now = _get_active_visitors(_synced_visitors, _installation_uuid)
+                    visitor = _find_visitor(result, active_visitors_now)
                     if visitor:
                         visitor_id = visitor.get("id")
+                    elif active_visitors_now:
+                        bay_visitor = active_visitors_now[0]
+                        bay_name = bay_visitor.get("name") or "Visitor"
+                        bay_occupied_greeting = (
+                            bay_visitor.get("bay_occupied_message")
+                            or f"This bay is reserved for {bay_name}"
+                        )
+                        needs_review = True
                     else:
                         needs_review = True
 
@@ -667,7 +721,10 @@ def main() -> None:
                     greeting = vehicle.get("owner_greeting") or f"Welcome, {name}"
                 elif visitor:
                     name = visitor.get("name") or "Visitor"
-                    greeting = visitor.get("greeting") or f"Welcome, {name}"
+                    greeting = visitor.get("arrival_message") or visitor.get("greeting") or f"Welcome, {name}"
+                elif bay_occupied_greeting:
+                    name = "Visitor"
+                    greeting = bay_occupied_greeting
                 else:
                     name = "Visitor"
                     greeting = "Welcome Visitor"

@@ -66,6 +66,11 @@ def is_connected() -> bool:
     return _get_client() is not None
 
 
+def get_installation_uuid() -> str | None:
+    """Return the resolved installation UUID for this device, or None if unavailable."""
+    return _get_installation_uuid()
+
+
 def sync_vehicles() -> list[dict]:
     """Return active vehicles for this installation from Supabase, or [] if unreachable.
 
@@ -249,7 +254,7 @@ def log_unknown_vehicle(
         "detected_make": detected_make,
         "detected_model": detected_model,
         "confidence": confidence,
-        "detected_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     try:
         response = client.table("unknown_vehicles").insert(payload).execute()
