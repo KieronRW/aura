@@ -291,7 +291,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
 // Expected visitor row
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _VisitorRow extends StatelessWidget {
+class _VisitorRow extends StatefulWidget {
   final Map<String, dynamic> visitor;
   final String status;
   final Color statusColor;
@@ -307,72 +307,121 @@ class _VisitorRow extends StatelessWidget {
   });
 
   @override
+  State<_VisitorRow> createState() => _VisitorRowState();
+}
+
+class _VisitorRowState extends State<_VisitorRow> {
+  late bool _isActive;
+
+  @override
+  void initState() {
+    super.initState();
+    _isActive = widget.visitor['is_active'] as bool? ?? true;
+  }
+
+  Future<void> _toggleActive() async {
+    final newValue = !_isActive;
+    setState(() => _isActive = newValue);
+    try {
+      final client = Supabase.instance.client;
+      await client
+          .from('visitors')
+          .update({'is_active': newValue})
+          .eq('id', widget.visitor['id']);
+    } catch (_) {
+      if (mounted) setState(() => _isActive = !newValue);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final name = visitor['name'] as String? ?? 'Unknown';
-    final make = visitor['vehicle_make'] as String?;
-    final model = visitor['vehicle_model'] as String?;
+    final name = widget.visitor['name'] as String? ?? 'Unknown';
+    final make = widget.visitor['vehicle_make'] as String?;
+    final model = widget.visitor['vehicle_model'] as String?;
     final vehicleLabel =
         [make, model].where((s) => s != null && s.isNotEmpty).join(' ');
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.white12)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    final nameColor = _isActive ? Colors.white : Colors.white38;
+    final subColor = _isActive ? Colors.white38 : Colors.white24;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.white12)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: widget.onTap,
+              behavior: HitTestBehavior.opaque,
+              child: Row(
                 children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w300,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: TextStyle(
+                            color: nameColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w300,
+                          ),
+                        ),
+                        if (vehicleLabel.isNotEmpty)
+                          Text(
+                            vehicleLabel,
+                            style: TextStyle(
+                              color: subColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.window,
+                          style: TextStyle(
+                            color: subColor,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  if (vehicleLabel.isNotEmpty)
-                    Text(
-                      vehicleLabel,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 12,
+                  if (_isActive)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Text(
+                        widget.status,
+                        style: TextStyle(
+                          color: widget.statusColor,
+                          fontSize: 9,
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
-                  const SizedBox(height: 2),
-                  Text(
-                    window,
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 11,
-                    ),
-                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right,
+                      color: Colors.white24, size: 18),
+                  const SizedBox(width: 4),
                 ],
               ),
             ),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white12),
-              ),
-              child: Text(
-                status,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 9,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: Colors.white24, size: 18),
-          ],
-        ),
+          ),
+          Switch(
+            value: _isActive,
+            onChanged: (_) => _toggleActive(),
+            activeThumbColor: Colors.white,
+            activeTrackColor: Colors.white24,
+            inactiveThumbColor: Colors.white38,
+            inactiveTrackColor: Colors.white12,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
       ),
     );
   }
