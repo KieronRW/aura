@@ -424,6 +424,8 @@
       });
 
       ws.addEventListener('message', ({ data }) => {
+        wsDot.style.background = 'rgba(255,60,60,0.9)';
+        setTimeout(() => { wsDot.style.background = ''; }, 500);
         let msg;
         try { msg = JSON.parse(data); } catch { return; }
         if (msg.state === 'recognition') {
