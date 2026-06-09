@@ -106,6 +106,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
       MaterialPageRoute(
         builder: (_) => _AddEditVisitorScreen(
           installationId: installationId,
+          propertyId: _installation?['property_id'] as String?,
           visitor: visitor,
           prefillMake: prefill?['detected_make'] as String?,
           prefillModel: prefill?['detected_model'] as String?,
@@ -656,12 +657,14 @@ class _HistoryRow extends StatelessWidget {
 
 class _AddEditVisitorScreen extends StatefulWidget {
   final String installationId;
+  final String? propertyId;
   final Map<String, dynamic>? visitor;
   final String? prefillMake;
   final String? prefillModel;
 
   const _AddEditVisitorScreen({
     required this.installationId,
+    this.propertyId,
     this.visitor,
     this.prefillMake,
     this.prefillModel,
@@ -678,9 +681,14 @@ class _AddEditVisitorScreenState extends State<_AddEditVisitorScreen> {
   final _registrationCtrl = TextEditingController();
   final _greetingCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  final _preArrivalMsgCtrl = TextEditingController();
+  final _arrivalMsgCtrl = TextEditingController();
+  final _bayOccupiedMsgCtrl = TextEditingController();
 
   DateTime? _expectedFrom;
   DateTime? _expectedUntil;
+  List<String> _selectedInstallationIds = [];
+  List<Map<String, dynamic>> _availableInstallations = [];
   bool _saving = false;
   bool _deleting = false;
   String? _error;
@@ -698,16 +706,24 @@ class _AddEditVisitorScreenState extends State<_AddEditVisitorScreen> {
       _registrationCtrl.text = v['registration'] as String? ?? '';
       _greetingCtrl.text = v['greeting'] as String? ?? '';
       _notesCtrl.text = v['notes'] as String? ?? '';
+      _preArrivalMsgCtrl.text = v['pre_arrival_message'] as String? ?? '';
+      _arrivalMsgCtrl.text = v['arrival_message'] as String? ?? '';
+      _bayOccupiedMsgCtrl.text = v['bay_occupied_message'] as String? ?? '';
       if (v['expected_from'] != null) {
         _expectedFrom = DateTime.parse(v['expected_from'].toString());
       }
       if (v['expected_until'] != null) {
         _expectedUntil = DateTime.parse(v['expected_until'].toString());
       }
+      final ids = v['installation_ids'];
+      if (ids is List) {
+        _selectedInstallationIds = ids.map((e) => e.toString()).toList();
+      }
     } else {
       _makeCtrl.text = widget.prefillMake ?? '';
       _modelCtrl.text = widget.prefillModel ?? '';
     }
+    _loadInstallations();
   }
 
   @override
@@ -718,7 +734,22 @@ class _AddEditVisitorScreenState extends State<_AddEditVisitorScreen> {
     _registrationCtrl.dispose();
     _greetingCtrl.dispose();
     _notesCtrl.dispose();
+    _preArrivalMsgCtrl.dispose();
+    _arrivalMsgCtrl.dispose();
+    _bayOccupiedMsgCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadInstallations() async {
+    if (widget.propertyId == null) return;
+    try {
+      final data = await SupabaseService.getInstallationsByProperty(
+        widget.propertyId!,
+      );
+      if (mounted) setState(() => _availableInstallations = data);
+    } catch (e) {
+      debugPrint('Load installations error: $e');
+    }
   }
 
   Future<void> _pickDateTime(bool isFrom) async {
@@ -803,6 +834,17 @@ class _AddEditVisitorScreenState extends State<_AddEditVisitorScreen> {
           _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
       'expected_from': _expectedFrom?.toUtc().toIso8601String(),
       'expected_until': _expectedUntil?.toUtc().toIso8601String(),
+      'pre_arrival_message': _preArrivalMsgCtrl.text.trim().isNotEmpty
+          ? _preArrivalMsgCtrl.text.trim()
+          : null,
+      'arrival_message': _arrivalMsgCtrl.text.trim().isNotEmpty
+          ? _arrivalMsgCtrl.text.trim()
+          : null,
+      'bay_occupied_message': _bayOccupiedMsgCtrl.text.trim().isNotEmpty
+          ? _bayOccupiedMsgCtrl.text.trim()
+          : null,
+      'installation_ids':
+          _selectedInstallationIds.isNotEmpty ? _selectedInstallationIds : null,
       'is_active': true,
     };
 
@@ -1000,6 +1042,96 @@ class _AddEditVisitorScreenState extends State<_AddEditVisitorScreen> {
                     onTap: () => _pickDateTime(false),
                     onClear: () => setState(() => _expectedUntil = null),
                   ),
+
+                  const SizedBox(height: 32),
+                  const Text(
+                    'MESSAGES',
+                    style: TextStyle(
+                      fontSize: 10,
+                      letterSpacing: 3,
+                      color: Colors.white24,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildField(
+                    _preArrivalMsgCtrl,
+                    'Pre-arrival message',
+                    'Welcome Dr Andrews, please park here',
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildField(
+                    _arrivalMsgCtrl,
+                    'Arrival message',
+                    'Welcome Dr Andrews! Guest WiFi: 123456qwert',
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildField(
+                    _bayOccupiedMsgCtrl,
+                    'Bay occupied message',
+                    'Kindly use another bay, Dr Andrews is expected shortly',
+                    maxLines: 2,
+                  ),
+
+                  if (_availableInstallations.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    const Text(
+                      'AURA SELECTION',
+                      style: TextStyle(
+                        fontSize: 10,
+                        letterSpacing: 3,
+                        color: Colors.white24,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Leave empty to apply to all Auras',
+                      style: TextStyle(color: Colors.white24, fontSize: 12),
+                    ),
+                    const SizedBox(height: 8),
+                    ..._availableInstallations.map((inst) {
+                      final id = inst['id'] as String;
+                      final selected = _selectedInstallationIds.contains(id);
+                      return GestureDetector(
+                        onTap: () => setState(() {
+                          if (selected) {
+                            _selectedInstallationIds.remove(id);
+                          } else {
+                            _selectedInstallationIds.add(id);
+                          }
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(color: Colors.white12),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                selected
+                                    ? Icons.check_box
+                                    : Icons.check_box_outline_blank,
+                                color: selected ? Colors.white : Colors.white38,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                inst['name'] as String? ?? 'Aura',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w300,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
 
                   const SizedBox(height: 32),
                   _buildField(
