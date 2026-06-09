@@ -541,6 +541,7 @@ def main() -> None:
     autolearn_last_at: dict[int, float] = {}  # vehicle_id → monotonic time of last auto-learn
     last_pre_arrival_at: float = 0.0
     pre_arrival_index: int = 0
+    _in_visitor_mode: bool = False
 
     # Startup scan: recognise any car already in frame
     logger.info("Startup: running initial recognition scan")
@@ -692,6 +693,7 @@ def main() -> None:
                     if now_mono - last_recognition_sent_at >= 10.0:
                         active_pre = _get_active_visitors(_synced_visitors, _installation_uuid)
                         if active_pre:
+                            _in_visitor_mode = True
                             if now_mono - last_pre_arrival_at >= _PRE_ARRIVAL_INTERVAL:
                                 last_pre_arrival_at = now_mono
                                 v = active_pre[pre_arrival_index % len(active_pre)]
@@ -700,6 +702,9 @@ def main() -> None:
                                 msg = v.get("pre_arrival_message") or f"Welcome {vname}, please park here"
                                 display.send_visitor_pre_arrival(vname, msg)
                         else:
+                            if _in_visitor_mode:
+                                _in_visitor_mode = False
+                                display.send_visitor_mode_ended()
                             display.send_idle()
                     _state["current_state"] = "idle"
                     _state["vehicle_present"] = False

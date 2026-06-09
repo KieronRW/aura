@@ -341,14 +341,14 @@
     let reconnectTimer    = null;
     let ws                = null;
     let manualOverride    = false;
-    let lastNonIdleAt = 0;               // Date.now() of last non-idle state message
+    let isVisitorModeActive = false;     // true while visitor pre-arrival/arrival flow is active
 
     // ── Screen transitions ──────────────────────────────────────────
 
     function showIdle(force = false) {
       if (!force && manualOverride) return;
       if (currentState === 'idle') return;
-      if (!force && Date.now() - lastNonIdleAt < 8000) return;
+      if (!force && isVisitorModeActive) return;
       currentState = 'idle';
       recScreen.classList.remove('active');
       visitorScreen.classList.remove('active');
@@ -357,7 +357,7 @@
 
     function showVisitorPreArrival(data) {
       console.log('[AURA] showVisitorPreArrival:', data.visitor_name, '|', data.message);
-      lastNonIdleAt = Date.now();
+      isVisitorModeActive = true;
       currentState = 'visitor_pre_arrival';
       visitorMessage.textContent = data.message || '';
       idleScreen.classList.remove('active');
@@ -366,7 +366,6 @@
     }
 
     function showVisitorBayOccupied(data) {
-      lastNonIdleAt = Date.now();
       currentState = 'visitor_bay_occupied';
       visitorMessage.textContent = data.message || '';
       idleScreen.classList.remove('active');
@@ -374,8 +373,15 @@
       visitorScreen.classList.add('active');
     }
 
+    function showVisitorModeEnded() {
+      isVisitorModeActive = false;
+      currentState = 'idle';
+      recScreen.classList.remove('active');
+      visitorScreen.classList.remove('active');
+      idleScreen.classList.add('active');
+    }
+
     function showRecognition(data) {
-      lastNonIdleAt = Date.now();
       currentState = 'recognition';
       idleScreen.classList.remove('active');
       visitorScreen.classList.remove('active');
@@ -438,6 +444,7 @@
 
       ws.addEventListener('open', () => {
         wsDot.className = 'connected';
+        isVisitorModeActive = false;
       });
 
       ws.addEventListener('message', ({ data }) => {
@@ -450,6 +457,8 @@
           showVisitorPreArrival(msg);
         } else if (msg.state === 'visitor_bay_occupied') {
           showVisitorBayOccupied(msg);
+        } else if (msg.state === 'visitor_mode_ended') {
+          showVisitorModeEnded();
         } else {
           showIdle();
         }

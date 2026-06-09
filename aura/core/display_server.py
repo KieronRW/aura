@@ -92,6 +92,12 @@ class DisplayServer:
         self._is_idle = False
         self._broadcast(payload)
 
+    def send_visitor_mode_ended(self):
+        payload = json.dumps({"state": "visitor_mode_ended"})
+        logger.info("Broadcasting visitor mode ended")
+        self._is_idle = True
+        self._broadcast(payload)
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
