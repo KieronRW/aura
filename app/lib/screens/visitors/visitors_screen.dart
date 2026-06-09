@@ -62,7 +62,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
           .from('unknown_vehicles')
           .select('*')
           .eq('installation_id', installationId)
-          .eq('status', 'new')
+          .eq('status', 'unreviewed')
           .order('created_at', ascending: false);
 
       final historyData = await client
@@ -119,7 +119,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
     try {
       await Supabase.instance.client
           .from('unknown_vehicles')
-          .update({'status': 'ignored'}).eq('id', id);
+          .update({'status': 'dismissed'}).eq('id', id);
       if (mounted) _refresh();
     } catch (e) {
       debugPrint('Ignore unknown vehicle error: $e');
