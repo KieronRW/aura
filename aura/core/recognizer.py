@@ -104,6 +104,9 @@ class Recognizer:
             result = self._match_vision(frame, cropped, detection)
             if result:
                 result.best_fp_score = self._last_fp_score
+                logger.debug(
+                    "Vision result returning — best_fp_score=%.4f", result.best_fp_score
+                )
                 return result
 
         # Step 4 — vehicle confirmed by YOLO but make/model unknown
