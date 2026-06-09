@@ -131,6 +131,34 @@ def sync_settings() -> dict:
         return {}
 
 
+def get_expected_visitors(installation_id: str | None = None) -> list[dict]:
+    """Return active expected visitors for this installation, or [] if unreachable.
+
+    Filters visitors where is_active=true and (expected_until is null OR expected_until > now).
+    Pass installation_id explicitly or leave None to use the module-level INSTALLATION_ID.
+    """
+    client = _get_client()
+    if client is None:
+        return []
+    uuid = installation_id or _get_installation_uuid()
+    if uuid is None:
+        return []
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        response = (
+            client.table("visitors")
+            .select("*")
+            .eq("installation_id", uuid)
+            .eq("is_active", True)
+            .or_(f"expected_until.is.null,expected_until.gt.{now}")
+            .execute()
+        )
+        return response.data or []
+    except Exception as exc:
+        log.warning("get_expected_visitors failed: %s", exc)
+        return []
+
+
 def upload_recognition_image(frame, event_id: str) -> str | None:
     """Encode frame as JPEG and upload to Supabase Storage. Returns storage path or None."""
     client = _get_client()
@@ -161,6 +189,9 @@ def log_recognition(
     method: str,
     matched_vehicle_id: int | None = None,
     image_frame=None,
+    *,
+    visitor_id=None,
+    needs_review: bool = False,
 ) -> dict | None:
     """Insert a recognition event. Returns the inserted row or None on failure."""
     client = _get_client()
@@ -178,6 +209,8 @@ def log_recognition(
         "confidence": confidence,
         "method": method,
         "vehicle_id": matched_vehicle_id,
+        "visitor_id": visitor_id,
+        "needs_review": needs_review,
     }
     try:
         response = client.table("recognition_events").insert(payload).execute()
@@ -194,6 +227,45 @@ def log_recognition(
                 row["image_path"] = image_path
             except Exception as exc:
                 log.warning("log_recognition: image_path update failed for event %s: %s", row["id"], exc)
+
+    return row
+
+
+def log_unknown_vehicle(
+    detected_make: str | None,
+    detected_model: str | None,
+    confidence: float,
+    image_frame=None,
+) -> dict | None:
+    """Insert a row into unknown_vehicles. Returns the inserted row or None on failure."""
+    client = _get_client()
+    if client is None:
+        return None
+    uuid = _get_installation_uuid()
+    if uuid is None:
+        return None
+    payload = {
+        "installation_id": uuid,
+        "detected_make": detected_make,
+        "detected_model": detected_model,
+        "confidence": confidence,
+        "detected_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        response = client.table("unknown_vehicles").insert(payload).execute()
+        row = response.data[0] if response.data else None
+    except Exception as exc:
+        log.warning("log_unknown_vehicle failed: %s", exc)
+        return None
+
+    if row and image_frame is not None:
+        image_path = upload_recognition_image(image_frame, str(row["id"]))
+        if image_path:
+            try:
+                client.table("unknown_vehicles").update({"image_path": image_path}).eq("id", row["id"]).execute()
+                row["image_path"] = image_path
+            except Exception as exc:
+                log.warning("log_unknown_vehicle: image_path update failed for id=%s: %s", row["id"], exc)
 
     return row
 
@@ -304,3 +376,28 @@ def push_heartbeat(
         log.debug("Heartbeat sent")
     except Exception as exc:
         log.warning("push_heartbeat failed: %s", exc)
+
+
+def send_push_notification(title: str, body: str) -> bool:
+    """Invoke the send-push Supabase edge function. Fails silently if unavailable."""
+    client = _get_client()
+    if client is None:
+        return False
+    uuid = _get_installation_uuid()
+    if uuid is None:
+        log.debug("send_push_notification: no installation UUID — skipping")
+        return False
+    try:
+        client.functions.invoke(
+            "send-push",
+            invoke_options={"body": {
+                "installation_id": uuid,
+                "title": title,
+                "body": body,
+            }},
+        )
+        log.info("Push notification sent: %s", title)
+        return True
+    except Exception as exc:
+        log.warning("send_push_notification failed: %s", exc)
+        return False

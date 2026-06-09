@@ -71,7 +71,18 @@ from aura.core import api
 from aura.core import detector as yolo_detector
 from aura.core.discovery import DiscoveryService
 from aura.core.camera import Camera, MotionState
-from aura.core.cloud import is_connected, log_recognition, push_heartbeat, save_autolearn_image, sync_settings, sync_vehicles, update_departure
+from aura.core.cloud import (
+    get_expected_visitors,
+    is_connected,
+    log_recognition,
+    log_unknown_vehicle,
+    push_heartbeat,
+    save_autolearn_image,
+    send_push_notification,
+    sync_settings,
+    sync_vehicles,
+    update_departure,
+)
 from aura.core.display_server import DisplayServer
 from aura.core.enroller import ReferenceImageEnroller
 from aura.core.recognizer import Recognizer
@@ -116,6 +127,18 @@ def _find_vehicle_by_make(make: str | None, vehicles: list[dict]) -> dict | None
     make_lower = make.lower()
     for v in vehicles:
         v_make = v.get("make", "").lower()
+        if v_make and (v_make in make_lower or make_lower.startswith(v_make)):
+            return v
+    return None
+
+
+def _find_visitor(result, visitors: list[dict]) -> dict | None:
+    """Match a recognition result against expected visitors by make (case-insensitive)."""
+    if not visitors or not result.make:
+        return None
+    make_lower = result.make.lower()
+    for v in visitors:
+        v_make = (v.get("make") or "").lower().strip()
         if v_make and (v_make in make_lower or make_lower.startswith(v_make)):
             return v
     return None
@@ -378,10 +401,11 @@ def main() -> None:
     _state["trigger_recognition_cb"] = camera.force_presence
 
     _synced_vehicles = sync_vehicles()
+    _synced_visitors = get_expected_visitors()
     _synced_settings = sync_settings()
     logger.info(
-        "Supabase sync: %d vehicles, %d settings",
-        len(_synced_vehicles), len(_synced_settings),
+        "Supabase sync: %d vehicles, %d visitors, %d settings",
+        len(_synced_vehicles), len(_synced_visitors), len(_synced_settings),
     )
     _state["supabase_ok"] = is_connected()
     _state["synced_vehicles"] = _synced_vehicles
@@ -503,7 +527,7 @@ def main() -> None:
 
             now_mono = time.monotonic()
 
-            # ── Periodic vehicle sync (every 5 minutes) ──────────────────────
+            # ── Periodic vehicle + visitor sync (every 5 minutes) ────────────
             if now_mono - last_vehicle_sync_at >= _VEHICLE_SYNC_INTERVAL:
                 last_vehicle_sync_at = now_mono
                 fresh = sync_vehicles()
@@ -513,6 +537,8 @@ def main() -> None:
                     logger.info("Vehicle sync: %d vehicles refreshed", len(_synced_vehicles))
                 else:
                     logger.warning("Vehicle sync returned empty — retaining previous data")
+                _synced_visitors = get_expected_visitors()
+                logger.info("Visitor sync: %d expected visitors", len(_synced_visitors))
 
             # ── Periodic state log ────────────────────────────────────────────
             if now_mono - last_state_log_at >= 5.0:
@@ -625,14 +651,33 @@ def main() -> None:
                     display.send_idle()
             else:
                 vehicle = result.matched_vehicle or _find_vehicle_by_make(result.make, _synced_vehicles)
-                name = vehicle["owner_name"] if vehicle else "unknown"
+                visitor: dict | None = None
+                visitor_id = None
+                needs_review = False
+
+                if not vehicle:
+                    visitor = _find_visitor(result, _synced_visitors)
+                    if visitor:
+                        visitor_id = visitor.get("id")
+                    else:
+                        needs_review = True
+
+                if vehicle:
+                    name = vehicle["owner_name"]
+                    greeting = vehicle.get("owner_greeting") or f"Welcome, {name}"
+                elif visitor:
+                    name = visitor.get("name") or "Visitor"
+                    greeting = visitor.get("greeting") or f"Welcome, {name}"
+                else:
+                    name = "Visitor"
+                    greeting = "Welcome Visitor"
+
                 logger.info(
                     "Recognition complete — vehicle='%s' make='%s' method=%s conf=%.2f",
                     name, result.make, result.method_used, result.confidence,
                 )
                 _write_result(result, vehicle)
 
-                greeting = (vehicle.get("owner_greeting") if vehicle else None) or f"Welcome, {name}"
                 badge_url = _badge_url(result.make)
 
                 # Only log a new event if this is a new vehicle arrival
@@ -641,8 +686,21 @@ def main() -> None:
                         result.make or "", result.model or "", result.confidence,
                         result.method_used, vehicle["id"] if vehicle else None,
                         image_frame=frame,
+                        visitor_id=visitor_id,
+                        needs_review=needs_review,
                     )
                     last_event_id = event["id"] if event else None
+                    if visitor:
+                        send_push_notification(
+                            f"{name} has arrived",
+                            f"{result.make or 'Vehicle'} detected",
+                        )
+                    elif needs_review:
+                        log_unknown_vehicle(result.make, result.model, result.confidence, image_frame=frame)
+                        send_push_notification(
+                            "Unknown visitor detected",
+                            f"{result.make or 'Vehicle'} at gate",
+                        )
 
                 # Auto-learn: capture a new reference image when Vision matched a known
                 # vehicle but the fingerprint came close without crossing the threshold.
@@ -678,7 +736,7 @@ def main() -> None:
                 _state["current_state"] = "recognized" if vehicle else "detected"
                 _state["vehicle_present"] = True
                 _state["last_recognized_make"] = result.make
-                _state["last_recognized_owner"] = name if vehicle else None
+                _state["last_recognized_owner"] = name if (vehicle or visitor) else None
                 _state["last_recognition_confidence"] = result.confidence
                 _state["recent_events"] = ([{
                     "timestamp": datetime.now(timezone.utc).isoformat(),
