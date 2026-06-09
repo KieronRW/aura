@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
 import '../profiles/profiles_screen.dart';
-import '../automations/automations_screen.dart';
+import '../visitors/visitors_screen.dart';
 import '../settings/settings_screen.dart';
 import '../onboarding/discover_mirror_screen.dart';
 import '../aura/aura_detail_screen.dart';
@@ -30,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: const [
           _DashboardTab(),
           ProfilesScreen(),
-          AutomationsScreen(),
+          VisitorsScreen(),
           SettingsScreen(),
         ],
       ),
@@ -55,9 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'PROFILES',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bolt_outlined),
-            activeIcon: Icon(Icons.bolt),
-            label: 'AUTOMATIONS',
+            icon: Icon(Icons.people_outline),
+            activeIcon: Icon(Icons.people),
+            label: 'VISITORS',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),

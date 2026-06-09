@@ -44,6 +44,17 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 32),
 
+          // Automations section
+          _SectionHeader(title: 'AUTOMATIONS'),
+          _SettingsRow(
+            icon: Icons.bolt_outlined,
+            title: 'Automations',
+            subtitle: 'Event-driven rules',
+            onTap: () {},
+          ),
+
+          const SizedBox(height: 32),
+
           // Locations section
           _SectionHeader(title: 'LOCATIONS'),
           _SettingsRow(
