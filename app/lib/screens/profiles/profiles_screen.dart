@@ -219,11 +219,101 @@ class _ProfileDetailScreen extends StatefulWidget {
 
 class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
   late List<dynamic> _vehicles;
+  bool _deleting = false;
 
   @override
   void initState() {
     super.initState();
     _vehicles = List.from(widget.profile['vehicles'] as List? ?? []);
+  }
+
+  Future<void> _deleteProfile() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF111111),
+        title: const Text(
+          'Delete Profile',
+          style: TextStyle(color: Colors.white, fontSize: 15, letterSpacing: 1),
+        ),
+        content: const Text(
+          'This will permanently delete this profile, all its vehicles, and all reference images. This cannot be undone.',
+          style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.6),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(color: Colors.white38, letterSpacing: 1),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'DELETE',
+              style: TextStyle(color: Colors.redAccent, letterSpacing: 1),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _deleting = true);
+
+    try {
+      final client = Supabase.instance.client;
+      final profileId = widget.profile['id'] as String;
+
+      final vehiclesResp = await client
+          .from('vehicles')
+          .select('id')
+          .eq('profile_id', profileId);
+      final vehicleIds = (vehiclesResp as List)
+          .map((v) => v['id'] as String)
+          .toList();
+
+      if (vehicleIds.isNotEmpty) {
+        final imagesResp = await client
+            .from('vehicle_reference_images')
+            .select('storage_path')
+            .inFilter('vehicle_id', vehicleIds);
+        final paths = (imagesResp as List)
+            .map((img) => img['storage_path'] as String)
+            .toList();
+
+        if (paths.isNotEmpty) {
+          await client.storage.from('reference-images').remove(paths);
+        }
+
+        await client
+            .from('vehicle_reference_images')
+            .delete()
+            .inFilter('vehicle_id', vehicleIds);
+
+        await client.from('vehicles').delete().eq('profile_id', profileId);
+      }
+
+      await client.from('profiles').delete().eq('id', profileId);
+
+      if (mounted) {
+        widget.onRefresh();
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint('Delete profile error: $e');
+      if (mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete profile. Please try again.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _reloadVehicles() async {
@@ -353,6 +443,27 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
                   },
                 ),
               ),
+
+            const SizedBox(height: 48),
+            Center(
+              child: _deleting
+                  ? const CircularProgressIndicator(
+                      color: Colors.white24,
+                      strokeWidth: 1,
+                    )
+                  : TextButton(
+                      onPressed: _deleteProfile,
+                      child: const Text(
+                        'DELETE PROFILE',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 12,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
