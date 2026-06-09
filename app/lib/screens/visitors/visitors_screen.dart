@@ -308,8 +308,8 @@ class _VisitorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = visitor['name'] as String? ?? 'Unknown';
-    final make = visitor['make'] as String?;
-    final model = visitor['model'] as String?;
+    final make = visitor['vehicle_make'] as String?;
+    final model = visitor['vehicle_model'] as String?;
     final vehicleLabel =
         [make, model].where((s) => s != null && s.isNotEmpty).join(' ');
 
@@ -693,8 +693,8 @@ class _AddEditVisitorScreenState extends State<_AddEditVisitorScreen> {
     if (_isEditing) {
       final v = widget.visitor!;
       _nameCtrl.text = v['name'] as String? ?? '';
-      _makeCtrl.text = v['make'] as String? ?? '';
-      _modelCtrl.text = v['model'] as String? ?? '';
+      _makeCtrl.text = v['vehicle_make'] as String? ?? '';
+      _modelCtrl.text = v['vehicle_model'] as String? ?? '';
       _registrationCtrl.text = v['registration'] as String? ?? '';
       _greetingCtrl.text = v['greeting'] as String? ?? '';
       _notesCtrl.text = v['notes'] as String? ?? '';
@@ -790,8 +790,8 @@ class _AddEditVisitorScreenState extends State<_AddEditVisitorScreen> {
 
     final payload = <String, dynamic>{
       'name': name,
-      'make': _makeCtrl.text.trim().isNotEmpty ? _makeCtrl.text.trim() : null,
-      'model':
+      'vehicle_make': _makeCtrl.text.trim().isNotEmpty ? _makeCtrl.text.trim() : null,
+      'vehicle_model':
           _modelCtrl.text.trim().isNotEmpty ? _modelCtrl.text.trim() : null,
       'registration': _registrationCtrl.text.trim().isNotEmpty
           ? _registrationCtrl.text.trim()
