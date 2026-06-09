@@ -122,15 +122,16 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
   }
 
   void _showProfileDetail(Map<String, dynamic> profile) async {
-    await Navigator.push(
+    final deleted = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) =>
             _ProfileDetailScreen(profile: profile, onRefresh: _loadProfiles),
       ),
     );
-    // Reload in case a vehicle was deleted
-    _loadProfiles();
+    if (deleted == true && mounted) {
+      _loadProfiles();
+    }
   }
 }
 
@@ -225,6 +226,7 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
   void initState() {
     super.initState();
     _vehicles = List.from(widget.profile['vehicles'] as List? ?? []);
+    _reloadVehicles();
   }
 
   Future<void> _deleteProfile() async {
@@ -300,7 +302,7 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
 
       if (mounted) {
         widget.onRefresh();
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
       debugPrint('Delete profile error: $e');
