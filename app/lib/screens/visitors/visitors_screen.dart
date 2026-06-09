@@ -63,7 +63,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
           .select('*')
           .eq('installation_id', installationId)
           .eq('status', 'new')
-          .order('detected_at', ascending: false);
+          .order('created_at', ascending: false);
 
       final historyData = await client
           .from('recognition_events')
@@ -446,7 +446,7 @@ class _UnknownRowState extends State<_UnknownRow> {
         [make, model].where((s) => s != null && s.isNotEmpty).join(' ');
     final confidence =
         (widget.vehicle['confidence'] as num?)?.toDouble() ?? 0.0;
-    final detectedAt = widget.vehicle['detected_at'] as String?;
+    final detectedAt = widget.vehicle['created_at'] as String?;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
