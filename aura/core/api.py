@@ -362,7 +362,7 @@ def post_network_settings(payload: NetworkSettingsPayload):
             # Use shell=True so empty-string args clear the nmcli fields exactly as
             # they would when run interactively; list-form empty strings can be a no-op.
             subprocess.run(
-                "nmcli connection modify "
+                "sudo nmcli connection modify "
                 + shlex.quote(conn_name)
                 + ' ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns ""',
                 shell=True, check=True, capture_output=True, text=True, timeout=10,
@@ -378,7 +378,7 @@ def post_network_settings(payload: NetworkSettingsPayload):
             dns_str = ",".join(dns_parts)
 
             cmd = [
-                "nmcli", "connection", "modify", conn_name,
+                "sudo", "nmcli", "connection", "modify", conn_name,
                 "ipv4.method", "manual",
                 "ipv4.addresses", cidr,
                 "ipv4.gateway", payload.gateway,
@@ -392,11 +392,11 @@ def post_network_settings(payload: NetworkSettingsPayload):
         def _apply() -> None:
             _time.sleep(1.0)
             subprocess.run(
-                ["nmcli", "connection", "down", conn_name],
+                ["sudo", "nmcli", "connection", "down", conn_name],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10,
             )
             subprocess.run(
-                ["nmcli", "connection", "up", conn_name],
+                ["sudo", "nmcli", "connection", "up", conn_name],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20,
             )
 
