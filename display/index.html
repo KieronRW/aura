@@ -337,16 +337,25 @@
     const WS_URL          = 'ws://localhost:8765';
     const RECONNECT_DELAY = 4000;
 
-    let currentState   = 'idle';
-    let reconnectTimer = null;
-    let ws             = null;
-    let manualOverride = false;
+    let currentState      = 'idle';
+    let reconnectTimer    = null;
+    let ws                = null;
+    let manualOverride    = false;
+    let lastPreArrivalAt  = 0;           // Date.now() of last visitor_pre_arrival message
+    const PRE_ARRIVAL_LINGER = 20000;    // ms — don't let idle override a fresh pre-arrival
 
     // ── Screen transitions ──────────────────────────────────────────
 
     function showIdle(force = false) {
       if (!force && manualOverride) return;
       if (currentState === 'idle') return;
+      // Don't let a stray idle broadcast wipe out a visitor pre-arrival that just arrived.
+      // Wait until no pre-arrival has been received for longer than the Pi's broadcast interval.
+      if (!force && currentState === 'visitor_pre_arrival' &&
+          Date.now() - lastPreArrivalAt < PRE_ARRIVAL_LINGER) {
+        console.log('[AURA] showIdle suppressed — visitor pre-arrival is fresh');
+        return;
+      }
       currentState = 'idle';
       recScreen.classList.remove('active');
       visitorScreen.classList.remove('active');
@@ -354,6 +363,8 @@
     }
 
     function showVisitorPreArrival(data) {
+      console.log('[AURA] showVisitorPreArrival:', data.visitor_name, '|', data.message);
+      lastPreArrivalAt = Date.now();
       currentState = 'visitor_pre_arrival';
       visitorMessage.textContent = data.message || '';
       idleScreen.classList.remove('active');
@@ -428,6 +439,7 @@
         setTimeout(() => { wsDot.style.background = ''; }, 500);
         let msg;
         try { msg = JSON.parse(data); } catch { return; }
+        console.log('[AURA] ws message state:', msg.state);
         if (msg.state === 'recognition') {
           showRecognition(msg);
         } else if (msg.state === 'visitor_pre_arrival') {
