@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 User=aura
 WorkingDirectory=/home/aura/aura
+ExecStartPre=/bin/sh -c 'LIBSEAT_BACKEND=seatd labwc &'
 ExecStart=/usr/bin/python3 /home/aura/aura/main.py
 Restart=on-failure
 RestartSec=10
