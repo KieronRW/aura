@@ -270,7 +270,9 @@ def _udp_listener(camera: "Camera", shutdown: dict) -> None:
 # ---------------------------------------------------------------------------
 
 _HTTP_PORT = 9998
-_TEST_IMAGE_PATH = Path.home() / "aura" / "test_vw_front.jpg"
+_STATIC_PORT = 8080
+_STATIC_ROOT = Path.home() / "aura"
+_TEST_IMAGE_PATH = _STATIC_ROOT / "test_vw_front.jpg"
 
 
 def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue: "queue.Queue", synced_vehicles: list):
@@ -354,6 +356,28 @@ def _start_http_server(camera: "Camera", recognizer: "Recognizer", display_queue
     t = threading.Thread(target=server.serve_forever, daemon=True, name="http-test")
     t.start()
     logger.info("HTTP test server on http://localhost:%d/test-recognition", _HTTP_PORT)
+    return server
+
+
+def _start_static_server() -> http.server.HTTPServer:
+    """Serve ~/aura/ as a static file root on port 8080.
+
+    /display/index.html  → ~/aura/display/index.html
+    /assets/badges/*.png → ~/aura/assets/badges/*.png
+    """
+    root = str(_STATIC_ROOT)
+
+    class _StaticHandler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=root, **kwargs)
+
+        def log_message(self, fmt, *args):
+            logger.debug("HTTP static: " + fmt, *args)
+
+    server = http.server.HTTPServer(("", _STATIC_PORT), _StaticHandler)
+    t = threading.Thread(target=server.serve_forever, daemon=True, name="http-static")
+    t.start()
+    logger.info("Static file server on http://localhost:%d/ (root: %s)", _STATIC_PORT, _STATIC_ROOT)
     return server
 
 # ---------------------------------------------------------------------------
@@ -472,6 +496,7 @@ def main() -> None:
     recognizer = Recognizer()
     _display_queue: queue.Queue = queue.Queue()
 
+    static_server = _start_static_server()
     http_server = _start_http_server(camera, recognizer, _display_queue, _synced_vehicles)
 
     # Graceful shutdown
@@ -808,6 +833,7 @@ def main() -> None:
         _discovery.stop()
         if enroller is not None:
             enroller.stop()
+        static_server.shutdown()
         http_server.shutdown()
         kb_thread.join(timeout=1)
         logger.info("Stopping camera service")
