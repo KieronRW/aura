@@ -239,6 +239,25 @@
     }
 
     /* ================================================================
+       VISITOR PRE-ARRIVAL SCREEN
+    ================================================================ */
+
+    #visitor-screen {
+      padding: 0 10vw;
+    }
+
+    .visitor-message {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: clamp(1.6rem, 5vw, 4rem);
+      color: rgba(255, 255, 255, 0.72);
+      letter-spacing: 0.04em;
+      text-align: center;
+      max-width: 88vw;
+    }
+
+    /* ================================================================
        WS STATUS DOT
     ================================================================ */
 
@@ -297,16 +316,23 @@
     <div class="rec-greeting" id="rec-greeting"></div>
   </div>
 
+  <!-- ── Visitor pre-arrival screen ──────────────────────────────── -->
+  <div id="visitor-screen" class="screen">
+    <div class="visitor-message" id="visitor-message"></div>
+  </div>
+
   <div id="ws-dot"></div>
 
   <script>
-    const idleScreen  = document.getElementById('idle-screen');
-    const recScreen   = document.getElementById('recognition-screen');
-    const recMM       = document.getElementById('rec-make-model');
-    const recBadge    = document.getElementById('rec-badge');
-    const recReflect  = document.getElementById('rec-reflect');
-    const recGreeting = document.getElementById('rec-greeting');
-    const wsDot       = document.getElementById('ws-dot');
+    const idleScreen     = document.getElementById('idle-screen');
+    const recScreen      = document.getElementById('recognition-screen');
+    const visitorScreen  = document.getElementById('visitor-screen');
+    const recMM          = document.getElementById('rec-make-model');
+    const recBadge       = document.getElementById('rec-badge');
+    const recReflect     = document.getElementById('rec-reflect');
+    const recGreeting    = document.getElementById('rec-greeting');
+    const visitorMessage = document.getElementById('visitor-message');
+    const wsDot          = document.getElementById('ws-dot');
 
     const WS_URL          = 'ws://localhost:8765';
     const RECONNECT_DELAY = 4000;
@@ -323,7 +349,16 @@
       if (currentState === 'idle') return;
       currentState = 'idle';
       recScreen.classList.remove('active');
+      visitorScreen.classList.remove('active');
       idleScreen.classList.add('active');
+    }
+
+    function showVisitorPreArrival(data) {
+      currentState = 'visitor_pre_arrival';
+      visitorMessage.textContent = data.message || '';
+      idleScreen.classList.remove('active');
+      recScreen.classList.remove('active');
+      visitorScreen.classList.add('active');
     }
 
     function showRecognition(data) {
@@ -355,6 +390,7 @@
       recReflect.classList.add('hidden');
 
       idleScreen.classList.remove('active');
+      visitorScreen.classList.remove('active');
       recScreen.classList.add('active');
     }
 
@@ -392,6 +428,8 @@
         try { msg = JSON.parse(data); } catch { return; }
         if (msg.state === 'recognition') {
           showRecognition(msg);
+        } else if (msg.state === 'visitor_pre_arrival') {
+          showVisitorPreArrival(msg);
         } else {
           showIdle();
         }
