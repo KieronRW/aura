@@ -435,8 +435,8 @@
       });
 
       ws.addEventListener('message', ({ data }) => {
-        wsDot.style.background = 'rgba(255,60,60,0.9)';
-        setTimeout(() => { wsDot.style.background = ''; }, 500);
+        document.body.style.background = 'red';
+        setTimeout(() => { document.body.style.background = ''; }, 500);
         let msg;
         try { msg = JSON.parse(data); } catch { return; }
         console.log('[AURA] ws message state:', msg.state);
