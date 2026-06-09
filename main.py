@@ -80,6 +80,7 @@ from aura.core.cloud import (
     push_heartbeat,
     save_autolearn_image,
     send_push_notification,
+    subscribe_visitor_updates,
     sync_settings,
     sync_vehicles,
     update_departure,
@@ -466,6 +467,14 @@ def main() -> None:
     _state["supabase_ok"] = is_connected()
     _state["synced_vehicles"] = _synced_vehicles
 
+    # Realtime subscription: instant visitor refresh on any UPDATE from the app
+    _visitors_stale = threading.Event()
+    if _installation_uuid:
+        subscribe_visitor_updates(
+            _installation_uuid,
+            lambda: _visitors_stale.set(),
+        )
+
     # Apply persisted camera settings to the live camera
     try:
         from aura.core.camera_settings import apply_settings as _apply_cam_settings, get_settings as _get_cam_settings
@@ -585,6 +594,12 @@ def main() -> None:
                         display.send_idle()
 
             now_mono = time.monotonic()
+
+            # ── Realtime visitor refresh (instant, triggered by app changes) ──
+            if _visitors_stale.is_set():
+                _visitors_stale.clear()
+                _synced_visitors = get_expected_visitors()
+                logger.info("Realtime: visitor update applied — %d visitors", len(_synced_visitors))
 
             # ── Periodic vehicle + visitor sync (every 5 minutes) ────────────
             if now_mono - last_vehicle_sync_at >= _VEHICLE_SYNC_INTERVAL:

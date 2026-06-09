@@ -1,6 +1,7 @@
 import logging
 import os
 import socket
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -69,6 +70,42 @@ def is_connected() -> bool:
 def get_installation_uuid() -> str | None:
     """Return the resolved installation UUID for this device, or None if unavailable."""
     return _get_installation_uuid()
+
+
+def subscribe_visitor_updates(installation_uuid: str, on_change) -> None:
+    """Start a background Realtime subscription for visitors table UPDATE events.
+
+    Calls on_change() (from a background thread) whenever any visitor row for
+    this installation is updated.  Fails silently if Supabase or Realtime is
+    unavailable — the periodic sync in main.py remains the fallback.
+    """
+    client = _get_client()
+    if client is None:
+        log.warning("subscribe_visitor_updates: Supabase client unavailable — skipping")
+        return
+
+    def _callback(payload):
+        log.debug("Realtime: visitors UPDATE received — %s", payload)
+        try:
+            on_change()
+        except Exception as exc:
+            log.warning("Realtime visitor on_change error: %s", exc)
+
+    def _run():
+        try:
+            channel = client.channel(f"aura-visitors-{installation_uuid}")
+            channel.on_postgres_changes(
+                event="UPDATE",
+                schema="public",
+                table="visitors",
+                filter=f"installation_id=eq.{installation_uuid}",
+                callback=_callback,
+            ).subscribe()
+            log.info("Realtime: subscribed to visitors UPDATE (uuid=%s)", installation_uuid)
+        except Exception as exc:
+            log.warning("Realtime visitor subscription failed: %s", exc)
+
+    threading.Thread(target=_run, daemon=True, name="realtime-visitors").start()
 
 
 def sync_vehicles() -> list[dict]:
