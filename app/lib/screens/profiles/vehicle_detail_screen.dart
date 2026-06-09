@@ -539,6 +539,8 @@ class _ReferenceImageTile extends StatefulWidget {
 }
 
 class _ReferenceImageTileState extends State<_ReferenceImageTile> {
+  static final Map<String, String> _signedUrlCache = {};
+
   String? _url;
 
   @override
@@ -548,10 +550,16 @@ class _ReferenceImageTileState extends State<_ReferenceImageTile> {
   }
 
   Future<void> _loadUrl() async {
+    final cached = _signedUrlCache[widget.storagePath];
+    if (cached != null) {
+      if (mounted) setState(() => _url = cached);
+      return;
+    }
     try {
       final url = await Supabase.instance.client.storage
           .from('reference-images')
           .createSignedUrl(widget.storagePath, 3600);
+      _signedUrlCache[widget.storagePath] = url;
       if (mounted) setState(() => _url = url);
     } catch (e) {
       debugPrint('Signed URL error: $e');
