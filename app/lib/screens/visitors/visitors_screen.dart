@@ -319,17 +319,20 @@ class _VisitorRowState extends State<_VisitorRow> {
     _isActive = widget.visitor['is_active'] as bool? ?? true;
   }
 
-  Future<void> _toggleActive() async {
+  void _toggleActive() {
     final newValue = !_isActive;
     setState(() => _isActive = newValue);
+    _persistActive(newValue);
+  }
+
+  Future<void> _persistActive(bool value) async {
     try {
-      final client = Supabase.instance.client;
-      await client
+      await Supabase.instance.client
           .from('visitors')
-          .update({'is_active': newValue})
+          .update({'is_active': value})
           .eq('id', widget.visitor['id']);
     } catch (_) {
-      if (mounted) setState(() => _isActive = !newValue);
+      if (mounted) setState(() => _isActive = !value);
     }
   }
 
