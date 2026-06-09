@@ -720,6 +720,106 @@ def main() -> None:
                 time.sleep(0.25)
                 continue
 
+            # ── Visitor mode: bypass fingerprint matching when visitors are active ──
+            active_visitors_now = _get_active_visitors(_synced_visitors, _installation_uuid)
+            if active_visitors_now:
+                logger.info(
+                    "Visitor mode: %d active visitor(s) — running YOLO+Vision only",
+                    len(active_visitors_now),
+                )
+                try:
+                    result = recognizer.recognize(frame, vehicles=[], settings=_synced_settings)
+                except Exception:
+                    logger.exception("Visitor mode recognition error")
+                    time.sleep(0.25)
+                    continue
+
+                if result is None:
+                    logger.info("Visitor mode: no vehicle confirmed by detector")
+                    _write_idle()
+                    if time.monotonic() - last_recognition_sent_at >= 10.0:
+                        display.send_idle()
+                else:
+                    visitor = _find_visitor(result, active_visitors_now)
+                    if visitor:
+                        name = visitor.get("name") or "Visitor"
+                        greeting = (
+                            visitor.get("arrival_message")
+                            or visitor.get("greeting")
+                            or f"Welcome, {name}"
+                        )
+                        visitor_id = visitor.get("id")
+                        needs_review = False
+                    else:
+                        bay_visitor = active_visitors_now[0]
+                        bay_name = bay_visitor.get("name") or "Visitor"
+                        name = "Visitor"
+                        greeting = (
+                            bay_visitor.get("bay_occupied_message")
+                            or f"This bay is reserved for {bay_name}"
+                        )
+                        visitor_id = None
+                        needs_review = True
+
+                    logger.info(
+                        "Visitor mode result — name='%s' make='%s' method=%s conf=%.2f",
+                        visitor.get("name") if visitor else "bay_occupied",
+                        result.make, result.method_used, result.confidence,
+                    )
+                    _write_result(result, None)
+                    badge_url = _badge_url(result.make)
+
+                    if last_event_id is None or (result.make and result.make != last_recognized_make):
+                        event = log_recognition(
+                            result.make or "", result.model or "", result.confidence,
+                            result.method_used, None,
+                            image_frame=frame,
+                            visitor_id=visitor_id,
+                            needs_review=needs_review,
+                        )
+                        last_event_id = event["id"] if event else None
+                        if visitor:
+                            send_push_notification(
+                                f"{name} has arrived",
+                                f"{result.make or 'Vehicle'} detected",
+                            )
+                        elif needs_review:
+                            log_unknown_vehicle(result.make, result.model, result.confidence, image_frame=frame)
+                            send_push_notification(
+                                "Unknown visitor detected",
+                                f"{result.make or 'Vehicle'} at gate",
+                            )
+
+                    display.send_recognition(
+                        make=result.make or "",
+                        model=result.model or "",
+                        greeting=greeting,
+                        badge_url=badge_url,
+                    )
+                    last_recognition_sent_at = time.monotonic()
+                    last_recognized_make = result.make or ""
+                    last_hold_check_at = 0.0
+                    gone_since = None
+                    camera.set_hold_reference(True)
+
+                    _state["current_state"] = "detected"
+                    _state["vehicle_present"] = True
+                    _state["last_recognized_make"] = result.make
+                    _state["last_recognized_owner"] = name if visitor else None
+                    _state["last_recognition_confidence"] = result.confidence
+                    _state["recent_events"] = ([{
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "make": result.make,
+                        "model": result.model,
+                        "confidence": result.confidence,
+                        "method_used": result.method_used,
+                        "owner_name": None,
+                    }] + _state["recent_events"])[:20]
+
+                time.sleep(0.25)
+                continue
+
+            # ── Normal mode: full recognition pipeline ───────────────────────────
             logger.info("Running recognition pipeline")
             try:
                 result = recognizer.recognize(frame, _synced_vehicles, settings=_synced_settings)
