@@ -91,7 +91,8 @@ def subscribe_visitor_updates(installation_uuid: str, on_change) -> None:
         rt_client = await acreate_client(_SUPABASE_URL, _SUPABASE_KEY)
 
         def _callback(payload, *_) -> None:
-            log.debug("Realtime: visitors UPDATE received — %s", payload)
+            event = (payload or {}).get("eventType", "?")
+            log.debug("Realtime: visitors %s received — %s", event, payload)
             try:
                 on_change()
             except Exception as exc:
@@ -99,14 +100,14 @@ def subscribe_visitor_updates(installation_uuid: str, on_change) -> None:
 
         channel = rt_client.channel(f"aura-visitors-{installation_uuid}")
         channel.on_postgres_changes(
-            event="UPDATE",
+            event="*",
             schema="public",
             table="visitors",
             filter=f"installation_id=eq.{installation_uuid}",
             callback=_callback,
         )
         await channel.subscribe()
-        log.info("Realtime: subscribed to visitors UPDATE (uuid=%s)", installation_uuid)
+        log.info("Realtime: subscribed to visitors INSERT/UPDATE/DELETE (uuid=%s)", installation_uuid)
 
         while True:
             await asyncio.sleep(1.0)
