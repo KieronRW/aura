@@ -83,9 +83,8 @@ class _DashboardTabState extends State<_DashboardTab> {
   List<Map<String, dynamic>> _installations = [];
   final Map<String, Map<String, dynamic>> _statusCache = {};
   bool _loading = true;
-  bool _backgroundRefreshing = false;
   RealtimeChannel? _statusChannel;
-  Timer? _onlineCheckTimer;
+  RealtimeChannel? _eventsChannel;
 
   late final _authSubscription = Supabase.instance.client.auth.onAuthStateChange
       .listen((data) {
@@ -106,17 +105,13 @@ class _DashboardTabState extends State<_DashboardTab> {
     super.initState();
     _loadData();
     _subscribeToRealtime();
-    _onlineCheckTimer = Timer.periodic(
-      const Duration(seconds: 15),
-      (_) { if (mounted) setState(() {}); },
-    );
   }
 
   @override
   void dispose() {
     _authSubscription.cancel();
     _statusChannel?.unsubscribe();
-    _onlineCheckTimer?.cancel();
+    _eventsChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -128,7 +123,54 @@ class _DashboardTabState extends State<_DashboardTab> {
           schema: 'public',
           table: 'device_status',
           callback: (payload) {
-            if (mounted) _refreshStatusInBackground();
+            if (!mounted) return;
+            final record = payload.newRecord;
+            final id = record['installation_id'] as String?;
+            if (id != null && record.isNotEmpty) {
+              setState(() => _statusCache[id] = Map<String, dynamic>.from(record));
+            }
+          },
+        )
+        .subscribe();
+
+    _eventsChannel = Supabase.instance.client
+        .channel('recognition_events_changes')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'recognition_events',
+          callback: (payload) {
+            if (!mounted) return;
+            final id = payload.newRecord['installation_id'] as String?;
+            if (id != null && _statusCache.containsKey(id)) {
+              setState(() {
+                _statusCache[id] = {
+                  ..._statusCache[id]!,
+                  'current_state': 'recognition',
+                };
+              });
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'recognition_events',
+          callback: (payload) {
+            if (!mounted) return;
+            final record = payload.newRecord;
+            final id = record['installation_id'] as String?;
+            if (id != null && _statusCache.containsKey(id)) {
+              final departedAt = record['departed_at'];
+              if (departedAt != null) {
+                setState(() {
+                  _statusCache[id] = {
+                    ..._statusCache[id]!,
+                    'current_state': 'idle',
+                  };
+                });
+              }
+            }
           },
         )
         .subscribe();
@@ -191,22 +233,6 @@ class _DashboardTabState extends State<_DashboardTab> {
         });
       }
     }
-  }
-
-  Future<void> _refreshStatusInBackground() async {
-    if (_backgroundRefreshing) return;
-    _backgroundRefreshing = true;
-    for (final installation in _installations) {
-      final status = await SupabaseService.getDeviceStatusById(
-        installation['id'],
-      );
-      if (mounted && status != null) {
-        setState(() {
-          _statusCache[installation['id']] = status;
-        });
-      }
-    }
-    _backgroundRefreshing = false;
   }
 
   void _showPropertySelector() {
@@ -379,16 +405,14 @@ class _DashboardTabState extends State<_DashboardTab> {
 
                   return GestureDetector(
                     onTap: () async {
-                      final result = await Navigator.push<bool>(
+                      await Navigator.push<bool>(
                         context,
                         MaterialPageRoute(
                           builder: (_) =>
                               AuraDetailScreen(installation: installation),
                         ),
                       );
-                      if (result == true && mounted) {
-                        _loadData();
-                      }
+                      if (mounted) _loadData();
                     },
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 12),

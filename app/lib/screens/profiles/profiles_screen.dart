@@ -628,7 +628,25 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
         'is_active': true,
       });
 
-      if (mounted) Navigator.pop(context, true);
+      final vehicle = await Supabase.instance.client
+          .from('vehicles')
+          .select('*')
+          .eq('profile_id', widget.profileId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .single();
+
+      if (mounted) {
+        Navigator.pushReplacement<bool, bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VehicleDetailScreen(
+              vehicle: Map<String, dynamic>.from(vehicle),
+            ),
+          ),
+          result: true,
+        );
+      }
     } catch (e) {
       debugPrint('Add vehicle error: $e');
       setState(() {

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "18159076569",
+    "project_id": "aura-studio-a7b5d",
+    "storage_bucket": "aura-studio-a7b5d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:18159076569:android:fa28f676dd6caa3125eac8",
+        "android_client_info": {
+          "package_name": "com.auratech.aura"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIw0Cx32ArzduoUuVZnnEDDkvQ99oB-K0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
