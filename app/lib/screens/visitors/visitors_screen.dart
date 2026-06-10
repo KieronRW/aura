@@ -127,6 +127,59 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
     }
   }
 
+  Future<void> _addToProfile(
+      BuildContext context, Map<String, dynamic> unknownVehicle) async {
+    final installationId = _installation?['id'] as String?;
+    if (installationId == null) return;
+
+    List<Map<String, dynamic>> profiles;
+    try {
+      final data = await Supabase.instance.client
+          .from('profiles')
+          .select('id, display_name')
+          .eq('installation_id', installationId)
+          .eq('is_active', true)
+          .order('display_name');
+      profiles = List<Map<String, dynamic>>.from(data as List);
+    } catch (e) {
+      debugPrint('Load profiles error: $e');
+      return;
+    }
+    if (!mounted) return;
+
+    if (profiles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No active profiles found for this installation'),
+          backgroundColor: Color(0xFF111111),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    final profile = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      builder: (_) => _ProfilePickerSheet(profiles: profiles),
+    );
+    if (profile == null || !mounted) return;
+
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _AddVehicleScreen(
+          profileId: profile['id'] as String,
+          profileName: profile['display_name'] as String? ?? '',
+          prefillMake: unknownVehicle['detected_make'] as String?,
+          prefillModel: unknownVehicle['detected_model'] as String?,
+          unknownVehicleId: unknownVehicle['id'],
+        ),
+      ),
+    );
+    if (saved == true && mounted) _refresh();
+  }
+
   // ── Status helpers ────────────────────────────────────────────────────────
 
   static String _visitorStatus(Map<String, dynamic> v) {
@@ -255,14 +308,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
                   onIgnore: () => _ignoreUnknown(uv['id']),
                   onAddAsVisitor: () =>
                       _openAddEdit(context, null, prefill: uv),
-                  onAddToProfile: () =>
-                      ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Coming soon'),
-                      backgroundColor: Color(0xFF111111),
-                      duration: Duration(seconds: 2),
-                    ),
-                  ),
+                  onAddToProfile: () => _addToProfile(context, uv),
                 ),
               ),
 
@@ -1293,6 +1339,294 @@ class _DateTimeRow extends StatelessWidget {
                   child: Icon(Icons.clear, color: Colors.white24, size: 16),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profile picker bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ProfilePickerSheet extends StatelessWidget {
+  final List<Map<String, dynamic>> profiles;
+
+  const _ProfilePickerSheet({required this.profiles});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: const Text(
+              'SELECT PROFILE',
+              style: TextStyle(
+                fontSize: 11,
+                letterSpacing: 4,
+                color: Colors.white38,
+              ),
+            ),
+          ),
+          ...profiles.map(
+            (p) => InkWell(
+              onTap: () => Navigator.pop(context, p),
+              child: Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.white12)),
+                ),
+                child: Text(
+                  p['display_name'] as String? ?? 'Unknown',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add vehicle to profile screen
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AddVehicleScreen extends StatefulWidget {
+  final String profileId;
+  final String profileName;
+  final String? prefillMake;
+  final String? prefillModel;
+  final dynamic unknownVehicleId;
+
+  const _AddVehicleScreen({
+    required this.profileId,
+    required this.profileName,
+    required this.unknownVehicleId,
+    this.prefillMake,
+    this.prefillModel,
+  });
+
+  @override
+  State<_AddVehicleScreen> createState() => _AddVehicleScreenState();
+}
+
+class _AddVehicleScreenState extends State<_AddVehicleScreen> {
+  final _makeCtrl = TextEditingController();
+  final _modelCtrl = TextEditingController();
+  final _colourCtrl = TextEditingController();
+  final _registrationCtrl = TextEditingController();
+  final _nicknameCtrl = TextEditingController();
+  final _ownerNameCtrl = TextEditingController();
+  final _ownerGreetingCtrl = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _makeCtrl.text = widget.prefillMake ?? '';
+    _modelCtrl.text = widget.prefillModel ?? '';
+    _ownerNameCtrl.text = widget.profileName;
+  }
+
+  @override
+  void dispose() {
+    _makeCtrl.dispose();
+    _modelCtrl.dispose();
+    _colourCtrl.dispose();
+    _registrationCtrl.dispose();
+    _nicknameCtrl.dispose();
+    _ownerNameCtrl.dispose();
+    _ownerGreetingCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final make = _makeCtrl.text.trim();
+    if (make.isEmpty) {
+      setState(() => _error = 'Make is required');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final client = Supabase.instance.client;
+
+      final vehicleRow = await client
+          .from('vehicles')
+          .insert({
+            'profile_id': widget.profileId,
+            'make': make,
+            'model': _modelCtrl.text.trim().isNotEmpty
+                ? _modelCtrl.text.trim()
+                : null,
+            'colour': _colourCtrl.text.trim().isNotEmpty
+                ? _colourCtrl.text.trim()
+                : null,
+            'registration': _registrationCtrl.text.trim().isNotEmpty
+                ? _registrationCtrl.text.trim()
+                : null,
+            'nickname': _nicknameCtrl.text.trim().isNotEmpty
+                ? _nicknameCtrl.text.trim()
+                : null,
+            'owner_name': _ownerNameCtrl.text.trim().isNotEmpty
+                ? _ownerNameCtrl.text.trim()
+                : null,
+            'owner_greeting': _ownerGreetingCtrl.text.trim().isNotEmpty
+                ? _ownerGreetingCtrl.text.trim()
+                : null,
+            'is_active': true,
+          })
+          .select('id')
+          .single();
+
+      await client.from('unknown_vehicles').update({
+        'status': 'assigned',
+        'assigned_vehicle_id': vehicleRow['id'],
+        'assigned_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', widget.unknownVehicleId);
+
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      debugPrint('Add vehicle error: $e');
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Failed to save. Please try again.';
+        });
+      }
+    }
+  }
+
+  Widget _buildField(
+    TextEditingController ctrl,
+    String label,
+    String hint, {
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: ctrl,
+      style: const TextStyle(color: Colors.white),
+      maxLines: maxLines,
+      textCapitalization: TextCapitalization.sentences,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white38),
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.white24),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Colors.white24),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'ADD VEHICLE',
+          style: TextStyle(
+            fontSize: 13,
+            letterSpacing: 4,
+            fontWeight: FontWeight.w300,
+          ),
+        ),
+        actions: [
+          if (_saving)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1,
+                  color: Colors.white24,
+                ),
+              ),
+            )
+          else
+            TextButton(
+              onPressed: _save,
+              child: const Text(
+                'SAVE',
+                style: TextStyle(
+                  color: Colors.white,
+                  letterSpacing: 2,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text(
+              'Profile: ${widget.profileName}',
+              style: const TextStyle(color: Colors.white38, fontSize: 12),
+            ),
+            const SizedBox(height: 24),
+            _buildField(_makeCtrl, 'Make *', 'e.g. BMW'),
+            const SizedBox(height: 16),
+            _buildField(_modelCtrl, 'Model', 'e.g. 3 Series'),
+            const SizedBox(height: 16),
+            _buildField(_colourCtrl, 'Colour', 'e.g. White'),
+            const SizedBox(height: 16),
+            _buildField(_registrationCtrl, 'Registration', 'e.g. CA 123 456'),
+            const SizedBox(height: 16),
+            _buildField(_nicknameCtrl, 'Nickname', 'e.g. Dad\'s BMW'),
+            const SizedBox(height: 32),
+            const Text(
+              'DISPLAY',
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 3,
+                color: Colors.white24,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildField(_ownerNameCtrl, 'Owner name', 'e.g. Simon'),
+            const SizedBox(height: 16),
+            _buildField(
+              _ownerGreetingCtrl,
+              'Greeting',
+              'e.g. Welcome back, Simon',
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                style:
+                    const TextStyle(color: Colors.redAccent, fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 24),
           ],
         ),
       ),
