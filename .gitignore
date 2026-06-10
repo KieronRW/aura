@@ -18,3 +18,4 @@ test_*.py
 test_*.jpg
 download_badges.py
 .claude/
+app/ios/build/
