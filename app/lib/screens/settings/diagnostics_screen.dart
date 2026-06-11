@@ -1,17 +1,18 @@
 // Diagnostics screen — live device status, CPU, memory, disk
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/supabase_service.dart';
+import '../../providers/installation_provider.dart';
 
-class DiagnosticsScreen extends StatefulWidget {
+class DiagnosticsScreen extends ConsumerStatefulWidget {
   const DiagnosticsScreen({super.key});
 
   @override
-  State<DiagnosticsScreen> createState() => _DiagnosticsScreenState();
+  ConsumerState<DiagnosticsScreen> createState() => _DiagnosticsScreenState();
 }
 
-class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
+class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   Map<String, dynamic>? _deviceStatus;
   bool _loading = true;
   RealtimeChannel? _statusChannel;
@@ -44,7 +45,14 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
   }
 
   Future<void> _loadData() async {
-    final status = await SupabaseService.getDeviceStatus();
+    final installation = await ref.read(currentInstallationProvider.future);
+    if (installation == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    final status = await ref.read(
+      deviceStatusProvider(installation['id']).future,
+    );
     if (mounted) {
       setState(() {
         _deviceStatus = status;

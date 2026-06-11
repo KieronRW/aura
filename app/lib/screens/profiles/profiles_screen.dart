@@ -1,38 +1,21 @@
 // Profiles screen — manage people and their vehicles
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../providers/profile_provider.dart';
 import '../../services/supabase_service.dart';
 import 'add_profile_screen.dart';
 import 'vehicle_detail_screen.dart';
 
-class ProfilesScreen extends StatefulWidget {
+class ProfilesScreen extends ConsumerStatefulWidget {
   const ProfilesScreen({super.key});
 
   @override
-  State<ProfilesScreen> createState() => _ProfilesScreenState();
+  ConsumerState<ProfilesScreen> createState() => _ProfilesScreenState();
 }
 
-class _ProfilesScreenState extends State<ProfilesScreen> {
-  List<Map<String, dynamic>> _profiles = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfiles();
-  }
-
-  Future<void> _loadProfiles() async {
-    final profiles = await SupabaseService.getProfiles();
-    if (mounted) {
-      setState(() {
-        _profiles = profiles;
-        _loading = false;
-      });
-    }
-  }
-
+class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
   Future<void> _addProfile() async {
     final installation = await SupabaseService.getInstallation();
     if (installation == null) {
@@ -55,15 +38,31 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
       ),
     );
     if (added == true && mounted) {
-      _loadProfiles();
+      ref.read(profilesProvider.notifier).refresh();
+    }
+  }
+
+  void _showProfileDetail(Map<String, dynamic> profile) async {
+    final deleted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _ProfileDetailScreen(profile: profile),
+      ),
+    );
+    if (deleted == true && mounted) {
+      ref.read(profilesProvider.notifier).refresh();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final profilesAsync = ref.watch(profilesProvider);
+    final profiles = profilesAsync.valueOrNull?.map((p) => p.toMap()).toList();
+    final loading = profilesAsync.isLoading && profiles == null;
+
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: _loadProfiles,
+        onRefresh: () => ref.read(profilesProvider.notifier).refresh(),
         color: Colors.white,
         backgroundColor: const Color(0xFF111111),
         child: CustomScrollView(
@@ -91,14 +90,14 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  if (_loading)
+                  if (loading)
                     const Center(
                       child: CircularProgressIndicator(
                         color: Colors.white24,
                         strokeWidth: 1,
                       ),
                     )
-                  else if (_profiles.isEmpty)
+                  else if (profiles == null || profiles.isEmpty)
                     const Center(
                       child: Text(
                         'No profiles yet',
@@ -106,7 +105,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                       ),
                     )
                   else
-                    ..._profiles.map(
+                    ...profiles.map(
                       (profile) => _ProfileCard(
                         profile: profile,
                         onTap: () => _showProfileDetail(profile),
@@ -119,19 +118,6 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
         ),
       ),
     );
-  }
-
-  void _showProfileDetail(Map<String, dynamic> profile) async {
-    final deleted = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            _ProfileDetailScreen(profile: profile, onRefresh: _loadProfiles),
-      ),
-    );
-    if (deleted == true && mounted) {
-      _loadProfiles();
-    }
   }
 }
 
@@ -208,17 +194,17 @@ class _ProfileCard extends StatelessWidget {
   }
 }
 
-class _ProfileDetailScreen extends StatefulWidget {
+class _ProfileDetailScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> profile;
-  final VoidCallback onRefresh;
 
-  const _ProfileDetailScreen({required this.profile, required this.onRefresh});
+  const _ProfileDetailScreen({required this.profile});
 
   @override
-  State<_ProfileDetailScreen> createState() => _ProfileDetailScreenState();
+  ConsumerState<_ProfileDetailScreen> createState() =>
+      _ProfileDetailScreenState();
 }
 
-class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
+class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen> {
   late List<dynamic> _vehicles;
   bool _deleting = false;
 
@@ -301,7 +287,7 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
       await client.from('profiles').delete().eq('id', profileId);
 
       if (mounted) {
-        widget.onRefresh();
+        ref.read(profilesProvider.notifier).refresh();
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -329,7 +315,7 @@ class _ProfileDetailScreenState extends State<_ProfileDetailScreen> {
         _vehicles = List.from(updated['vehicles'] as List? ?? []);
       });
     }
-    widget.onRefresh();
+    ref.read(profilesProvider.notifier).refresh();
   }
 
   @override

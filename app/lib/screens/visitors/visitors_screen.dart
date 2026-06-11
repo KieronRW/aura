@@ -1,8 +1,10 @@
 // Visitors screen — expected visitors, unknown vehicles, visitor history
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/supabase_service.dart';
+import '../../providers/installation_provider.dart';
+import '../../providers/visitor_provider.dart';
 
 // In-memory signed URL cache shared across all _UnknownRow instances
 final Map<String, String> _signedUrlCache = {};
@@ -17,14 +19,14 @@ const _kSectionStyle = TextStyle(
 // Main screen
 // ─────────────────────────────────────────────────────────────────────────────
 
-class VisitorsScreen extends StatefulWidget {
+class VisitorsScreen extends ConsumerStatefulWidget {
   const VisitorsScreen({super.key});
 
   @override
-  State<VisitorsScreen> createState() => _VisitorsScreenState();
+  ConsumerState<VisitorsScreen> createState() => _VisitorsScreenState();
 }
 
-class _VisitorsScreenState extends State<VisitorsScreen> {
+class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
   Map<String, dynamic>? _installation;
   List<Map<String, dynamic>> _visitors = [];
   List<Map<String, dynamic>> _unknownVehicles = [];
@@ -38,7 +40,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
   }
 
   Future<void> _load() async {
-    final installation = await SupabaseService.getInstallation();
+    final installation = await ref.read(currentInstallationProvider.future);
     if (!mounted) return;
     setState(() => _installation = installation);
     if (installation != null) {
@@ -49,37 +51,13 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
   }
 
   Future<void> _loadData(String installationId) async {
-    final client = Supabase.instance.client;
     try {
-      final visitorsData = await client
-          .from('visitors')
-          .select('*')
-          .eq('installation_id', installationId)
-          .eq('is_active', true)
-          .order('expected_from', ascending: true);
-
-      final unknownData = await client
-          .from('unknown_vehicles')
-          .select('*')
-          .eq('installation_id', installationId)
-          .eq('status', 'unreviewed')
-          .order('created_at', ascending: false);
-
-      final historyData = await client
-          .from('recognition_events')
-          .select('arrived_at, detected_make, visitor_id, visitors(name)')
-          .eq('installation_id', installationId)
-          .not('visitor_id', 'is', null)
-          .order('arrived_at', ascending: false)
-          .limit(50);
-
+      final data = await ref.read(visitorDataProvider(installationId).future);
       if (mounted) {
         setState(() {
-          _visitors = List<Map<String, dynamic>>.from(visitorsData as List);
-          _unknownVehicles =
-              List<Map<String, dynamic>>.from(unknownData as List);
-          _visitorHistory =
-              List<Map<String, dynamic>>.from(historyData as List);
+          _visitors = data['visitors'] ?? [];
+          _unknownVehicles = data['unknownVehicles'] ?? [];
+          _visitorHistory = data['history'] ?? [];
           _loading = false;
         });
       }
@@ -91,7 +69,10 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
 
   Future<void> _refresh() async {
     final id = _installation?['id'] as String?;
-    if (id != null) await _loadData(id);
+    if (id != null) {
+      ref.invalidate(visitorDataProvider(id));
+      await _loadData(id);
+    }
   }
 
   Future<void> _openAddEdit(
@@ -141,6 +122,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
           .eq('is_active', true)
           .order('display_name');
       profiles = List<Map<String, dynamic>>.from(data as List);
+      // keep using direct client here since we need a lightweight id+name query
     } catch (e) {
       debugPrint('Load profiles error: $e');
       return;
@@ -753,7 +735,7 @@ class _HistoryRow extends StatelessWidget {
 // Add / Edit visitor screen
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _AddEditVisitorScreen extends StatefulWidget {
+class _AddEditVisitorScreen extends ConsumerStatefulWidget {
   final String installationId;
   final String? propertyId;
   final Map<String, dynamic>? visitor;
@@ -769,10 +751,11 @@ class _AddEditVisitorScreen extends StatefulWidget {
   });
 
   @override
-  State<_AddEditVisitorScreen> createState() => _AddEditVisitorScreenState();
+  ConsumerState<_AddEditVisitorScreen> createState() =>
+      _AddEditVisitorScreenState();
 }
 
-class _AddEditVisitorScreenState extends State<_AddEditVisitorScreen> {
+class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
   final _nameCtrl = TextEditingController();
   final _makeCtrl = TextEditingController();
   final _modelCtrl = TextEditingController();
@@ -841,10 +824,12 @@ class _AddEditVisitorScreenState extends State<_AddEditVisitorScreen> {
   Future<void> _loadInstallations() async {
     if (widget.propertyId == null) return;
     try {
-      final data = await SupabaseService.getInstallationsByProperty(
-        widget.propertyId!,
+      final models = await ref.read(
+        installationsProvider(widget.propertyId!).future,
       );
-      if (mounted) setState(() => _availableInstallations = data);
+      if (mounted) {
+        setState(() => _availableInstallations = models.map((i) => i.toMap()).toList());
+      }
     } catch (e) {
       debugPrint('Load installations error: $e');
     }

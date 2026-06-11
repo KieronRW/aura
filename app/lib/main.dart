@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'config/supabase_config.dart';
@@ -16,7 +17,7 @@ void main() async {
 
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  runApp(const AuraApp());
+  runApp(const ProviderScope(child: AuraApp()));
 }
 
 class AuraApp extends StatefulWidget {

@@ -2,19 +2,22 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../providers/profile_provider.dart';
 
-class VehicleDetailScreen extends StatefulWidget {
+class VehicleDetailScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> vehicle;
 
   const VehicleDetailScreen({super.key, required this.vehicle});
 
   @override
-  State<VehicleDetailScreen> createState() => _VehicleDetailScreenState();
+  ConsumerState<VehicleDetailScreen> createState() =>
+      _VehicleDetailScreenState();
 }
 
-class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
+class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
   late Map<String, dynamic> _vehicleData;
   List<Map<String, dynamic>> _referenceImages = [];
   bool _loading = true;
@@ -259,7 +262,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           .delete()
           .eq('id', widget.vehicle['id']);
 
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        ref.invalidate(profilesProvider);
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       debugPrint('Delete vehicle error: $e');
       if (mounted) {

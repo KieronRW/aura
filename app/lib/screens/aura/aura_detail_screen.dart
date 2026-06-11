@@ -2,7 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../providers/installation_provider.dart';
+import '../../providers/recognition_provider.dart';
 import '../../services/supabase_service.dart';
 import 'camera_settings_screen.dart';
 import 'network_settings_screen.dart';
@@ -10,16 +13,16 @@ import 'network_settings_screen.dart';
 // In-memory signed URL cache — shared across all _EventRow instances
 final Map<String, String> _signedUrlCache = {};
 
-class AuraDetailScreen extends StatefulWidget {
+class AuraDetailScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> installation;
 
   const AuraDetailScreen({super.key, required this.installation});
 
   @override
-  State<AuraDetailScreen> createState() => _AuraDetailScreenState();
+  ConsumerState<AuraDetailScreen> createState() => _AuraDetailScreenState();
 }
 
-class _AuraDetailScreenState extends State<AuraDetailScreen> {
+class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
   Map<String, dynamic>? _deviceStatus;
   List<Map<String, dynamic>> _recentEvents = [];
   bool _loading = true;
@@ -41,6 +44,8 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
   }
 
   void _subscribeToRealtime() {
+    final installationId = widget.installation['id'] as String;
+
     _statusChannel = Supabase.instance.client
         .channel('aura_detail_status')
         .onPostgresChanges(
@@ -48,7 +53,10 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
           schema: 'public',
           table: 'device_status',
           callback: (payload) {
-            if (mounted) _loadData();
+            if (mounted) {
+              ref.invalidate(deviceStatusProvider(installationId));
+              _loadData();
+            }
           },
         )
         .subscribe();
@@ -60,7 +68,10 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
           schema: 'public',
           table: 'recognition_events',
           callback: (payload) {
-            if (mounted) _loadData();
+            if (mounted) {
+              ref.invalidate(recognitionEventsProvider(installationId));
+              _loadData();
+            }
           },
         )
         .subscribe();
@@ -71,12 +82,12 @@ class _AuraDetailScreenState extends State<AuraDetailScreen> {
       if (mounted) setState(() => _loading = true);
     }
 
-    final status = await SupabaseService.getDeviceStatusById(
-      widget.installation['id'],
+    final installationId = widget.installation['id'] as String;
+    final status = await ref.read(deviceStatusProvider(installationId).future);
+    final eventModels = await ref.read(
+      recognitionEventsProvider(installationId).future,
     );
-    final events = await SupabaseService.getRecentEventsByInstallation(
-      widget.installation['id'],
-    );
+    final events = eventModels.map((e) => e.toMap()).toList();
     if (mounted) {
       setState(() {
         _deviceStatus = status;

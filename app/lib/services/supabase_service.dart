@@ -211,4 +211,59 @@ class SupabaseService {
       return [];
     }
   }
+
+  // ── Visitors ──────────────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getExpectedVisitors(
+    String installationId,
+  ) async {
+    try {
+      final response = await _client
+          .from('visitors')
+          .select('*')
+          .eq('installation_id', installationId)
+          .eq('is_active', true)
+          .order('expected_from', ascending: true);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('getExpectedVisitors error: $e');
+      return [];
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getUnknownVehicles(
+    String installationId,
+  ) async {
+    try {
+      final response = await _client
+          .from('unknown_vehicles')
+          .select('*')
+          .eq('installation_id', installationId)
+          .eq('status', 'unreviewed')
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('getUnknownVehicles error: $e');
+      return [];
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getVisitorHistory(
+    String installationId, {
+    int limit = 50,
+  }) async {
+    try {
+      final response = await _client
+          .from('recognition_events')
+          .select('arrived_at, detected_make, visitor_id, visitors(name)')
+          .eq('installation_id', installationId)
+          .not('visitor_id', 'is', null)
+          .order('arrived_at', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('getVisitorHistory error: $e');
+      return [];
+    }
+  }
 }

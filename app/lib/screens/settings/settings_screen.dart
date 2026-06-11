@@ -1,17 +1,19 @@
 // Settings screen — account, app settings, support
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import 'diagnostics_screen.dart';
 import 'locations_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider);
 
     return SafeArea(
       child: ListView(

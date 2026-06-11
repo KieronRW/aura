@@ -1,18 +1,20 @@
 // Add Profile screen — create a new profile with name and greeting
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../providers/profile_provider.dart';
 
-class AddProfileScreen extends StatefulWidget {
+class AddProfileScreen extends ConsumerStatefulWidget {
   final String installationId;
 
   const AddProfileScreen({super.key, required this.installationId});
 
   @override
-  State<AddProfileScreen> createState() => _AddProfileScreenState();
+  ConsumerState<AddProfileScreen> createState() => _AddProfileScreenState();
 }
 
-class _AddProfileScreenState extends State<AddProfileScreen> {
+class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
   final _nameController = TextEditingController();
   final _greetingController = TextEditingController();
   bool _loading = false;
@@ -47,7 +49,10 @@ class _AddProfileScreenState extends State<AddProfileScreen> {
         'is_active': true,
       });
 
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        ref.read(profilesProvider.notifier).refresh();
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       debugPrint('Add profile error: $e');
       setState(() {

@@ -1,36 +1,18 @@
 // Locations screen — manage properties and their Auras
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/supabase_service.dart';
+import '../../providers/property_provider.dart';
 
-class LocationsScreen extends StatefulWidget {
+class LocationsScreen extends ConsumerStatefulWidget {
   const LocationsScreen({super.key});
 
   @override
-  State<LocationsScreen> createState() => _LocationsScreenState();
+  ConsumerState<LocationsScreen> createState() => _LocationsScreenState();
 }
 
-class _LocationsScreenState extends State<LocationsScreen> {
-  List<Map<String, dynamic>> _properties = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProperties();
-  }
-
-  Future<void> _loadProperties() async {
-    final properties = await SupabaseService.getProperties();
-    if (mounted) {
-      setState(() {
-        _properties = properties;
-        _loading = false;
-      });
-    }
-  }
-
+class _LocationsScreenState extends ConsumerState<LocationsScreen> {
   void _showAddLocationDialog() {
     final nameController = TextEditingController();
     final addressController = TextEditingController();
@@ -126,7 +108,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
         'address': address?.isNotEmpty == true ? address : null,
         'timezone': 'UTC',
       });
-      await _loadProperties();
+      await ref.read(propertiesProvider.notifier).refresh();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -216,7 +198,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                       'address': address.isNotEmpty ? address : null,
                     })
                     .eq('id', property['id']);
-                await _loadProperties();
+                await ref.read(propertiesProvider.notifier).refresh();
               }
               nav.pop();
             },
@@ -278,7 +260,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                     .from('properties')
                     .update({'name': name})
                     .eq('id', property['id']);
-                await _loadProperties();
+                await ref.read(propertiesProvider.notifier).refresh();
               }
               nav.pop();
             },
@@ -329,7 +311,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                   .from('properties')
                   .update({'is_active': false})
                   .eq('id', property['id']);
-              await _loadProperties();
+              await ref.read(propertiesProvider.notifier).refresh();
               nav.pop();
             },
             child: const Text(
@@ -344,6 +326,13 @@ class _LocationsScreenState extends State<LocationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final propertiesAsync = ref.watch(propertiesProvider);
+    final properties = propertiesAsync.valueOrNull
+            ?.map((p) => p.toMap())
+            .toList() ??
+        [];
+    final loading = propertiesAsync.isLoading && properties.isEmpty;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -366,14 +355,14 @@ class _LocationsScreenState extends State<LocationsScreen> {
         ],
       ),
       body: SafeArea(
-        child: _loading
+        child: loading
             ? const Center(
                 child: CircularProgressIndicator(
                   color: Colors.white24,
                   strokeWidth: 1,
                 ),
               )
-            : _properties.isEmpty
+            : properties.isEmpty
             ? const Center(
                 child: Text(
                   'No locations yet',
@@ -382,9 +371,9 @@ class _LocationsScreenState extends State<LocationsScreen> {
               )
             : ListView.builder(
                 padding: const EdgeInsets.all(24),
-                itemCount: _properties.length,
+                itemCount: properties.length,
                 itemBuilder: (context, index) {
-                  final property = _properties[index];
+                  final property = properties[index];
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(20),

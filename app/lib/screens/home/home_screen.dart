@@ -3,8 +3,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/supabase_service.dart';
+import '../../providers/property_provider.dart';
+import '../../providers/installation_provider.dart';
 import '../profiles/profiles_screen.dart';
 import '../visitors/visitors_screen.dart';
 import '../settings/settings_screen.dart';
@@ -70,14 +72,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _DashboardTab extends StatefulWidget {
+class _DashboardTab extends ConsumerStatefulWidget {
   const _DashboardTab();
 
   @override
-  State<_DashboardTab> createState() => _DashboardTabState();
+  ConsumerState<_DashboardTab> createState() => _DashboardTabState();
 }
 
-class _DashboardTabState extends State<_DashboardTab> {
+class _DashboardTabState extends ConsumerState<_DashboardTab> {
   List<Map<String, dynamic>> _properties = [];
   Map<String, dynamic>? _selectedProperty;
   List<Map<String, dynamic>> _installations = [];
@@ -89,6 +91,7 @@ class _DashboardTabState extends State<_DashboardTab> {
   late final _authSubscription = Supabase.instance.client.auth.onAuthStateChange
       .listen((data) {
         if (mounted) {
+          ref.invalidate(propertiesProvider);
           setState(() {
             _properties = [];
             _selectedProperty = null;
@@ -181,7 +184,8 @@ class _DashboardTabState extends State<_DashboardTab> {
       setState(() => _loading = true);
     }
 
-    final properties = await SupabaseService.getProperties();
+    final propertyModels = await ref.read(propertiesProvider.future);
+    final properties = propertyModels.map((p) => p.toMap()).toList();
 
     if (mounted) {
       final selected = _selectedProperty != null
@@ -212,9 +216,10 @@ class _DashboardTabState extends State<_DashboardTab> {
       if (mounted) setState(() => _loading = true);
     }
 
-    final installations = await SupabaseService.getInstallationsByProperty(
-      _selectedProperty!['id'],
+    final installationModels = await ref.read(
+      installationsProvider(_selectedProperty!['id']).future,
     );
+    final installations = installationModels.map((i) => i.toMap()).toList();
 
     if (mounted) {
       setState(() {
@@ -224,8 +229,8 @@ class _DashboardTabState extends State<_DashboardTab> {
     }
 
     for (final installation in installations) {
-      final status = await SupabaseService.getDeviceStatusById(
-        installation['id'],
+      final status = await ref.read(
+        deviceStatusProvider(installation['id']).future,
       );
       if (mounted && status != null) {
         setState(() {
@@ -343,6 +348,10 @@ class _DashboardTabState extends State<_DashboardTab> {
             ),
           );
           if (added == true && mounted) {
+            ref.invalidate(propertiesProvider);
+            if (_selectedProperty != null) {
+              ref.invalidate(installationsProvider(_selectedProperty!['id']));
+            }
             _loadData();
           }
         },
