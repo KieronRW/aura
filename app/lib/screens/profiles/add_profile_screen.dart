@@ -123,7 +123,6 @@ class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
 
     try {
       final client = Supabase.instance.client;
-      final userId = client.auth.currentUser?.id ?? '';
       final firstName = _firstNameController.text.trim();
       final lastName = _lastNameController.text.trim();
       final displayName = '$firstName $lastName';
@@ -145,7 +144,7 @@ class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
 
       if (_avatarFile != null) {
         final bytes = await _avatarFile!.readAsBytes();
-        final storagePath = '$userId/$profileId.jpg';
+        final storagePath = 'profiles/$profileId/avatar.jpg';
         await client.storage.from('avatars').uploadBinary(
           storagePath,
           bytes,
@@ -154,10 +153,10 @@ class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
             upsert: true,
           ),
         );
-        await client
-            .from('profiles')
-            .update({'avatar_path': '$userId/$profileId.jpg'})
-            .eq('id', profileId);
+        await client.from('profiles').update({
+          'avatar_path': storagePath,
+          'avatar_updated_at': DateTime.now().toUtc().toIso8601String(),
+        }).eq('id', profileId);
       }
 
       if (mounted) {

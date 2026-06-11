@@ -40,8 +40,7 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
     final added = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            AddProfileScreen(installationId: installation['id']),
+        builder: (_) => AddProfileScreen(installationId: installation['id']),
       ),
     );
     if (added == true && mounted) {
@@ -52,9 +51,7 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
   void _showProfileDetail(Map<String, dynamic> profile) async {
     final deleted = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (_) => _ProfileDetailScreen(profile: profile),
-      ),
+      MaterialPageRoute(builder: (_) => _ProfileDetailScreen(profile: profile)),
     );
     if (deleted == true && mounted) {
       ref.read(profilesProvider.notifier).refresh();
@@ -72,8 +69,7 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
   @override
   Widget build(BuildContext context) {
     final profilesAsync = ref.watch(profilesProvider);
-    final profiles =
-        profilesAsync.valueOrNull?.map((p) => p.toMap()).toList();
+    final profiles = profilesAsync.valueOrNull?.map((p) => p.toMap()).toList();
     final loading = profilesAsync.isLoading && profiles == null;
 
     return SafeArea(
@@ -117,10 +113,7 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                     const Center(
                       child: Text(
                         'No profiles yet',
-                        style: TextStyle(
-                          color: Colors.white24,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: Colors.white24, fontSize: 13),
                       ),
                     )
                   else
@@ -140,6 +133,10 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profile card
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _ProfileCard extends StatelessWidget {
   final Map<String, dynamic> profile;
@@ -167,7 +164,13 @@ class _ProfileCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            ProfileAvatar(profile: profile, displayName: displayName, size: 44, fontSize: 18),
+            ProfileAvatar(
+              avatarPath: profile['avatar_path'] as String?,
+              avatarUpdatedAt: profile['avatar_updated_at']?.toString(),
+              displayName: displayName,
+              size: 44,
+              fontSize: 18,
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -216,7 +219,6 @@ class _ProfileCard extends StatelessWidget {
   }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Profile detail — 4-tab screen
 // ─────────────────────────────────────────────────────────────────────────────
@@ -231,8 +233,7 @@ class _ProfileDetailScreen extends ConsumerStatefulWidget {
       _ProfileDetailScreenState();
 }
 
-class _ProfileDetailScreenState
-    extends ConsumerState<_ProfileDetailScreen>
+class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late List<dynamic> _vehicles;
@@ -250,8 +251,7 @@ class _ProfileDetailScreenState
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _vehicles =
-        List.from(widget.profile['vehicles'] as List? ?? []);
+    _vehicles = List.from(widget.profile['vehicles'] as List? ?? []);
     _reloadVehicles();
   }
 
@@ -268,19 +268,11 @@ class _ProfileDetailScreenState
         backgroundColor: const Color(0xFF111111),
         title: const Text(
           'Delete Profile',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            letterSpacing: 1,
-          ),
+          style: TextStyle(color: Colors.white, fontSize: 15, letterSpacing: 1),
         ),
         content: const Text(
           'This will permanently delete this profile, all its vehicles, and all reference images. This cannot be undone.',
-          style: TextStyle(
-            color: Colors.white54,
-            fontSize: 13,
-            height: 1.6,
-          ),
+          style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.6),
         ),
         actions: [
           TextButton(
@@ -312,8 +304,9 @@ class _ProfileDetailScreenState
           .from('vehicles')
           .select('id')
           .eq('profile_id', profileId);
-      final vehicleIds =
-          (vehiclesResp as List).map((v) => v['id'] as String).toList();
+      final vehicleIds = (vehiclesResp as List)
+          .map((v) => v['id'] as String)
+          .toList();
 
       if (vehicleIds.isNotEmpty) {
         final imagesResp = await client
@@ -336,14 +329,10 @@ class _ProfileDetailScreenState
         await client.from('vehicles').delete().eq('profile_id', profileId);
       }
 
-      // Remove avatar if present
       final avatarPath = widget.profile['avatar_path'] as String?;
       if (avatarPath != null) {
         try {
-          final userId = client.auth.currentUser?.id ?? '';
-          await client.storage
-              .from('avatars')
-              .remove(['$userId/$profileId.jpg']);
+          await client.storage.from('avatars').remove([avatarPath]);
         } catch (_) {}
       }
 
@@ -411,7 +400,6 @@ class _ProfileDetailScreenState
                 : TabBarView(
                     controller: _tabController,
                     children: [
-                      // Tab 1: VEHICLES
                       _VehiclesTab(
                         profile: widget.profile,
                         displayName: _displayName,
@@ -419,11 +407,8 @@ class _ProfileDetailScreenState
                         onReload: _reloadVehicles,
                         onDeleteProfile: _deleteProfile,
                       ),
-                      // Tab 2: GREETINGS
                       GreetingsScreen(profile: widget.profile),
-                      // Tab 3: AUTOMATION RULES
                       const _AutomationRulesTab(),
-                      // Tab 4: RECOGNITION HISTORY
                       RecognitionHistoryScreen(profile: widget.profile),
                     ],
                   ),
@@ -487,7 +472,14 @@ class _VehiclesTab extends ConsumerStatefulWidget {
 
 class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
   bool _uploadingAvatar = false;
+  late Map<String, dynamic> _localProfile;
   final _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _localProfile = Map<String, dynamic>.from(widget.profile);
+  }
 
   void _showAvatarSourceDialog() {
     showModalBottomSheet(
@@ -557,29 +549,33 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
       setState(() => _uploadingAvatar = true);
 
       final client = Supabase.instance.client;
-      final userId = client.auth.currentUser?.id ?? '';
-      final profileId = widget.profile['id'] as String;
-      final storagePath = '$userId/$profileId.jpg';
+      final profileId = _localProfile['id'] as String;
+      final storagePath = 'profiles/$profileId/avatar.jpg';
 
       final bytes = await File(file.path).readAsBytes();
-      await client.storage.from('avatars').uploadBinary(
-        storagePath,
-        bytes,
-        fileOptions: const FileOptions(
-          contentType: 'image/jpeg',
-          upsert: true,
-        ),
-      );
-      await client
-          .from('profiles')
-          .update({'avatar_path': storagePath})
-          .eq('id', profileId);
+      await client.storage
+          .from('avatars')
+          .uploadBinary(
+            storagePath,
+            bytes,
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              upsert: true,
+            ),
+          );
+      final now = DateTime.now().toUtc().toIso8601String();
+      await client.from('profiles').update({
+        'avatar_path': storagePath,
+        'avatar_updated_at': now,
+      }).eq('id', profileId);
 
       if (mounted) {
         setState(() {
-          widget.profile['avatar_path'] = storagePath;
+          _localProfile['avatar_path'] = storagePath;
+          _localProfile['avatar_updated_at'] = now;
           _uploadingAvatar = false;
         });
+        ref.read(profilesProvider.notifier).refresh();
       }
     } catch (e) {
       debugPrint('Avatar upload error: $e');
@@ -597,8 +593,8 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
             child: Stack(
               children: [
                 ProfileAvatar(
-                  key: ValueKey(widget.profile['avatar_path']),
-                  profile: widget.profile,
+                  avatarPath: _localProfile['avatar_path'] as String?,
+                  avatarUpdatedAt: _localProfile['avatar_updated_at']?.toString(),
                   displayName: widget.displayName,
                   size: 80,
                   fontSize: 32,
@@ -647,7 +643,6 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
             ),
           ),
           const SizedBox(height: 32),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -666,27 +661,18 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
                     MaterialPageRoute(
                       builder: (_) => _AddVehicleScreen(
                         profileId: widget.profile['id'],
-                        profileName:
-                            widget.profile['display_name'] ?? '',
-                        profileGreeting:
-                            widget.profile['greeting'] ?? '',
+                        profileName: widget.profile['display_name'] ?? '',
+                        profileGreeting: widget.profile['greeting'] ?? '',
                       ),
                     ),
                   );
-                  if (added == true && mounted) {
-                    widget.onReload();
-                  }
+                  if (added == true && mounted) widget.onReload();
                 },
-                icon: const Icon(
-                  Icons.add,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                icon: const Icon(Icons.add, color: Colors.white, size: 20),
               ),
             ],
           ),
           const SizedBox(height: 12),
-
           if (widget.vehicles.isEmpty)
             const Text(
               'No vehicles registered',
@@ -705,13 +691,10 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
                       ),
                     ),
                   );
-                  if (deleted == true && mounted) {
-                    widget.onReload();
-                  }
+                  if (deleted == true && mounted) widget.onReload();
                 },
               ),
             ),
-
           const SizedBox(height: 48),
           Center(
             child: TextButton(
@@ -731,7 +714,6 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
       ),
     );
   }
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -806,17 +788,12 @@ class _VehicleRow extends StatelessWidget {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 3,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.white12),
               ),
               child: Text(
-                vehicle['fingerprint_seeded'] == true
-                    ? 'ENROLLED'
-                    : 'PENDING',
+                vehicle['fingerprint_seeded'] == true ? 'ENROLLED' : 'PENDING',
                 style: TextStyle(
                   color: vehicle['fingerprint_seeded'] == true
                       ? Colors.greenAccent
@@ -827,11 +804,7 @@ class _VehicleRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(
-              Icons.chevron_right,
-              color: Colors.white24,
-              size: 18,
-            ),
+            const Icon(Icons.chevron_right, color: Colors.white24, size: 18),
           ],
         ),
       ),
@@ -840,7 +813,7 @@ class _VehicleRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Add vehicle screen (unchanged from original)
+// Add vehicle screen
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AddVehicleScreen extends StatefulWidget {
@@ -990,93 +963,90 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
             children: [
               const Text(
                 'VEHICLE DETAILS',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 3,
-                color: Colors.white24,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildField(_makeController, 'Make *', 'e.g. Volkswagen'),
-            const SizedBox(height: 16),
-            _buildField(_modelController, 'Model', 'e.g. Polo GTI'),
-            const SizedBox(height: 16),
-            _buildField(_colourController, 'Colour', 'e.g. Silver'),
-            const SizedBox(height: 16),
-            _buildField(
-              _plateController,
-              'Registration plate',
-              'e.g. CA 123 456',
-            ),
-            const SizedBox(height: 16),
-            _buildField(
-              _nicknameController,
-              'Nickname (optional)',
-              'e.g. My GTI',
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              'GREETING',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 3,
-                color: Colors.white24,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Displayed on the mirror when this vehicle is recognised.',
-              style: TextStyle(
-                color: Colors.white24,
-                fontSize: 12,
-                height: 1.6,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildField(
-              _greetingController,
-              'Greeting',
-              'e.g. Welcome home, Kieron!',
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                _error!,
-                style: const TextStyle(
-                  color: Colors.redAccent,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-            if (_loading) ...[
-              const SizedBox(height: 24),
-              const Center(
-                child: CircularProgressIndicator(
+                style: TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 3,
                   color: Colors.white24,
-                  strokeWidth: 1,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildField(_makeController, 'Make *', 'e.g. Volkswagen'),
+              const SizedBox(height: 16),
+              _buildField(_modelController, 'Model', 'e.g. Polo GTI'),
+              const SizedBox(height: 16),
+              _buildField(_colourController, 'Colour', 'e.g. Silver'),
+              const SizedBox(height: 16),
+              _buildField(
+                _plateController,
+                'Registration plate',
+                'e.g. CA 123 456',
+              ),
+              const SizedBox(height: 16),
+              _buildField(
+                _nicknameController,
+                'Nickname (optional)',
+                'e.g. My GTI',
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'GREETING',
+                style: TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 3,
+                  color: Colors.white24,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Displayed on the mirror when this vehicle is recognised.',
+                style: TextStyle(
+                  color: Colors.white24,
+                  fontSize: 12,
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildField(
+                _greetingController,
+                'Greeting',
+                'e.g. Welcome home, Kieron!',
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                ),
+              ],
+              if (_loading) ...[
+                const SizedBox(height: 24),
+                const Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.white24,
+                    strokeWidth: 1,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 32),
+              const Text(
+                'REFERENCE IMAGES',
+                style: TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 3,
+                  color: Colors.white24,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'You can add reference images after saving the vehicle. A minimum of 3 images from different angles is required for fingerprint recognition.',
+                style: TextStyle(
+                  color: Colors.white24,
+                  fontSize: 12,
+                  height: 1.6,
                 ),
               ),
             ],
-            const SizedBox(height: 32),
-            const Text(
-              'REFERENCE IMAGES',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 3,
-                color: Colors.white24,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'You can add reference images after saving the vehicle. A minimum of 3 images from different angles is required for fingerprint recognition.',
-              style: TextStyle(
-                color: Colors.white24,
-                fontSize: 12,
-                height: 1.6,
-              ),
-            ),
-          ],
-      ),
+          ),
         ),
       ),
     );

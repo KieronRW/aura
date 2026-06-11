@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class InitialAvatar extends StatelessWidget {
@@ -27,14 +28,16 @@ class InitialAvatar extends StatelessWidget {
 }
 
 class ProfileAvatar extends StatefulWidget {
-  final Map<String, dynamic> profile;
+  final String? avatarPath;
+  final String? avatarUpdatedAt;
   final String displayName;
   final double size;
   final double fontSize;
 
   const ProfileAvatar({
     super.key,
-    required this.profile,
+    this.avatarPath,
+    this.avatarUpdatedAt,
     required this.displayName,
     required this.size,
     required this.fontSize,
@@ -56,20 +59,28 @@ class ProfileAvatarState extends State<ProfileAvatar> {
   @override
   void didUpdateWidget(ProfileAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.profile['avatar_path'] != widget.profile['avatar_path']) {
+    if (oldWidget.avatarPath != widget.avatarPath ||
+        oldWidget.avatarUpdatedAt != widget.avatarUpdatedAt) {
       _signedUrl = null;
       _loadAvatar();
     }
   }
 
   Future<void> _loadAvatar() async {
-    final path = widget.profile['avatar_path'] as String?;
-    if (path == null) return;
+    final path = widget.avatarPath;
+    if (path == null || path.isEmpty) return;
+    final capturedPath = path;
+    final capturedUpdatedAt = widget.avatarUpdatedAt;
     try {
+      await DefaultCacheManager().removeFile(path);
       final url = await Supabase.instance.client.storage
           .from('avatars')
           .createSignedUrl(path, 3600);
-      if (mounted) setState(() => _signedUrl = url);
+      if (mounted &&
+          capturedPath == widget.avatarPath &&
+          capturedUpdatedAt == widget.avatarUpdatedAt) {
+        setState(() => _signedUrl = url);
+      }
     } catch (e) {
       debugPrint('Avatar signed URL error: $e');
     }
@@ -77,7 +88,6 @@ class ProfileAvatarState extends State<ProfileAvatar> {
 
   @override
   Widget build(BuildContext context) {
-    final avatarPath = widget.profile['avatar_path'] as String?;
     return Container(
       width: widget.size,
       height: widget.size,
@@ -89,7 +99,7 @@ class ProfileAvatarState extends State<ProfileAvatar> {
         child: _signedUrl != null
             ? CachedNetworkImage(
                 imageUrl: _signedUrl!,
-                cacheKey: avatarPath,
+                cacheKey: widget.avatarPath,
                 fit: BoxFit.cover,
                 placeholder: (_, _) => InitialAvatar(
                   name: widget.displayName,
