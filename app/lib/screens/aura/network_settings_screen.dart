@@ -231,7 +231,9 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
           ),
         ],
       ),
-      body: Stack(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Stack(
         children: [
           if (_loading)
             const Center(
@@ -331,6 +333,7 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
           // Reconnecting overlay
           if (_reconnecting) _buildReconnectingOverlay(),
         ],
+        ),
       ),
     );
   }

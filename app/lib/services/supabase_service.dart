@@ -266,4 +266,24 @@ class SupabaseService {
       return [];
     }
   }
+
+  static Future<Map<String, dynamic>?> getLastEventWithOwner(
+    String installationId,
+  ) async {
+    try {
+      final response = await _client
+          .from('recognition_events')
+          .select(
+            'arrived_at, departed_at, detected_make, detected_model, visitor_id, visitors(name)',
+          )
+          .eq('installation_id', installationId)
+          .order('arrived_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      debugPrint('getLastEventWithOwner error: $e');
+      return null;
+    }
+  }
 }

@@ -135,7 +135,9 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
           ),
         ],
       ),
-      body: _loading
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: _loading
           ? const Center(
               child: CircularProgressIndicator(
                 color: Colors.white24,
@@ -213,6 +215,7 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                 ),
               ],
             ),
+      ),
     );
   }
 

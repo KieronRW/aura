@@ -354,8 +354,10 @@ class _LocationsScreenState extends ConsumerState<LocationsScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: loading
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: loading
             ? const Center(
                 child: CircularProgressIndicator(
                   color: Colors.white24,
@@ -459,6 +461,7 @@ class _LocationsScreenState extends ConsumerState<LocationsScreen> {
                   );
                 },
               ),
+        ),
       ),
     );
   }

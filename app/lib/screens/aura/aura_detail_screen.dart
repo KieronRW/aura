@@ -7,8 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/installation_provider.dart';
 import '../../providers/recognition_provider.dart';
 import '../../services/supabase_service.dart';
-import 'camera_settings_screen.dart';
-import 'network_settings_screen.dart';
 
 // In-memory signed URL cache — shared across all _EventRow instances
 final Map<String, String> _signedUrlCache = {};
@@ -28,6 +26,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
   bool _loading = true;
   RealtimeChannel? _statusChannel;
   RealtimeChannel? _eventsChannel;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -112,6 +111,63 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
     return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
+  String _formatLastSeen(Map<String, dynamic>? event) {
+    if (event == null) return 'No recent activity';
+    final arrivedAt = event['arrived_at'] as String?;
+    final departedAt = event['departed_at'] as String?;
+    if (arrivedAt == null) return 'No recent activity';
+
+    String ownerName = '';
+    final visitors = event['visitors'];
+    if (visitors is Map && visitors['name'] != null) {
+      ownerName = visitors['name'] as String;
+    }
+
+    final make = event['detected_make'] as String?;
+    final model = event['detected_model'] as String?;
+    final vehiclePart = [make, model]
+        .where((s) => s != null && s.isNotEmpty)
+        .join(' ');
+
+    final arrivedDt = DateTime.parse(arrivedAt).toLocal();
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final dayLabel = days[arrivedDt.weekday - 1];
+    final ah = arrivedDt.hour.toString().padLeft(2, '0');
+    final am = arrivedDt.minute.toString().padLeft(2, '0');
+    final arrivedLabel = '$dayLabel $ah:$am';
+
+    String timeLabel;
+    if (departedAt != null) {
+      final departedDt = DateTime.parse(departedAt).toLocal();
+      final dh = departedDt.hour.toString().padLeft(2, '0');
+      final dm = departedDt.minute.toString().padLeft(2, '0');
+      final depDayLabel = days[departedDt.weekday - 1];
+      timeLabel = 'Arrived $arrivedLabel → Departed $depDayLabel $dh:$dm';
+    } else {
+      timeLabel = 'Arrived $arrivedLabel';
+    }
+
+    final parts = [ownerName, vehiclePart, timeLabel]
+        .where((s) => s.isNotEmpty)
+        .toList();
+    return parts.join(' · ');
+  }
+
+  List<Map<String, dynamic>> get _filteredEvents {
+    if (_searchQuery.isEmpty) return _recentEvents;
+    final q = _searchQuery.toLowerCase();
+    return _recentEvents.where((event) {
+      final make = (event['detected_make'] ?? '').toString().toLowerCase();
+      final model = (event['detected_model'] ?? '').toString().toLowerCase();
+      final time = _formatTime(event['arrived_at'] as String?).toLowerCase();
+      final date = _formatDate(event['arrived_at'] as String?).toLowerCase();
+      return make.contains(q) ||
+          model.contains(q) ||
+          time.contains(q) ||
+          date.contains(q);
+    }).toList();
+  }
+
   String _formatDate(String? isoString) {
     if (isoString == null) return '';
     final dt = DateTime.parse(isoString).toLocal();
@@ -183,61 +239,6 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
     );
   }
 
-  void _showReleaseDialog() {
-    final nav = Navigator.of(context);
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
-          'RELEASE AURA',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
-        content: const Text(
-          'This will unlink this Aura from your account. It can then be claimed by another user.',
-          style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.6),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => nav.pop(),
-            child: const Text(
-              'CANCEL',
-              style: TextStyle(color: Colors.white38, letterSpacing: 2),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                await Supabase.instance.client
-                    .from('installations')
-                    .update({
-                      'status': 'unclaimed',
-                      'claimed_at': null,
-                      'claimed_by': null,
-                      'property_id': null,
-                    })
-                    .eq('id', widget.installation['id']);
-                nav.pop();
-                nav.pop(true);
-              } catch (e) {
-                debugPrint('Release failed: $e');
-              }
-            },
-            child: const Text(
-              'RELEASE',
-              style: TextStyle(color: Colors.redAccent, letterSpacing: 2),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isOnline = _isActuallyOnline(_deviceStatus);
@@ -264,14 +265,16 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadData,
-          color: Colors.white,
-          backgroundColor: const Color(0xFF111111),
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: _loadData,
+            color: Colors.white,
+            backgroundColor: const Color(0xFF111111),
+              child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -321,7 +324,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
               const SizedBox(height: 32),
 
               const Text(
-                'AURA SETTINGS',
+                'LAST SEEN',
                 style: TextStyle(
                   fontSize: 10,
                   letterSpacing: 3,
@@ -329,51 +332,40 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              _SettingsRow(
-                icon: Icons.brightness_6_outlined,
-                title: 'Display',
-                subtitle: 'Brightness, orientation',
-                onTap: () {},
-              ),
-              _SettingsRow(
-                icon: Icons.camera_outlined,
-                title: 'Camera',
-                subtitle: 'Sensitivity, quality',
-                onTap: () {
-                  final localIp = _deviceStatus?['local_ip'] as String? ?? '';
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CameraSettingsScreen(
-                        installation: widget.installation,
-                        localIp: localIp,
+
+              // Last seen row
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111111),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.history,
+                      color: Colors.white38,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _loading
+                            ? '...'
+                            : _formatLastSeen(
+                                _recentEvents.isNotEmpty
+                                    ? _recentEvents.first
+                                    : null,
+                              ),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                          height: 1.5,
+                        ),
                       ),
                     ),
-                  );
-                },
-              ),
-              _SettingsRow(
-                icon: Icons.wifi_outlined,
-                title: 'Network',
-                subtitle: _deviceStatus?['local_ip'] ?? 'DHCP',
-                onTap: () {
-                  final localIp = _deviceStatus?['local_ip'] as String? ?? '';
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => NetworkSettingsScreen(
-                        installation: widget.installation,
-                        localIp: localIp,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              _SettingsRow(
-                icon: Icons.tune_outlined,
-                title: 'Recognition',
-                subtitle: 'Confidence thresholds',
-                onTap: () {},
+                  ],
+                ),
               ),
 
               const SizedBox(height: 32),
@@ -388,6 +380,33 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
               ),
               const SizedBox(height: 12),
 
+              // Search bar
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111111),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: TextField(
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  decoration: const InputDecoration(
+                    hintText: 'Search by name, vehicle, day or time...',
+                    hintStyle: TextStyle(color: Colors.white24, fontSize: 13),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: Colors.white24,
+                      size: 18,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 12,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
               if (_loading)
                 const Center(
                   child: CircularProgressIndicator(
@@ -395,13 +414,15 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                     strokeWidth: 1,
                   ),
                 )
-              else if (_recentEvents.isEmpty)
-                const Text(
-                  'No recent activity',
-                  style: TextStyle(color: Colors.white24, fontSize: 13),
+              else if (_filteredEvents.isEmpty)
+                Text(
+                  _searchQuery.isNotEmpty
+                      ? 'No results for "$_searchQuery"'
+                      : 'No recent activity',
+                  style: const TextStyle(color: Colors.white24, fontSize: 13),
                 )
               else
-                ..._recentEvents
+                ..._filteredEvents
                     .take(10)
                     .map(
                       (event) => _EventRow(
@@ -414,90 +435,9 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                       ),
                     ),
 
-              const SizedBox(height: 32),
-
-              const Text(
-                'DANGER ZONE',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 3,
-                  color: Colors.white24,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _SettingsRow(
-                icon: Icons.link_off,
-                title: 'Release Aura',
-                subtitle: 'Unlink this Aura from your account',
-                destructive: true,
-                onTap: _showReleaseDialog,
-              ),
             ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsRow extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final bool destructive;
-  final VoidCallback onTap;
-
-  const _SettingsRow({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.destructive = false,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.white12)),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: destructive ? Colors.redAccent : Colors.white38,
-              size: 20,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: destructive ? Colors.redAccent : Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle!,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (!destructive)
-              const Icon(Icons.chevron_right, color: Colors.white24, size: 18),
-          ],
         ),
       ),
     );

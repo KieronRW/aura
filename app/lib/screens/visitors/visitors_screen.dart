@@ -254,7 +254,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
               const Padding(
                 padding: EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'No expected visitors',
+                  'Add a visitor to personalise their arrival',
                   style: TextStyle(color: Colors.white24, fontSize: 13),
                 ),
               )
@@ -769,7 +769,6 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
   DateTime? _expectedFrom;
   DateTime? _expectedUntil;
   List<String> _selectedInstallationIds = [];
-  List<Map<String, dynamic>> _availableInstallations = [];
   bool _saving = false;
   bool _deleting = false;
   String? _error;
@@ -804,7 +803,6 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
       _makeCtrl.text = widget.prefillMake ?? '';
       _modelCtrl.text = widget.prefillModel ?? '';
     }
-    _loadInstallations();
   }
 
   @override
@@ -819,20 +817,6 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
     _arrivalMsgCtrl.dispose();
     _bayOccupiedMsgCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadInstallations() async {
-    if (widget.propertyId == null) return;
-    try {
-      final models = await ref.read(
-        installationsProvider(widget.propertyId!).future,
-      );
-      if (mounted) {
-        setState(() => _availableInstallations = models.map((i) => i.toMap()).toList());
-      }
-    } catch (e) {
-      debugPrint('Load installations error: $e');
-    }
   }
 
   Future<void> _pickDateTime(bool isFrom) async {
@@ -1073,14 +1057,16 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
             ),
         ],
       ),
-      body: _deleting
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: Colors.white24,
-                strokeWidth: 1,
-              ),
-            )
-          : SafeArea(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: _deleting
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.white24,
+                  strokeWidth: 1,
+                ),
+              )
+            : SafeArea(
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
@@ -1089,18 +1075,6 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
                   _buildField(_makeCtrl, 'Vehicle make', 'e.g. BMW'),
                   const SizedBox(height: 16),
                   _buildField(_modelCtrl, 'Vehicle model', 'e.g. 3 Series'),
-                  const SizedBox(height: 16),
-                  _buildField(
-                    _registrationCtrl,
-                    'Registration',
-                    'e.g. CA 123 456',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildField(
-                    _greetingCtrl,
-                    'Greeting',
-                    'e.g. Welcome, Simon',
-                  ),
                   const SizedBox(height: 32),
 
                   const Text(
@@ -1157,73 +1131,6 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
                     maxLines: 2,
                   ),
 
-                  if (_availableInstallations.isNotEmpty) ...[
-                    const SizedBox(height: 32),
-                    const Text(
-                      'AURA SELECTION',
-                      style: TextStyle(
-                        fontSize: 10,
-                        letterSpacing: 3,
-                        color: Colors.white24,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Leave empty to apply to all Auras',
-                      style: TextStyle(color: Colors.white24, fontSize: 12),
-                    ),
-                    const SizedBox(height: 8),
-                    ..._availableInstallations.map((inst) {
-                      final id = inst['id'] as String;
-                      final selected = _selectedInstallationIds.contains(id);
-                      return GestureDetector(
-                        onTap: () => setState(() {
-                          if (selected) {
-                            _selectedInstallationIds.remove(id);
-                          } else {
-                            _selectedInstallationIds.add(id);
-                          }
-                        }),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: Colors.white12),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                selected
-                                    ? Icons.check_box
-                                    : Icons.check_box_outline_blank,
-                                color: selected ? Colors.white : Colors.white38,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                inst['name'] as String? ?? 'Aura',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w300,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-
-                  const SizedBox(height: 32),
-                  _buildField(
-                    _notesCtrl,
-                    'Notes',
-                    'Optional notes',
-                    maxLines: 3,
-                  ),
-
                   if (_error != null) ...[
                     const SizedBox(height: 16),
                     Text(
@@ -1255,6 +1162,7 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
                 ],
               ),
             ),
+        ),
     );
   }
 }
@@ -1568,12 +1476,14 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
             ),
         ],
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            Text(
-              'Profile: ${widget.profileName}',
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Text(
+                'Profile: ${widget.profileName}',
               style: const TextStyle(color: Colors.white38, fontSize: 12),
             ),
             const SizedBox(height: 24),
@@ -1614,6 +1524,7 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
       ),
     );
   }

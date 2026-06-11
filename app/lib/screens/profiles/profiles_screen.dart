@@ -1,11 +1,17 @@
 // Profiles screen — manage people and their vehicles
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../widgets/profile_avatar.dart';
 import '../../providers/profile_provider.dart';
 import '../../services/supabase_service.dart';
 import 'add_profile_screen.dart';
+import 'greetings_screen.dart';
+import 'recognition_history_screen.dart';
 import 'vehicle_detail_screen.dart';
 
 class ProfilesScreen extends ConsumerStatefulWidget {
@@ -34,7 +40,8 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
     final added = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => AddProfileScreen(installationId: installation['id']),
+        builder: (_) =>
+            AddProfileScreen(installationId: installation['id']),
       ),
     );
     if (added == true && mounted) {
@@ -54,10 +61,19 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
     }
   }
 
+  String _profileDisplayName(Map<String, dynamic> profile) {
+    final first = profile['first_name'] as String?;
+    final last = profile['last_name'] as String?;
+    if (first != null && last != null) return '$first $last';
+    if (first != null) return first;
+    return profile['display_name'] as String? ?? 'Unknown';
+  }
+
   @override
   Widget build(BuildContext context) {
     final profilesAsync = ref.watch(profilesProvider);
-    final profiles = profilesAsync.valueOrNull?.map((p) => p.toMap()).toList();
+    final profiles =
+        profilesAsync.valueOrNull?.map((p) => p.toMap()).toList();
     final loading = profilesAsync.isLoading && profiles == null;
 
     return SafeArea(
@@ -101,13 +117,17 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                     const Center(
                       child: Text(
                         'No profiles yet',
-                        style: TextStyle(color: Colors.white24, fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.white24,
+                          fontSize: 13,
+                        ),
                       ),
                     )
                   else
                     ...profiles.map(
                       (profile) => _ProfileCard(
                         profile: profile,
+                        displayName: _profileDisplayName(profile),
                         onTap: () => _showProfileDetail(profile),
                       ),
                     ),
@@ -123,13 +143,18 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
 
 class _ProfileCard extends StatelessWidget {
   final Map<String, dynamic> profile;
+  final String displayName;
   final VoidCallback onTap;
 
-  const _ProfileCard({required this.profile, required this.onTap});
+  const _ProfileCard({
+    required this.profile,
+    required this.displayName,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final vehicles = profile['vehicles'] as List? ?? [];
+    final profileId = profile['id'] as String;
 
     return GestureDetector(
       onTap: onTap,
@@ -142,33 +167,14 @@ class _ProfileCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white24),
-              ),
-              child: Center(
-                child: Text(
-                  (profile['display_name'] as String? ?? '?')
-                      .substring(0, 1)
-                      .toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w200,
-                  ),
-                ),
-              ),
-            ),
+            ProfileAvatar(profile: profile, displayName: displayName, size: 44, fontSize: 18),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    profile['display_name'] ?? 'Unknown',
+                    displayName,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,
@@ -177,11 +183,27 @@ class _ProfileCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    vehicles.isEmpty
-                        ? 'No vehicles'
-                        : '${vehicles.length} vehicle${vehicles.length == 1 ? '' : 's'}',
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  FutureBuilder<List>(
+                    future: Supabase.instance.client
+                        .from('vehicles')
+                        .select('id')
+                        .eq('profile_id', profileId)
+                        .eq('is_active', true),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data?.length ?? 0;
+                      final label = !snapshot.hasData
+                          ? ''
+                          : count == 0
+                          ? 'No vehicles'
+                          : '$count vehicle${count == 1 ? '' : 's'}';
+                      return Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 12,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -194,6 +216,11 @@ class _ProfileCard extends StatelessWidget {
   }
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profile detail — 4-tab screen
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _ProfileDetailScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> profile;
 
@@ -204,15 +231,34 @@ class _ProfileDetailScreen extends ConsumerStatefulWidget {
       _ProfileDetailScreenState();
 }
 
-class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen> {
+class _ProfileDetailScreenState
+    extends ConsumerState<_ProfileDetailScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   late List<dynamic> _vehicles;
   bool _deleting = false;
+
+  String get _displayName {
+    final first = widget.profile['first_name'] as String?;
+    final last = widget.profile['last_name'] as String?;
+    if (first != null && last != null) return '$first $last';
+    if (first != null) return first;
+    return widget.profile['display_name'] as String? ?? 'Profile';
+  }
 
   @override
   void initState() {
     super.initState();
-    _vehicles = List.from(widget.profile['vehicles'] as List? ?? []);
+    _tabController = TabController(length: 4, vsync: this);
+    _vehicles =
+        List.from(widget.profile['vehicles'] as List? ?? []);
     _reloadVehicles();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _deleteProfile() async {
@@ -222,11 +268,19 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen> {
         backgroundColor: const Color(0xFF111111),
         title: const Text(
           'Delete Profile',
-          style: TextStyle(color: Colors.white, fontSize: 15, letterSpacing: 1),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            letterSpacing: 1,
+          ),
         ),
         content: const Text(
           'This will permanently delete this profile, all its vehicles, and all reference images. This cannot be undone.',
-          style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.6),
+          style: TextStyle(
+            color: Colors.white54,
+            fontSize: 13,
+            height: 1.6,
+          ),
         ),
         actions: [
           TextButton(
@@ -248,7 +302,6 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen> {
     );
 
     if (confirmed != true) return;
-
     setState(() => _deleting = true);
 
     try {
@@ -259,9 +312,8 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen> {
           .from('vehicles')
           .select('id')
           .eq('profile_id', profileId);
-      final vehicleIds = (vehiclesResp as List)
-          .map((v) => v['id'] as String)
-          .toList();
+      final vehicleIds =
+          (vehiclesResp as List).map((v) => v['id'] as String).toList();
 
       if (vehicleIds.isNotEmpty) {
         final imagesResp = await client
@@ -282,6 +334,17 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen> {
             .inFilter('vehicle_id', vehicleIds);
 
         await client.from('vehicles').delete().eq('profile_id', profileId);
+      }
+
+      // Remove avatar if present
+      final avatarPath = widget.profile['avatar_path'] as String?;
+      if (avatarPath != null) {
+        try {
+          final userId = client.auth.currentUser?.id ?? '';
+          await client.storage
+              .from('avatars')
+              .remove(['$userId/$profileId.jpg']);
+        } catch (_) {}
       }
 
       await client.from('profiles').delete().eq('id', profileId);
@@ -327,7 +390,7 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          (widget.profile['display_name'] ?? 'Profile').toUpperCase(),
+          _displayName.toUpperCase(),
           style: const TextStyle(
             fontSize: 13,
             letterSpacing: 4,
@@ -335,121 +398,145 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen> {
           ),
         ),
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            Center(
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: Center(
-                  child: Text(
-                    (widget.profile['display_name'] as String? ?? '?')
-                        .substring(0, 1)
-                        .toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 36,
-                      fontWeight: FontWeight.w200,
+      body: Column(
+        children: [
+          Expanded(
+            child: _deleting
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white24,
+                      strokeWidth: 1,
                     ),
+                  )
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // Tab 1: VEHICLES
+                      _VehiclesTab(
+                        profile: widget.profile,
+                        displayName: _displayName,
+                        vehicles: _vehicles,
+                        onReload: _reloadVehicles,
+                        onDeleteProfile: _deleteProfile,
+                      ),
+                      // Tab 2: GREETINGS
+                      GreetingsScreen(profile: widget.profile),
+                      // Tab 3: AUTOMATION RULES
+                      const _AutomationRulesTab(),
+                      // Tab 4: RECOGNITION HISTORY
+                      RecognitionHistoryScreen(profile: widget.profile),
+                    ],
                   ),
+          ),
+          Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF111111),
+              border: Border(top: BorderSide(color: Colors.white12)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: Colors.white,
+                indicatorWeight: 1,
+                indicatorSize: TabBarIndicatorSize.label,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white38,
+                labelStyle: const TextStyle(fontSize: 10, letterSpacing: 2),
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 2,
                 ),
+                tabs: const [
+                  Tab(text: 'VEHICLES'),
+                  Tab(text: 'GREETINGS'),
+                  Tab(text: 'RULES'),
+                  Tab(text: 'HISTORY'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vehicles tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _VehiclesTab extends ConsumerStatefulWidget {
+  final Map<String, dynamic> profile;
+  final String displayName;
+  final List<dynamic> vehicles;
+  final VoidCallback onReload;
+  final VoidCallback onDeleteProfile;
+
+  const _VehiclesTab({
+    required this.profile,
+    required this.displayName,
+    required this.vehicles,
+    required this.onReload,
+    required this.onDeleteProfile,
+  });
+
+  @override
+  ConsumerState<_VehiclesTab> createState() => _VehiclesTabState();
+}
+
+class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
+  bool _uploadingAvatar = false;
+  final _picker = ImagePicker();
+
+  void _showAvatarSourceDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 16),
-            Center(
-              child: Text(
-                widget.profile['greeting'] ?? '',
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 13,
-                  fontStyle: FontStyle.italic,
-                ),
+            ListTile(
+              leading: const Icon(
+                Icons.camera_alt_outlined,
+                color: Colors.white38,
               ),
-            ),
-            const SizedBox(height: 40),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'VEHICLES',
-                  style: TextStyle(
-                    fontSize: 11,
-                    letterSpacing: 4,
-                    color: Colors.white38,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () async {
-                    final added = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => _AddVehicleScreen(
-                          profileId: widget.profile['id'],
-                          profileName: widget.profile['display_name'] ?? '',
-                          profileGreeting: widget.profile['greeting'] ?? '',
-                        ),
-                      ),
-                    );
-                    if (added == true && mounted) {
-                      await _reloadVehicles();
-                    }
-                  },
-                  icon: const Icon(Icons.add, color: Colors.white, size: 20),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            if (_vehicles.isEmpty)
-              const Text(
-                'No vehicles registered',
-                style: TextStyle(color: Colors.white24, fontSize: 13),
-              )
-            else
-              ..._vehicles.map(
-                (v) => _VehicleRow(
-                  vehicle: v,
-                  onTap: () async {
-                    final deleted = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => VehicleDetailScreen(
-                          vehicle: Map<String, dynamic>.from(v),
-                        ),
-                      ),
-                    );
-                    if (deleted == true && mounted) {
-                      await _reloadVehicles();
-                    }
-                  },
-                ),
+              title: const Text(
+                'Take photo',
+                style: TextStyle(color: Colors.white),
               ),
-
-            const SizedBox(height: 48),
-            Center(
-              child: _deleting
-                  ? const CircularProgressIndicator(
-                      color: Colors.white24,
-                      strokeWidth: 1,
-                    )
-                  : TextButton(
-                      onPressed: _deleteProfile,
-                      child: const Text(
-                        'DELETE PROFILE',
-                        style: TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 12,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                    ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndUploadAvatar(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_library_outlined,
+                color: Colors.white38,
+              ),
+              title: const Text(
+                'Choose from library',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndUploadAvatar(ImageSource.gallery);
+              },
             ),
             const SizedBox(height: 8),
           ],
@@ -457,7 +544,217 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen> {
       ),
     );
   }
+
+  Future<void> _pickAndUploadAvatar(ImageSource source) async {
+    try {
+      final file = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 512,
+      );
+      if (file == null || !mounted) return;
+
+      setState(() => _uploadingAvatar = true);
+
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id ?? '';
+      final profileId = widget.profile['id'] as String;
+      final storagePath = '$userId/$profileId.jpg';
+
+      final bytes = await File(file.path).readAsBytes();
+      await client.storage.from('avatars').uploadBinary(
+        storagePath,
+        bytes,
+        fileOptions: const FileOptions(
+          contentType: 'image/jpeg',
+          upsert: true,
+        ),
+      );
+      await client
+          .from('profiles')
+          .update({'avatar_path': storagePath})
+          .eq('id', profileId);
+
+      if (mounted) {
+        setState(() {
+          widget.profile['avatar_path'] = storagePath;
+          _uploadingAvatar = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Avatar upload error: $e');
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          Center(
+            child: Stack(
+              children: [
+                ProfileAvatar(
+                  key: ValueKey(widget.profile['avatar_path']),
+                  profile: widget.profile,
+                  displayName: widget.displayName,
+                  size: 80,
+                  fontSize: 32,
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: GestureDetector(
+                    onTap: _uploadingAvatar ? null : _showAvatarSourceDialog,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.black, width: 2),
+                      ),
+                      child: _uploadingAvatar
+                          ? const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: Colors.black,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.camera_alt,
+                              color: Colors.black,
+                              size: 14,
+                            ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
+              widget.profile['greeting'] ?? '',
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 13,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'VEHICLES',
+                style: TextStyle(
+                  fontSize: 11,
+                  letterSpacing: 4,
+                  color: Colors.white38,
+                ),
+              ),
+              IconButton(
+                onPressed: () async {
+                  final added = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => _AddVehicleScreen(
+                        profileId: widget.profile['id'],
+                        profileName:
+                            widget.profile['display_name'] ?? '',
+                        profileGreeting:
+                            widget.profile['greeting'] ?? '',
+                      ),
+                    ),
+                  );
+                  if (added == true && mounted) {
+                    widget.onReload();
+                  }
+                },
+                icon: const Icon(
+                  Icons.add,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (widget.vehicles.isEmpty)
+            const Text(
+              'No vehicles registered',
+              style: TextStyle(color: Colors.white24, fontSize: 13),
+            )
+          else
+            ...widget.vehicles.map(
+              (v) => _VehicleRow(
+                vehicle: v,
+                onTap: () async {
+                  final deleted = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => VehicleDetailScreen(
+                        vehicle: Map<String, dynamic>.from(v),
+                      ),
+                    ),
+                  );
+                  if (deleted == true && mounted) {
+                    widget.onReload();
+                  }
+                },
+              ),
+            ),
+
+          const SizedBox(height: 48),
+          Center(
+            child: TextButton(
+              onPressed: widget.onDeleteProfile,
+              child: const Text(
+                'DELETE PROFILE',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 12,
+                  letterSpacing: 2,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Automation rules tab (stub)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AutomationRulesTab extends StatelessWidget {
+  const _AutomationRulesTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        'Automation rules coming soon',
+        style: TextStyle(color: Colors.white38, fontSize: 13),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vehicle row
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _VehicleRow extends StatelessWidget {
   final dynamic vehicle;
@@ -509,12 +806,17 @@ class _VehicleRow extends StatelessWidget {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 3,
+              ),
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.white12),
               ),
               child: Text(
-                vehicle['fingerprint_seeded'] == true ? 'ENROLLED' : 'PENDING',
+                vehicle['fingerprint_seeded'] == true
+                    ? 'ENROLLED'
+                    : 'PENDING',
                 style: TextStyle(
                   color: vehicle['fingerprint_seeded'] == true
                       ? Colors.greenAccent
@@ -525,13 +827,21 @@ class _VehicleRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: Colors.white24, size: 18),
+            const Icon(
+              Icons.chevron_right,
+              color: Colors.white24,
+              size: 18,
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add vehicle screen (unchanged from original)
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _AddVehicleScreen extends StatefulWidget {
   final String profileId;
@@ -672,12 +982,14 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            const Text(
-              'VEHICLE DETAILS',
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              const Text(
+                'VEHICLE DETAILS',
               style: TextStyle(
                 fontSize: 10,
                 letterSpacing: 3,
@@ -730,7 +1042,10 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
               const SizedBox(height: 16),
               Text(
                 _error!,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 13,
+                ),
               ),
             ],
             if (_loading) ...[
@@ -761,6 +1076,7 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
               ),
             ),
           ],
+      ),
         ),
       ),
     );

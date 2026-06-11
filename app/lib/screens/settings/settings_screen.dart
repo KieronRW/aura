@@ -1,12 +1,14 @@
-// Settings screen — account, app settings, support
+// Settings screen — account, locations, automations, app, support
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
+import '../automations/automations_screen.dart';
 import 'diagnostics_screen.dart';
 import 'locations_screen.dart';
+import 'manage_auras_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -29,8 +31,8 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
 
-          // Account section
-          _SectionHeader(title: 'ACCOUNT'),
+          // ── ACCOUNT ────────────────────────────────────────────────────────
+          const _SectionHeader(title: 'ACCOUNT'),
           _SettingsRow(
             icon: Icons.person_outline,
             title: 'Profile',
@@ -46,33 +48,69 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 32),
 
-          // Automations section
-          _SectionHeader(title: 'AUTOMATIONS'),
-          _SettingsRow(
-            icon: Icons.bolt_outlined,
-            title: 'Automations',
-            subtitle: 'Event-driven rules',
-            onTap: () {},
-          ),
-
-          const SizedBox(height: 32),
-
-          // Locations section
-          _SectionHeader(title: 'LOCATIONS'),
+          // ── LOCATIONS & AURAS ──────────────────────────────────────────────
+          const _SectionHeader(title: 'LOCATIONS & AURAS'),
           _SettingsRow(
             icon: Icons.location_on_outlined,
             title: 'Manage Locations',
-            subtitle: 'Properties and Auras',
+            subtitle: 'Properties and addresses',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const LocationsScreen()),
             ),
           ),
+          _SettingsRow(
+            icon: Icons.sensors,
+            title: 'Manage Auras',
+            subtitle: 'View and configure your Auras',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ManageAurasScreen()),
+            ),
+          ),
 
           const SizedBox(height: 32),
 
-          // App section
-          _SectionHeader(title: 'APP'),
+          // ── AUTOMATIONS ────────────────────────────────────────────────────
+          const _SectionHeader(title: 'AUTOMATIONS'),
+          _SettingsRow(
+            icon: Icons.bolt_outlined,
+            title: 'Automation Rules',
+            subtitle: 'Event-driven rules',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => Scaffold(
+                  backgroundColor: Colors.black,
+                  appBar: AppBar(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    title: const Text(
+                      'AUTOMATIONS',
+                      style: TextStyle(
+                        fontSize: 13,
+                        letterSpacing: 4,
+                        fontWeight: FontWeight.w300,
+                      ),
+                    ),
+                  ),
+                  body: const AutomationsScreen(),
+                ),
+              ),
+            ),
+          ),
+          _SettingsRow(
+            icon: Icons.link_outlined,
+            title: 'Integrations',
+            subtitle: 'Integrations coming soon',
+            onTap: () {},
+          ),
+
+          const SizedBox(height: 32),
+
+          // ── APP ────────────────────────────────────────────────────────────
+          const _SectionHeader(title: 'APP'),
           _SettingsRow(
             icon: Icons.notifications_outlined,
             title: 'Notifications',
@@ -84,40 +122,39 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'Dark',
             onTap: () {},
           ),
+          _SettingsRow(
+            icon: Icons.tune_outlined,
+            title: 'App Preferences',
+            onTap: () {},
+          ),
 
           const SizedBox(height: 32),
 
-          // Diagnostics section
-          _SectionHeader(title: 'DIAGNOSTICS'),
+          // ── SUPPORT ────────────────────────────────────────────────────────
+          const _SectionHeader(title: 'SUPPORT'),
           _SettingsRow(
             icon: Icons.monitor_heart_outlined,
-            title: 'Device Status',
+            title: 'Diagnostics',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const DiagnosticsScreen()),
             ),
           ),
           _SettingsRow(
-            icon: Icons.system_update_outlined,
-            title: 'Software Updates',
+            icon: Icons.help_outline,
+            title: 'Support',
             onTap: () {},
           ),
-
-          const SizedBox(height: 32),
-
-          // Support section
-          _SectionHeader(title: 'SUPPORT'),
-          _SettingsRow(icon: Icons.help_outline, title: 'Help', onTap: () {}),
           _SettingsRow(
             icon: Icons.info_outline,
-            title: 'About',
+            title: 'About Aura',
             subtitle: 'Version 1.0.1',
             onTap: () {},
           ),
 
           const SizedBox(height: 32),
 
-          // Sign out
+          // ── SIGN OUT ───────────────────────────────────────────────────────
           _SettingsRow(
             icon: Icons.logout,
             title: 'Sign Out',

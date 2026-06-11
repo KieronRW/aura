@@ -66,8 +66,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: SingleChildScrollView(
           padding: const EdgeInsets.all(32.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -141,6 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
               ),
             ],
+          ),
           ),
         ),
       ),

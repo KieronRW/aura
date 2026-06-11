@@ -1,4 +1,4 @@
-// Home screen — four tab navigation: Home, Profiles, Automations, Settings
+// Home screen — four tab navigation: Home, Profiles, Visitors, Settings
 
 import 'dart:async';
 
@@ -7,10 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/property_provider.dart';
 import '../../providers/installation_provider.dart';
+import '../../services/supabase_service.dart';
 import '../profiles/profiles_screen.dart';
 import '../visitors/visitors_screen.dart';
 import '../settings/settings_screen.dart';
-import '../onboarding/discover_mirror_screen.dart';
 import '../aura/aura_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -81,22 +81,22 @@ class _DashboardTab extends ConsumerStatefulWidget {
 
 class _DashboardTabState extends ConsumerState<_DashboardTab> {
   List<Map<String, dynamic>> _properties = [];
-  Map<String, dynamic>? _selectedProperty;
-  List<Map<String, dynamic>> _installations = [];
+  final Map<String, List<Map<String, dynamic>>> _propertyInstallations = {};
   final Map<String, Map<String, dynamic>> _statusCache = {};
+  final Map<String, Map<String, dynamic>?> _lastEventCache = {};
   bool _loading = true;
   RealtimeChannel? _statusChannel;
   RealtimeChannel? _eventsChannel;
 
-  late final _authSubscription = Supabase.instance.client.auth.onAuthStateChange
-      .listen((data) {
+  late final _authSubscription =
+      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
         if (mounted) {
           ref.invalidate(propertiesProvider);
           setState(() {
             _properties = [];
-            _selectedProperty = null;
-            _installations = [];
+            _propertyInstallations.clear();
             _statusCache.clear();
+            _lastEventCache.clear();
             _loading = true;
           });
           _loadData();
@@ -130,14 +130,16 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
             final record = payload.newRecord;
             final id = record['installation_id'] as String?;
             if (id != null && record.isNotEmpty) {
-              setState(() => _statusCache[id] = Map<String, dynamic>.from(record));
+              setState(
+                () => _statusCache[id] = Map<String, dynamic>.from(record),
+              );
             }
           },
         )
         .subscribe();
 
     _eventsChannel = Supabase.instance.client
-        .channel('recognition_events_changes')
+        .channel('recognition_events_home')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
@@ -145,13 +147,16 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
           callback: (payload) {
             if (!mounted) return;
             final id = payload.newRecord['installation_id'] as String?;
-            if (id != null && _statusCache.containsKey(id)) {
-              setState(() {
-                _statusCache[id] = {
-                  ..._statusCache[id]!,
-                  'current_state': 'recognition',
-                };
-              });
+            if (id != null) {
+              _refreshLastEvent(id);
+              if (_statusCache.containsKey(id)) {
+                setState(() {
+                  _statusCache[id] = {
+                    ..._statusCache[id]!,
+                    'current_state': 'recognition',
+                  };
+                });
+              }
             }
           },
         )
@@ -164,14 +169,14 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
             final record = payload.newRecord;
             final id = record['installation_id'] as String?;
             if (id != null && _statusCache.containsKey(id)) {
-              final departedAt = record['departed_at'];
-              if (departedAt != null) {
+              if (record['departed_at'] != null) {
                 setState(() {
                   _statusCache[id] = {
                     ..._statusCache[id]!,
                     'current_state': 'idle',
                   };
                 });
+                _refreshLastEvent(id);
               }
             }
           },
@@ -179,118 +184,55 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
         .subscribe();
   }
 
+  Future<void> _refreshLastEvent(String installationId) async {
+    final event = await SupabaseService.getLastEventWithOwner(installationId);
+    if (mounted) setState(() => _lastEventCache[installationId] = event);
+  }
+
   Future<void> _loadData() async {
-    if (_installations.isEmpty) {
-      setState(() => _loading = true);
-    }
+    final hasData =
+        _propertyInstallations.values.expand((i) => i).isNotEmpty;
+    if (!hasData) setState(() => _loading = true);
 
     final propertyModels = await ref.read(propertiesProvider.future);
     final properties = propertyModels.map((p) => p.toMap()).toList();
 
-    if (mounted) {
-      final selected = _selectedProperty != null
-          ? properties.firstWhere(
-              (p) => p['id'] == _selectedProperty!['id'],
-              orElse: () => properties.isNotEmpty ? properties.first : {},
-            )
-          : (properties.isNotEmpty ? properties.first : null);
+    if (!mounted) return;
 
+    for (final property in properties) {
+      final installationModels = await ref.read(
+        installationsProvider(property['id'] as String).future,
+      );
+      if (mounted) {
+        setState(() {
+          _propertyInstallations[property['id'] as String] =
+              installationModels.map((i) => i.toMap()).toList();
+        });
+      }
+    }
+
+    if (mounted) {
       setState(() {
         _properties = properties;
-        _selectedProperty = selected != null && (selected as Map).isNotEmpty
-            ? selected
-            : null;
-      });
-
-      await _loadInstallations(showLoading: _installations.isEmpty);
-    }
-  }
-
-  Future<void> _loadInstallations({bool showLoading = false}) async {
-    if (_selectedProperty == null) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-
-    if (showLoading && _installations.isEmpty) {
-      if (mounted) setState(() => _loading = true);
-    }
-
-    final installationModels = await ref.read(
-      installationsProvider(_selectedProperty!['id']).future,
-    );
-    final installations = installationModels.map((i) => i.toMap()).toList();
-
-    if (mounted) {
-      setState(() {
-        _installations = installations;
         _loading = false;
       });
     }
 
-    for (final installation in installations) {
-      final status = await ref.read(
-        deviceStatusProvider(installation['id']).future,
-      );
-      if (mounted && status != null) {
-        setState(() {
-          _statusCache[installation['id']] = status;
-        });
+    for (final property in properties) {
+      final installations =
+          _propertyInstallations[property['id'] as String] ?? [];
+      for (final installation in installations) {
+        final id = installation['id'] as String;
+        final status = await ref.read(deviceStatusProvider(id).future);
+        final lastEvent = await SupabaseService.getLastEventWithOwner(id);
+        if (mounted) {
+          setState(() {
+            if (status != null) _statusCache[id] = status;
+            _lastEventCache[id] = lastEvent;
+          });
+        }
       }
     }
-  }
-
-  void _showPropertySelector() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ..._properties.map(
-              (property) => ListTile(
-                title: Text(
-                  property['name'],
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
-                trailing: _selectedProperty?['id'] == property['id']
-                    ? const Icon(Icons.check, color: Colors.white, size: 18)
-                    : null,
-                onTap: () {
-                  Navigator.pop(context);
-                  setState(() {
-                    _selectedProperty = property;
-                    _installations = [];
-                    _statusCache.clear();
-                    _loading = true;
-                  });
-                  _loadInstallations();
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
   }
 
   bool _isActuallyOnline(Map<String, dynamic>? status) {
@@ -302,206 +244,209 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
     return DateTime.now().toUtc().difference(lastSeenDt).inSeconds < 45;
   }
 
-  Widget _buildEmptyState() {
-    return Column(
-      children: [
-        const SizedBox(height: 48),
-        const Icon(Icons.sensors, color: Colors.white12, size: 64),
-        const SizedBox(height: 24),
-        const Text(
-          'No Aura found',
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: 15,
-            letterSpacing: 1,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Add your Aura to get started',
-          style: TextStyle(color: Colors.white24, fontSize: 13),
-        ),
-      ],
-    );
-  }
+  String _formatLastSeen(Map<String, dynamic>? event) {
+    if (event == null) return 'No recent activity';
+    final arrivedAt = event['arrived_at'] as String?;
+    if (arrivedAt == null) return 'No recent activity';
 
-  Set<String> get _ownedInstallationKeys => _installations
-      .map((i) => i['installation_key'] as String? ?? '')
-      .where((k) => k.isNotEmpty)
-      .toSet();
+    String ownerName = '';
+    final visitors = event['visitors'];
+    if (visitors is Map && visitors['name'] != null) {
+      ownerName = visitors['name'] as String;
+    } else {
+      final make = event['detected_make'] as String?;
+      if (make != null && make.isNotEmpty) ownerName = make;
+    }
+
+    if (ownerName.isEmpty) return 'No recent activity';
+
+    final dt = DateTime.parse(arrivedAt).toLocal();
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$ownerName at $h:$m';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final propertyName = _selectedProperty?['name'] ?? 'AURA';
-
     return Scaffold(
       backgroundColor: Colors.black,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final added = await Navigator.push<bool>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DiscoverMirrorScreen(
-                propertyId: _selectedProperty?['id'],
-                ownedKeys: _ownedInstallationKeys,
-              ),
-            ),
-          );
-          if (added == true && mounted) {
-            ref.invalidate(propertiesProvider);
-            if (_selectedProperty != null) {
-              ref.invalidate(installationsProvider(_selectedProperty!['id']));
-            }
-            _loadData();
-          }
-        },
-        backgroundColor: const Color(0xFF222222),
-        foregroundColor: Colors.white,
-        elevation: 4,
-        child: const Icon(Icons.add),
-      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadData,
           color: Colors.white,
           backgroundColor: const Color(0xFF111111),
-          child: ListView(
-            padding: const EdgeInsets.all(24.0),
-            children: [
-              GestureDetector(
-                onTap: _properties.length > 1 ? _showPropertySelector : null,
-                child: Row(
-                  children: [
-                    Text(
-                      propertyName.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w200,
-                        letterSpacing: 6,
-                        color: Colors.white,
-                      ),
-                    ),
-                    if (_properties.length > 1) ...[
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.keyboard_arrow_down,
-                        color: Colors.white38,
-                        size: 20,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              if (_loading)
-                const Center(
+          child: _loading
+              ? const Center(
                   child: CircularProgressIndicator(
                     color: Colors.white24,
                     strokeWidth: 1,
                   ),
                 )
-              else if (_installations.isEmpty)
-                _buildEmptyState()
-              else
-                ..._installations.map((installation) {
-                  final status = _statusCache[installation['id']];
-                  final online = _isActuallyOnline(status);
-                  final currentState = (status?['current_state'] ?? '')
-                      .toString()
-                      .toUpperCase();
-
-                  return GestureDetector(
-                    onTap: () async {
-                      await Navigator.push<bool>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              AuraDetailScreen(installation: installation),
-                        ),
-                      );
-                      if (mounted) _loadData();
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF111111),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: Row(
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 600),
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: online
-                                  ? Colors.greenAccent
-                                  : Colors.redAccent,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  installation['name'] ?? 'Aura',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 600),
-                                  child: Text(
-                                    online ? 'Online' : 'Offline',
-                                    key: ValueKey(online),
-                                    style: const TextStyle(
-                                      color: Colors.white38,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (online)
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 800),
-                              transitionBuilder: (child, animation) =>
-                                  FadeTransition(
-                                    opacity: animation,
-                                    child: child,
-                                  ),
-                              child: Text(
-                                currentState,
-                                key: ValueKey(currentState),
-                                style: const TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 10,
-                                  letterSpacing: 2,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.chevron_right,
-                            color: Colors.white24,
-                            size: 18,
-                          ),
-                        ],
+              : _properties.isEmpty
+              ? ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: const [
+                    SizedBox(height: 48),
+                    Icon(Icons.sensors, color: Colors.white12, size: 64),
+                    SizedBox(height: 24),
+                    Text(
+                      'No Aura found',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 15,
+                        letterSpacing: 1,
                       ),
                     ),
-                  );
-                }),
-            ],
-          ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Add your Aura from Settings → Manage Auras',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white24, fontSize: 13),
+                    ),
+                  ],
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(24.0),
+                  children: [
+                    ..._properties.expand<Widget>((property) {
+                      final installations =
+                          _propertyInstallations[property['id'] as String] ??
+                          [];
+                      return [
+                        Text(
+                          (property['name'] as String).toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w200,
+                            letterSpacing: 6,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (installations.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 16),
+                            child: Text(
+                              'No Auras at this location',
+                              style: TextStyle(
+                                color: Colors.white24,
+                                fontSize: 13,
+                              ),
+                            ),
+                          )
+                        else
+                          ...installations.map((installation) {
+                            final id = installation['id'] as String;
+                            final status = _statusCache[id];
+                            final online = _isActuallyOnline(status);
+                            final lastSeenText =
+                                _formatLastSeen(_lastEventCache[id]);
+
+                            return GestureDetector(
+                              onTap: () async {
+                                await Navigator.push<bool>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AuraDetailScreen(
+                                      installation: installation,
+                                    ),
+                                  ),
+                                );
+                                if (mounted) _loadData();
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF111111),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 600,
+                                          ),
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: online
+                                                ? Colors.greenAccent
+                                                : Colors.redAccent,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            installation['name'] ?? 'Aura',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              letterSpacing: 1,
+                                            ),
+                                          ),
+                                        ),
+                                        AnimatedSwitcher(
+                                          duration: const Duration(
+                                            milliseconds: 600,
+                                          ),
+                                          child: Text(
+                                            online ? 'Online' : 'Offline',
+                                            key: ValueKey(online),
+                                            style: TextStyle(
+                                              color: online
+                                                  ? Colors.greenAccent
+                                                  : Colors.redAccent,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Icon(
+                                          Icons.chevron_right,
+                                          color: Colors.white24,
+                                          size: 18,
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        const SizedBox(width: 20),
+                                        const Text(
+                                          'Last Seen:',
+                                          style: TextStyle(
+                                            color: Colors.white38,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            lastSeenText,
+                                            style: const TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 12,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        const SizedBox(height: 16),
+                      ];
+                    }),
+                  ],
+                ),
         ),
       ),
     );
