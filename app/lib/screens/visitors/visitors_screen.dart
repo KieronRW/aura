@@ -127,7 +127,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
       debugPrint('Load profiles error: $e');
       return;
     }
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     if (profiles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -145,7 +145,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
       backgroundColor: const Color(0xFF111111),
       builder: (_) => _ProfilePickerSheet(profiles: profiles),
     );
-    if (profile == null || !mounted) return;
+    if (profile == null || !context.mounted) return;
 
     final saved = await Navigator.push<bool>(
       context,
@@ -549,7 +549,7 @@ class _UnknownRowState extends State<_UnknownRow> {
                     ? Image.network(
                         _imageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Center(
+                        errorBuilder: (_, _, _) => const Center(
                           child: Icon(Icons.broken_image_outlined,
                               color: Colors.white24, size: 20),
                         ),
@@ -645,7 +645,7 @@ class _ActionButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 7),
           decoration: BoxDecoration(
             border: Border.all(
-              color: destructive ? Colors.redAccent.withOpacity(0.4) : Colors.white12,
+              color: destructive ? Colors.redAccent.withValues(alpha: 0.4) : Colors.white12,
             ),
           ),
           child: Text(
