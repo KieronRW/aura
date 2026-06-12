@@ -1425,8 +1425,6 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
   final _colourCtrl = TextEditingController();
   final _registrationCtrl = TextEditingController();
   final _nicknameCtrl = TextEditingController();
-  final _ownerNameCtrl = TextEditingController();
-  final _ownerGreetingCtrl = TextEditingController();
   bool _saving = false;
   String? _error;
 
@@ -1435,7 +1433,6 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
     super.initState();
     _makeCtrl.text = widget.prefillMake ?? '';
     _modelCtrl.text = widget.prefillModel ?? '';
-    _ownerNameCtrl.text = widget.profileName;
   }
 
   @override
@@ -1445,8 +1442,6 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
     _colourCtrl.dispose();
     _registrationCtrl.dispose();
     _nicknameCtrl.dispose();
-    _ownerNameCtrl.dispose();
-    _ownerGreetingCtrl.dispose();
     super.dispose();
   }
 
@@ -1479,12 +1474,6 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
                 : null,
             'nickname': _nicknameCtrl.text.trim().isNotEmpty
                 ? _nicknameCtrl.text.trim()
-                : null,
-            'owner_name': _ownerNameCtrl.text.trim().isNotEmpty
-                ? _ownerNameCtrl.text.trim()
-                : null,
-            'owner_greeting': _ownerGreetingCtrl.text.trim().isNotEmpty
-                ? _ownerGreetingCtrl.text.trim()
                 : null,
             'is_active': true,
           })
@@ -1600,23 +1589,6 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
             _buildField(_registrationCtrl, 'Registration', 'e.g. CA 123 456'),
             const SizedBox(height: 16),
             _buildField(_nicknameCtrl, 'Nickname', 'e.g. Dad\'s BMW'),
-            const SizedBox(height: 32),
-            const Text(
-              'DISPLAY',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 3,
-                color: Colors.white24,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildField(_ownerNameCtrl, 'Owner name', 'e.g. Simon'),
-            const SizedBox(height: 16),
-            _buildField(
-              _ownerGreetingCtrl,
-              'Greeting',
-              'e.g. Welcome back, Simon',
-            ),
             if (_error != null) ...[
               const SizedBox(height: 16),
               Text(
