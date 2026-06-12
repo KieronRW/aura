@@ -48,6 +48,8 @@ class ProfileAvatar extends StatefulWidget {
 }
 
 class ProfileAvatarState extends State<ProfileAvatar> {
+  static final Map<String, String> _urlCache = {};
+
   String? _signedUrl;
 
   @override
@@ -71,11 +73,19 @@ class ProfileAvatarState extends State<ProfileAvatar> {
     if (path == null || path.isEmpty) return;
     final capturedPath = path;
     final capturedUpdatedAt = widget.avatarUpdatedAt;
+    final cacheKey = '$path-$capturedUpdatedAt';
+
+    if (_urlCache.containsKey(cacheKey)) {
+      if (mounted) setState(() => _signedUrl = _urlCache[cacheKey]);
+      return;
+    }
+
     try {
       await DefaultCacheManager().removeFile(path);
       final url = await Supabase.instance.client.storage
           .from('avatars')
           .createSignedUrl(path, 3600);
+      _urlCache[cacheKey] = url;
       if (mounted &&
           capturedPath == widget.avatarPath &&
           capturedUpdatedAt == widget.avatarUpdatedAt) {
@@ -99,7 +109,7 @@ class ProfileAvatarState extends State<ProfileAvatar> {
         child: _signedUrl != null
             ? CachedNetworkImage(
                 imageUrl: _signedUrl!,
-                cacheKey: widget.avatarPath,
+                cacheKey: '${widget.avatarPath}-${widget.avatarUpdatedAt}',
                 fit: BoxFit.cover,
                 placeholder: (_, _) => InitialAvatar(
                   name: widget.displayName,

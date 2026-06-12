@@ -16,12 +16,32 @@ import '../aura/aura_detail_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  static void switchToTab(int index) => HomeScreenState._instance?.switchToTab(index);
+
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
+  static HomeScreenState? _instance;
+
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _instance = this;
+  }
+
+  @override
+  void dispose() {
+    if (_instance == this) _instance = null;
+    super.dispose();
+  }
+
+  void switchToTab(int index) {
+    if (mounted) setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -268,6 +288,10 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(propertiesProvider, (prev, next) {
+      if (next.hasValue && prev != next) _loadData();
+    });
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(

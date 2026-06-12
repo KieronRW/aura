@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bonsoir/bonsoir.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../providers/installation_provider.dart';
+import '../../providers/property_provider.dart';
+import '../home/home_screen.dart';
 import 'add_mirror_screen.dart';
 
-class DiscoverMirrorScreen extends StatefulWidget {
+class DiscoverMirrorScreen extends ConsumerStatefulWidget {
   final String? propertyId;
   final Set<String> ownedKeys;
 
@@ -17,10 +21,10 @@ class DiscoverMirrorScreen extends StatefulWidget {
   });
 
   @override
-  State<DiscoverMirrorScreen> createState() => _DiscoverMirrorScreenState();
+  ConsumerState<DiscoverMirrorScreen> createState() => _DiscoverMirrorScreenState();
 }
 
-class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
+class _DiscoverMirrorScreenState extends ConsumerState<DiscoverMirrorScreen> {
   final List<Map<String, dynamic>> _discovered = [];
   bool _scanning = true;
   bool _claiming = false;
@@ -128,41 +132,45 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
         return;
       }
 
-      Map<String, dynamic>? property;
+      final existingProperty = await client
+          .from('properties')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
 
-      if (widget.propertyId != null) {
-        property = {'id': widget.propertyId};
+      String propertyId;
+      if (existingProperty != null) {
+        propertyId = existingProperty['id'] as String;
       } else {
-        property = await client
+        final newProperty = await client
             .from('properties')
+            .insert({
+              'user_id': userId,
+              'name': 'My Home',
+              'is_active': true,
+            })
             .select('id')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-        if (property == null) {
-          final newProperty = await client
-              .from('properties')
-              .insert({'user_id': userId, 'name': 'My Home', 'timezone': 'UTC'})
-              .select('id')
-              .single();
-          property = newProperty;
-        }
+            .single();
+        propertyId = newProperty['id'] as String;
       }
 
       await client
           .from('installations')
           .update({
-            'property_id': property['id'],
             'status': 'active',
             'claimed_at': DateTime.now().toUtc().toIso8601String(),
             'claimed_by': userId,
+            'property_id': propertyId,
           })
           .eq('id', installation['id']);
 
       if (mounted) {
-        _showNameDialog(installation['name'] ?? 'My Aura');
+        _showNameDialog(installation['name'] ?? 'My Aura', propertyId);
       }
     } catch (e) {
+      debugPrint('Claim error: $e');
       _showError('Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _claiming = false);
@@ -181,7 +189,7 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
     );
   }
 
-  void _showNameDialog(String defaultName) {
+  void _showNameDialog(String defaultName, String propertyId) {
     final nav = Navigator.of(context);
     final controller = TextEditingController(text: defaultName);
     showDialog(
@@ -219,7 +227,12 @@ class _DiscoverMirrorScreenState extends State<DiscoverMirrorScreen> {
               final name = controller.text.trim();
               nav.pop();
               await _updateAuraName(name);
-              nav.pop(true);
+              ref.invalidate(propertiesProvider);
+              ref.invalidate(installationsProvider(propertyId));
+              if (mounted) {
+                Navigator.popUntil(context, (route) => route.isFirst);
+                HomeScreen.switchToTab(0);
+              }
             },
             child: const Text(
               'DONE',

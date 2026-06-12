@@ -93,7 +93,12 @@ class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
               try {
                 await Supabase.instance.client
                     .from('installations')
-                    .update({'is_active': false})
+                    .update({
+                      'status': 'unclaimed',
+                      'claimed_by': null,
+                      'property_id': null,
+                      'claimed_at': null,
+                    })
                     .eq('id', _installation['id']);
                 nav.pop();
                 if (mounted) {

@@ -68,11 +68,31 @@ class _ManageAurasScreenState extends ConsumerState<ManageAurasScreen> {
           ),
           data: (propertyModels) {
             if (propertyModels.isEmpty) {
-              return const Center(
-                child: Text(
-                  'No locations found.\nAdd a location first in Manage Locations.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.6),
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: GestureDetector(
+                  onTap: () => _addAura(null, {}),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add, color: Colors.white54, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          'ADD AURA',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                            letterSpacing: 3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             }
