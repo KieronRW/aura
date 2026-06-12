@@ -287,7 +287,118 @@ def log_recognition(
             except Exception as exc:
                 log.warning("log_recognition: image_path update failed for event %s: %s", row["id"], exc)
 
+    if row:
+        trigger_automation_webhooks(row)
+
     return row
+
+
+def _post_webhook(url: str, payload: dict, headers: dict, rule_name: str | None) -> None:
+    """POST JSON to url. Logs errors; never raises."""
+    import json
+    body = json.dumps(payload).encode()
+    try:
+        try:
+            import requests as _requests
+            resp = _requests.post(url, data=body, headers=headers, timeout=5)
+            log.debug("Webhook fired for rule %r → %s %s", rule_name, url, resp.status_code)
+        except ImportError:
+            import urllib.request
+            req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                log.debug("Webhook fired for rule %r → %s %s", rule_name, url, resp.status)
+    except Exception as exc:
+        log.warning("Webhook failed for rule %r (%s): %s", rule_name, url, exc)
+
+
+def trigger_automation_webhooks(row: dict) -> None:
+    """Fire matching webhook automation rules in a background thread. Never blocks."""
+
+    def _run() -> None:
+        client = _get_client()
+        if client is None:
+            return
+        installation_id = row.get("installation_id")
+        if not installation_id:
+            return
+
+        try:
+            response = (
+                client.table("automation_rules")
+                .select("*")
+                .eq("is_active", True)
+                .eq("action_type", "webhook")
+                .or_(f"installation_ids.is.null,installation_ids.cs.{{{installation_id}}}")
+                .execute()
+            )
+            rules = response.data or []
+        except Exception as exc:
+            log.warning("trigger_automation_webhooks: rule query failed: %s", exc)
+            return
+
+        vehicle_id = row.get("vehicle_id")
+        visitor_id = row.get("visitor_id")
+        _profile_cache: dict = {}
+
+        def _profile_id_for(vid) -> str | None:
+            if vid in _profile_cache:
+                return _profile_cache[vid]
+            try:
+                resp = client.table("vehicles").select("profile_id").eq("id", vid).execute()
+                pid = resp.data[0]["profile_id"] if resp.data else None
+            except Exception as exc:
+                log.warning("trigger_automation_webhooks: vehicle lookup failed: %s", exc)
+                pid = None
+            _profile_cache[vid] = pid
+            return pid
+
+        now_ts = datetime.now(timezone.utc).isoformat()
+
+        for rule in rules:
+            trigger = rule.get("trigger_type")
+
+            if trigger == "profile_detected":
+                if vehicle_id is None:
+                    continue
+                if _profile_id_for(vehicle_id) != rule.get("profile_id"):
+                    continue
+            elif trigger == "any_resident_detected":
+                if vehicle_id is None:
+                    continue
+            elif trigger == "visitor_arrival":
+                if visitor_id is None:
+                    continue
+            elif trigger == "unknown_vehicle":
+                if vehicle_id is not None or visitor_id is not None:
+                    continue
+            else:
+                continue
+
+            config = rule.get("action_config") or {}
+            url = config.get("url", "")
+            if not url:
+                log.warning("trigger_automation_webhooks: rule %r has no URL — skipping", rule.get("name"))
+                continue
+
+            headers = {"Content-Type": "application/json"}
+            extra = config.get("headers") or {}
+            if isinstance(extra, dict):
+                headers.update(extra)
+
+            payload = {
+                "event": trigger,
+                "rule_name": rule.get("name"),
+                "installation_id": installation_id,
+                "detected_make": row.get("detected_make"),
+                "detected_model": row.get("detected_model"),
+                "vehicle_id": vehicle_id,
+                "visitor_id": visitor_id,
+                "timestamp": now_ts,
+            }
+
+            _post_webhook(url, payload, headers, rule.get("name"))
+
+    threading.Thread(target=_run, daemon=True, name="automations-webhooks").start()
 
 
 def log_unknown_vehicle(
