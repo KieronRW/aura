@@ -301,12 +301,12 @@ def _post_webhook(url: str, payload: dict, headers: dict, rule_name: str | None)
         try:
             import requests as _requests
             resp = _requests.post(url, data=body, headers=headers, timeout=5)
-            log.debug("Webhook fired for rule %r → %s %s", rule_name, url, resp.status_code)
+            log.info("Webhook fired for rule %r → %s (HTTP %s)", rule_name, url, resp.status_code)
         except ImportError:
             import urllib.request
             req = urllib.request.Request(url, data=body, headers=headers, method="POST")
             with urllib.request.urlopen(req, timeout=5) as resp:
-                log.debug("Webhook fired for rule %r → %s %s", rule_name, url, resp.status)
+                log.info("Webhook fired for rule %r → %s (HTTP %s)", rule_name, url, resp.status)
     except Exception as exc:
         log.warning("Webhook failed for rule %r (%s): %s", rule_name, url, exc)
 
@@ -315,26 +315,45 @@ def trigger_automation_webhooks(row: dict) -> None:
     """Fire matching webhook automation rules in a background thread. Never blocks."""
 
     def _run() -> None:
+        log.info(
+            "trigger_automation_webhooks: starting (installation_id=%s vehicle_id=%s visitor_id=%s)",
+            row.get("installation_id"), row.get("vehicle_id"), row.get("visitor_id"),
+        )
         client = _get_client()
         if client is None:
+            log.info("trigger_automation_webhooks: no Supabase client — aborting")
             return
         installation_id = row.get("installation_id")
         if not installation_id:
+            log.info("trigger_automation_webhooks: no installation_id in row — aborting")
             return
 
         try:
+            # Fetch all active webhook rules; filter installation_ids in Python to avoid
+            # PostgREST array-literal URL-encoding issues with .or_() + cs operator.
             response = (
                 client.table("automation_rules")
                 .select("*")
                 .eq("is_active", True)
                 .eq("action_type", "webhook")
-                .or_(f"installation_ids.is.null,installation_ids.cs.{{{installation_id}}}")
                 .execute()
             )
-            rules = response.data or []
+            all_rules = response.data or []
+            log.info("trigger_automation_webhooks: fetched %d active webhook rules total", len(all_rules))
         except Exception as exc:
             log.warning("trigger_automation_webhooks: rule query failed: %s", exc)
             return
+
+        # installation_ids=null means global (any installation); otherwise must contain ours
+        rules = [
+            r for r in all_rules
+            if r.get("installation_ids") is None
+            or installation_id in (r.get("installation_ids") or [])
+        ]
+        log.info(
+            "trigger_automation_webhooks: %d rules apply to installation %s: %s",
+            len(rules), installation_id, [r.get("name") for r in rules],
+        )
 
         vehicle_id = row.get("vehicle_id")
         visitor_id = row.get("visitor_id")
@@ -356,28 +375,42 @@ def trigger_automation_webhooks(row: dict) -> None:
 
         for rule in rules:
             trigger = rule.get("trigger_type")
+            rule_name = rule.get("name")
 
             if trigger == "profile_detected":
                 if vehicle_id is None:
+                    log.info("Rule %r skipped: profile_detected but vehicle_id is None", rule_name)
                     continue
-                if _profile_id_for(vehicle_id) != rule.get("profile_id"):
+                found_profile = _profile_id_for(vehicle_id)
+                if found_profile != rule.get("profile_id"):
+                    log.info(
+                        "Rule %r skipped: profile mismatch (vehicle=%s rule=%s)",
+                        rule_name, found_profile, rule.get("profile_id"),
+                    )
                     continue
             elif trigger == "any_resident_detected":
                 if vehicle_id is None:
+                    log.info("Rule %r skipped: any_resident_detected but vehicle_id is None", rule_name)
                     continue
             elif trigger == "visitor_arrival":
                 if visitor_id is None:
+                    log.info("Rule %r skipped: visitor_arrival but visitor_id is None", rule_name)
                     continue
             elif trigger == "unknown_vehicle":
                 if vehicle_id is not None or visitor_id is not None:
+                    log.info(
+                        "Rule %r skipped: unknown_vehicle but vehicle_id=%s visitor_id=%s",
+                        rule_name, vehicle_id, visitor_id,
+                    )
                     continue
             else:
+                log.info("Rule %r skipped: trigger %r not handled here", rule_name, trigger)
                 continue
 
             config = rule.get("action_config") or {}
             url = config.get("url", "")
             if not url:
-                log.warning("trigger_automation_webhooks: rule %r has no URL — skipping", rule.get("name"))
+                log.warning("trigger_automation_webhooks: rule %r has no URL — skipping", rule_name)
                 continue
 
             headers = {"Content-Type": "application/json"}
@@ -387,7 +420,7 @@ def trigger_automation_webhooks(row: dict) -> None:
 
             payload = {
                 "event": trigger,
-                "rule_name": rule.get("name"),
+                "rule_name": rule_name,
                 "installation_id": installation_id,
                 "detected_make": row.get("detected_make"),
                 "detected_model": row.get("detected_model"),
@@ -396,7 +429,8 @@ def trigger_automation_webhooks(row: dict) -> None:
                 "timestamp": now_ts,
             }
 
-            _post_webhook(url, payload, headers, rule.get("name"))
+            log.info("trigger_automation_webhooks: firing rule %r → %s", rule_name, url)
+            _post_webhook(url, payload, headers, rule_name)
 
     threading.Thread(target=_run, daemon=True, name="automations-webhooks").start()
 
