@@ -466,11 +466,15 @@ class _AddEditAutomationRuleScreenState
     } catch (e) {
       debugPrint('Save automation rule error: $e');
       if (mounted) {
-        setState(() {
-          _error = 'Failed to save. Please try again.';
-          _saving = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save. Please try again.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
