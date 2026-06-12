@@ -662,7 +662,6 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
                       builder: (_) => _AddVehicleScreen(
                         profileId: widget.profile['id'],
                         profileName: widget.profile['display_name'] ?? '',
-                        profileGreeting: widget.profile['greeting'] ?? '',
                       ),
                     ),
                   );
@@ -819,12 +818,10 @@ class _VehicleRow extends StatelessWidget {
 class _AddVehicleScreen extends StatefulWidget {
   final String profileId;
   final String profileName;
-  final String profileGreeting;
 
   const _AddVehicleScreen({
     required this.profileId,
     required this.profileName,
-    required this.profileGreeting,
   });
 
   @override
@@ -837,15 +834,8 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
   final _colourController = TextEditingController();
   final _plateController = TextEditingController();
   final _nicknameController = TextEditingController();
-  final _greetingController = TextEditingController();
   bool _loading = false;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _greetingController.text = widget.profileGreeting;
-  }
 
   @override
   void dispose() {
@@ -854,7 +844,6 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
     _colourController.dispose();
     _plateController.dispose();
     _nicknameController.dispose();
-    _greetingController.dispose();
     super.dispose();
   }
 
@@ -871,12 +860,6 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
     });
 
     try {
-      final greeting = _greetingController.text.trim().isNotEmpty
-          ? _greetingController.text.trim()
-          : widget.profileGreeting.isNotEmpty
-          ? widget.profileGreeting
-          : 'Welcome, ${widget.profileName}';
-
       await Supabase.instance.client.from('vehicles').insert({
         'profile_id': widget.profileId,
         'make': make,
@@ -892,8 +875,6 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
         'nickname': _nicknameController.text.trim().isNotEmpty
             ? _nicknameController.text.trim()
             : null,
-        'owner_name': widget.profileName,
-        'owner_greeting': greeting,
         'is_active': true,
       });
 
@@ -986,30 +967,6 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
                 _nicknameController,
                 'Nickname (optional)',
                 'e.g. My GTI',
-              ),
-              const SizedBox(height: 32),
-              const Text(
-                'GREETING',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 3,
-                  color: Colors.white24,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Displayed on the mirror when this vehicle is recognised.',
-                style: TextStyle(
-                  color: Colors.white24,
-                  fontSize: 12,
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildField(
-                _greetingController,
-                'Greeting',
-                'e.g. Welcome home, Kieron!',
               ),
               if (_error != null) ...[
                 const SizedBox(height: 16),

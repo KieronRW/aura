@@ -32,6 +32,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
   List<Map<String, dynamic>> _unknownVehicles = [];
   List<Map<String, dynamic>> _visitorHistory = [];
   bool _loading = true;
+  RealtimeChannel? _unknownVehiclesChannel;
 
   @override
   void initState() {
@@ -39,15 +40,43 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _unknownVehiclesChannel?.unsubscribe();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     final installation = await ref.read(currentInstallationProvider.future);
     if (!mounted) return;
     setState(() => _installation = installation);
     if (installation != null) {
-      await _loadData(installation['id'] as String);
+      final id = installation['id'] as String;
+      await _loadData(id);
+      _subscribeToUnknownVehicles(id);
     } else {
       setState(() => _loading = false);
     }
+  }
+
+  void _subscribeToUnknownVehicles(String installationId) {
+    _unknownVehiclesChannel = Supabase.instance.client
+        .channel('unknown_vehicles_$installationId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'unknown_vehicles',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'installation_id',
+            value: installationId,
+          ),
+          callback: (payload) {
+            if (!mounted) return;
+            _refresh();
+          },
+        )
+        .subscribe();
   }
 
   Future<void> _loadData(String installationId) async {
@@ -82,12 +111,28 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
   }) async {
     final installationId = _installation?['id'] as String?;
     if (installationId == null) return;
-    final result = await Navigator.push<bool>(
-      context,
+    final nav = Navigator.of(context);
+
+    String? propertyName;
+    final propertyId = _installation?['property_id'] as String?;
+    if (propertyId != null) {
+      try {
+        final result = await Supabase.instance.client
+            .from('properties')
+            .select('name')
+            .eq('id', propertyId)
+            .maybeSingle();
+        propertyName = result?['name'] as String?;
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    final result = await nav.push<bool>(
       MaterialPageRoute(
         builder: (_) => _AddEditVisitorScreen(
           installationId: installationId,
-          propertyId: _installation?['property_id'] as String?,
+          propertyId: propertyId,
+          propertyName: propertyName,
           visitor: visitor,
           prefillMake: prefill?['detected_make'] as String?,
           prefillModel: prefill?['detected_model'] as String?,
@@ -738,6 +783,7 @@ class _HistoryRow extends StatelessWidget {
 class _AddEditVisitorScreen extends ConsumerStatefulWidget {
   final String installationId;
   final String? propertyId;
+  final String? propertyName;
   final Map<String, dynamic>? visitor;
   final String? prefillMake;
   final String? prefillModel;
@@ -745,6 +791,7 @@ class _AddEditVisitorScreen extends ConsumerStatefulWidget {
   const _AddEditVisitorScreen({
     required this.installationId,
     this.propertyId,
+    this.propertyName,
     this.visitor,
     this.prefillMake,
     this.prefillModel,
@@ -756,7 +803,9 @@ class _AddEditVisitorScreen extends ConsumerStatefulWidget {
 }
 
 class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
-  final _nameCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _firstNameFocus = FocusNode();
   final _makeCtrl = TextEditingController();
   final _modelCtrl = TextEditingController();
   final _registrationCtrl = TextEditingController();
@@ -778,9 +827,22 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
   @override
   void initState() {
     super.initState();
+    _firstNameFocus.addListener(() {
+      if (!_firstNameFocus.hasFocus) _generateSuggestions();
+    });
     if (_isEditing) {
       final v = widget.visitor!;
-      _nameCtrl.text = v['name'] as String? ?? '';
+      // Prefer dedicated columns; fall back to splitting the combined name field
+      final existingFirst = v['first_name'] as String?;
+      final existingLast = v['last_name'] as String?;
+      if (existingFirst != null || existingLast != null) {
+        _firstNameCtrl.text = existingFirst ?? '';
+        _lastNameCtrl.text = existingLast ?? '';
+      } else {
+        final parts = (v['name'] as String? ?? '').split(' ');
+        _firstNameCtrl.text = parts.isNotEmpty ? parts.first : '';
+        _lastNameCtrl.text = parts.length > 1 ? parts.skip(1).join(' ') : '';
+      }
       _makeCtrl.text = v['vehicle_make'] as String? ?? '';
       _modelCtrl.text = v['vehicle_model'] as String? ?? '';
       _registrationCtrl.text = v['registration'] as String? ?? '';
@@ -805,9 +867,31 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
     }
   }
 
+  void _generateSuggestions() {
+    final firstName = _firstNameCtrl.text.trim();
+    if (firstName.isEmpty) return;
+    final property = widget.propertyName ?? '';
+    setState(() {
+      if (_preArrivalMsgCtrl.text.isEmpty) {
+        _preArrivalMsgCtrl.text = 'Hi $firstName, kindly use this parking bay';
+      }
+      if (_arrivalMsgCtrl.text.isEmpty) {
+        _arrivalMsgCtrl.text = property.isNotEmpty
+            ? 'Welcome $firstName to $property'
+            : 'Welcome $firstName';
+      }
+      if (_bayOccupiedMsgCtrl.text.isEmpty) {
+        _bayOccupiedMsgCtrl.text =
+            'This parking bay is currently reserved. Please park elsewhere.';
+      }
+    });
+  }
+
   @override
   void dispose() {
-    _nameCtrl.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _firstNameFocus.dispose();
     _makeCtrl.dispose();
     _modelCtrl.dispose();
     _registrationCtrl.dispose();
@@ -876,9 +960,14 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
   }
 
   Future<void> _save() async {
-    final name = _nameCtrl.text.trim();
-    if (name.isEmpty) {
-      setState(() => _error = 'Name is required');
+    final firstName = _firstNameCtrl.text.trim();
+    final lastName = _lastNameCtrl.text.trim();
+    if (firstName.isEmpty) {
+      setState(() => _error = 'First name is required');
+      return;
+    }
+    if (lastName.isEmpty) {
+      setState(() => _error = 'Last name is required');
       return;
     }
     setState(() {
@@ -887,7 +976,9 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
     });
 
     final payload = <String, dynamic>{
-      'name': name,
+      'name': '$firstName $lastName',
+      'first_name': firstName,
+      'last_name': lastName,
       'vehicle_make': _makeCtrl.text.trim().isNotEmpty ? _makeCtrl.text.trim() : null,
       'vehicle_model':
           _modelCtrl.text.trim().isNotEmpty ? _modelCtrl.text.trim() : null,
@@ -946,15 +1037,16 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF111111),
         title: const Text(
-          'Delete Visitor',
+          'DELETE VISITOR',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 15,
-            letterSpacing: 1,
+            fontSize: 13,
+            letterSpacing: 3,
+            fontWeight: FontWeight.w300,
           ),
         ),
         content: const Text(
-          'This will permanently remove this visitor. This cannot be undone.',
+          'Delete this visitor? This cannot be undone.',
           style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.6),
         ),
         actions: [
@@ -980,7 +1072,8 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
     try {
       await Supabase.instance.client
           .from('visitors')
-          .update({'is_active': false}).eq('id', widget.visitor!['id']);
+          .delete()
+          .eq('id', widget.visitor!['id']);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       debugPrint('Delete visitor error: $e');
@@ -993,9 +1086,11 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
     String label,
     String hint, {
     int maxLines = 1,
+    FocusNode? focusNode,
   }) {
     return TextField(
       controller: ctrl,
+      focusNode: focusNode,
       style: const TextStyle(color: Colors.white),
       maxLines: maxLines,
       textCapitalization: TextCapitalization.sentences,
@@ -1070,7 +1165,14 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
-                  _buildField(_nameCtrl, 'Name *', 'e.g. Simon'),
+                  _buildField(
+                    _firstNameCtrl,
+                    'First Name *',
+                    'e.g. Simon',
+                    focusNode: _firstNameFocus,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildField(_lastNameCtrl, 'Last Name *', 'e.g. Andrews'),
                   const SizedBox(height: 16),
                   _buildField(_makeCtrl, 'Vehicle make', 'e.g. BMW'),
                   const SizedBox(height: 16),
@@ -1412,9 +1514,11 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
     String label,
     String hint, {
     int maxLines = 1,
+    FocusNode? focusNode,
   }) {
     return TextField(
       controller: ctrl,
+      focusNode: focusNode,
       style: const TextStyle(color: Colors.white),
       maxLines: maxLines,
       textCapitalization: TextCapitalization.sentences,
