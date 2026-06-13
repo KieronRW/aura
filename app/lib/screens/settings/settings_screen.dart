@@ -10,6 +10,7 @@ import 'diagnostics_screen.dart';
 import 'locations_screen.dart';
 import 'app_preferences_screen.dart';
 import 'manage_auras_screen.dart';
+import 'support_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -148,7 +149,10 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsRow(
             icon: Icons.help_outline,
             title: 'Support',
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SupportScreen()),
+            ),
           ),
           _SettingsRow(
             icon: Icons.info_outline,
