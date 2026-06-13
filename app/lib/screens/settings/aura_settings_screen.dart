@@ -8,6 +8,7 @@ import '../../providers/property_provider.dart';
 import '../aura/camera_settings_screen.dart';
 import '../aura/display_settings_screen.dart';
 import '../aura/network_settings_screen.dart';
+import '../aura/recognition_settings_screen.dart';
 import '../onboarding/discover_mirror_screen.dart';
 
 class AuraSettingsScreen extends ConsumerStatefulWidget {
@@ -215,7 +216,15 @@ class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
               icon: Icons.tune_outlined,
               title: 'Recognition',
               subtitle: 'Confidence thresholds',
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RecognitionSettingsScreen(
+                    installation: _installation,
+                    localIp: _localIp,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 32),
             const Text(

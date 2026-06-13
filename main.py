@@ -912,11 +912,13 @@ def main() -> None:
                 # Auto-learn: capture a new reference image when Vision matched a known
                 # vehicle but the fingerprint came close without crossing the threshold.
                 _vehicle_id = vehicle["id"] if vehicle else None
+                from aura.core.recognition_settings import get_settings_cached as _get_rs
+                _rs = _get_rs()
                 if (
                     result.method_used == "vision"
                     and _vehicle_id is not None
-                    and result.confidence >= 0.75
-                    and 0.60 <= result.best_fp_score <= 0.72
+                    and result.confidence >= _rs["vision_confidence_gate"]
+                    and _rs["auto_learn_min"] <= result.best_fp_score <= _rs["auto_learn_max"]
                     and (vehicle.get("reference_image_count") or 0) < 10
                     and time.monotonic() - autolearn_last_at.get(_vehicle_id, 0.0) >= 3600.0
                 ):

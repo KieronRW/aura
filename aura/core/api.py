@@ -440,3 +440,30 @@ def post_display_settings(payload: DisplaySettingsPayload):
     if "display_rotation" in params:
         applied = display_settings.apply_rotation(params["display_rotation"])
     return {"ok": True, "saved": saved, "applied": applied}
+
+
+# ---------------------------------------------------------------------------
+# Recognition
+# ---------------------------------------------------------------------------
+
+class RecognitionSettingsPayload(BaseModel):
+    vision_confidence_gate: Optional[float] = None
+    auto_learn_min: Optional[float] = None
+    auto_learn_max: Optional[float] = None
+    offline_fp_threshold: Optional[float] = None
+
+
+@app.get("/recognition/settings")
+def get_recognition_settings():
+    from aura.core import recognition_settings
+    return recognition_settings.get_settings()
+
+
+@app.post("/recognition/settings")
+def post_recognition_settings(payload: RecognitionSettingsPayload):
+    from aura.core import recognition_settings
+    params = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not params:
+        raise HTTPException(400, detail="No settings provided")
+    saved = recognition_settings.save_settings(params)
+    return {"ok": True, "saved": saved}

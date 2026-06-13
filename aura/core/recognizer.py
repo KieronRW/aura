@@ -25,8 +25,14 @@ logger = logging.getLogger(__name__)
 # Vision results are cached against a stable image hash for this many seconds
 _VISION_CACHE_TTL = 300  # 5 minutes
 
-# Fingerprint threshold used when there is no internet connection
-_OFFLINE_FP_THRESHOLD = 0.60
+# Fingerprint threshold used when there is no internet connection.
+# Loaded from recognition_settings (cached, 60s TTL) so it can be tuned via the app.
+def _offline_fp_threshold() -> float:
+    try:
+        from aura.core.recognition_settings import get_settings_cached
+        return get_settings_cached()["offline_fp_threshold"]
+    except Exception:
+        return 0.60  # safe fallback if settings unavailable
 
 
 @dataclass
@@ -90,9 +96,9 @@ class Recognizer:
         if not online:
             logger.info(
                 "Offline mode: using reduced fingerprint threshold (%.2f)",
-                _OFFLINE_FP_THRESHOLD,
+                _offline_fp_threshold(),
             )
-        fp_threshold = FINGERPRINT_MATCH_THRESHOLD if online else _OFFLINE_FP_THRESHOLD
+        fp_threshold = FINGERPRINT_MATCH_THRESHOLD if online else _offline_fp_threshold()
 
         self._last_fp_score = 0.0
         result = self._match_fingerprint(cropped, detection, vehicles or [], threshold=fp_threshold)
