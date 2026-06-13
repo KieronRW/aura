@@ -173,7 +173,7 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
 
       if (freshIp != null && freshIp != widget.localIp) {
         // Pi has already re-heartbeated with its new IP.
-        setState(() => _currentBaseIp = freshIp);
+        if (freshIp != null) setState(() => _currentBaseIp = freshIp!);
         await _loadSettings();
       } else {
         // IP hasn't changed yet — show a message and poll every 5s for up to 60s.
@@ -195,7 +195,7 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
           freshIp = await fetchFreshIp();
           if (!mounted) return;
           if (freshIp != null && freshIp != widget.localIp) {
-            setState(() => _currentBaseIp = freshIp);
+            if (freshIp != null) setState(() => _currentBaseIp = freshIp!);
             break;
           }
         }
