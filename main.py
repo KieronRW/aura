@@ -69,6 +69,7 @@ from aura.config.settings import (
 )
 from aura.core import api
 from aura.core import detector as yolo_detector
+from aura.core.commands import start_command_listener
 from aura.core.discovery import DiscoveryService
 from aura.core.camera import Camera, MotionState
 from aura.core.cloud import (
@@ -474,6 +475,7 @@ def main() -> None:
             _installation_uuid,
             lambda: _visitors_stale.set(),
         )
+        start_command_listener(_installation_uuid)
 
     # Apply persisted camera settings to the live camera
     try:

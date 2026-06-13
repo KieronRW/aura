@@ -8,6 +8,7 @@ import '../auth/login_screen.dart';
 import '../automations/automations_screen.dart';
 import 'diagnostics_screen.dart';
 import 'locations_screen.dart';
+import 'app_preferences_screen.dart';
 import 'manage_auras_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -125,7 +126,11 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsRow(
             icon: Icons.tune_outlined,
             title: 'App Preferences',
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const AppPreferencesScreen()),
+            ),
           ),
 
           const SizedBox(height: 32),

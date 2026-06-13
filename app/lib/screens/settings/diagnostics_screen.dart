@@ -50,6 +50,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    ref.invalidate(deviceStatusProvider(installation['id']));
     final status = await ref.read(
       deviceStatusProvider(installation['id']).future,
     );
