@@ -634,6 +634,16 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             'Aura will re-fetch its settings from the cloud.',
           ),
         ),
+        const SizedBox(height: 12),
+        _ActionButton(
+          label: 'CHECK FOR UPDATE',
+          icon: Icons.system_update_alt_outlined,
+          onPressed: () => _doCommand(
+            'update_software',
+            'Check for Update',
+            'Check for software update? The Aura will restart if an update is available.',
+          ),
+        ),
       ],
     );
   }
