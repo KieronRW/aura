@@ -105,8 +105,7 @@ def start_command_listener(installation_id: str) -> None:
         rt_client = await acreate_client(_SUPABASE_URL, _SUPABASE_KEY)
 
         def _callback(payload, *_) -> None:
-            log.info("commands: raw payload type=%s value=%s", type(payload), payload)
-            record = (payload or {}).get("record") or {}
+            record = ((payload or {}).get("data") or {}).get("record") or {}
             log.info("commands: Realtime INSERT received — %s", record.get("command_type"))
             # Run in a thread so we never block the asyncio event loop
             threading.Thread(
