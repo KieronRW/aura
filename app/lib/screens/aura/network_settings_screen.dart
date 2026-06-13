@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NetworkSettingsScreen extends StatefulWidget {
   final Map<String, dynamic> installation;
@@ -146,10 +147,21 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
       _reconnecting = true;
     });
 
-    _reconnectTimer = Timer(const Duration(seconds: 10), () {
-      if (mounted) {
-        setState(() => _reconnecting = false);
-        _loadSettings();
+    _reconnectTimer = Timer(const Duration(seconds: 10), () async {
+      if (!mounted) return;
+      setState(() => _reconnecting = false);
+      await _loadSettings();
+      if (!mounted) return;
+      final newIp = _ipCtrl.text.trim();
+      if (newIp.isNotEmpty) {
+        try {
+          await Supabase.instance.client
+              .from('device_status')
+              .update({'local_ip': newIp})
+              .eq('installation_id', widget.installation['id']);
+        } catch (e) {
+          debugPrint('NetworkSettingsScreen: device_status update error: $e');
+        }
       }
     });
   }
@@ -169,10 +181,15 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
             fontWeight: FontWeight.w300,
           ),
         ),
-        content: const Text(
-          'Changing network settings may temporarily disconnect your Aura. '
-          'The app will attempt to reconnect automatically.',
-          style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.6),
+        content: Text(
+          _method == 'dhcp'
+              ? 'Switching to DHCP will assign a new IP address automatically. '
+                'Your Aura may become temporarily unreachable until the app reconnects. '
+                'Make sure you have an alternative way to access the device '
+                '(e.g. physical access or Tailscale).'
+              : 'Changing network settings may temporarily disconnect your Aura. '
+                'The app will attempt to reconnect automatically.',
+          style: const TextStyle(color: Colors.white38, fontSize: 13, height: 1.6),
         ),
         actions: [
           TextButton(
