@@ -202,15 +202,18 @@ class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
               icon: Icons.wifi_outlined,
               title: 'Network',
               subtitle: _localIp.isNotEmpty ? _localIp : 'DHCP',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => NetworkSettingsScreen(
-                    installation: _installation,
-                    localIp: _localIp,
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NetworkSettingsScreen(
+                      installation: _installation,
+                      localIp: _localIp,
+                    ),
                   ),
-                ),
-              ),
+                );
+                if (mounted) _fetchLocalIp();
+              },
             ),
             _SettingsRow(
               icon: Icons.tune_outlined,
