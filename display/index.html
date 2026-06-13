@@ -459,6 +459,8 @@
           showVisitorBayOccupied(msg);
         } else if (msg.state === 'visitor_mode_ended') {
           showVisitorModeEnded();
+        } else if (msg.state === 'display_settings') {
+          applyDisplaySettings(msg);
         } else {
           showIdle();
         }
@@ -474,6 +476,22 @@
         wsDot.className = 'error';
         ws.close();
       });
+    }
+
+    function applyDisplaySettings(settings) {
+      let overlay = document.getElementById('brightness-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'brightness-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:#000;pointer-events:none;z-index:9999;transition:opacity 0.5s ease-in-out;';
+        document.body.appendChild(overlay);
+      }
+      if (settings.display_brightness !== undefined) {
+        overlay.style.opacity = (100 - settings.display_brightness) / 100;
+      }
+      if (settings.display_rotation !== undefined) {
+        document.body.style.transform = `rotate(${settings.display_rotation}deg)`;
+      }
     }
 
     connect();

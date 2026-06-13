@@ -413,3 +413,32 @@ def post_network_settings(payload: NetworkSettingsPayload):
     except Exception as exc:
         logger.exception("post_network_settings failed")
         raise HTTPException(500, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Display
+# ---------------------------------------------------------------------------
+
+class DisplaySettingsPayload(BaseModel):
+    display_brightness: Optional[int] = None   # 0–100
+    display_rotation: Optional[int] = None     # 0, 90, 180, 270
+
+
+@app.get("/display/settings")
+def get_display_settings():
+    from aura.core import display_settings
+    return display_settings.get_settings()
+
+
+@app.post("/display/settings")
+def post_display_settings(payload: DisplaySettingsPayload):
+    from aura.core import display_settings
+    params = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not params:
+        raise HTTPException(400, detail="No settings provided")
+    saved = display_settings.save_settings(params)
+    merged = display_settings.get_settings()
+    ds = _state.get("display_server")
+    if ds is not None:
+        ds.send_display_settings(merged)
+    return {"ok": True, "saved": saved}

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/installation_provider.dart';
 import '../../providers/property_provider.dart';
 import '../aura/camera_settings_screen.dart';
+import '../aura/display_settings_screen.dart';
 import '../aura/network_settings_screen.dart';
 import '../onboarding/discover_mirror_screen.dart';
 
@@ -158,7 +159,15 @@ class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
               icon: Icons.brightness_6_outlined,
               title: 'Display',
               subtitle: 'Brightness, orientation',
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DisplaySettingsScreen(
+                    installation: _installation,
+                    localIp: localIp,
+                  ),
+                ),
+              ),
             ),
             _SettingsRow(
               icon: Icons.camera_outlined,

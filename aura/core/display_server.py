@@ -19,6 +19,7 @@ class DisplayServer:
         self._thread: threading.Thread | None = None
         self._ready = threading.Event()
         self._is_idle: bool = True  # suppress log until first non-idle → idle transition
+        self._last_display_settings: dict | None = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -92,6 +93,12 @@ class DisplayServer:
         self._is_idle = False
         self._broadcast(payload)
 
+    def send_display_settings(self, settings: dict):
+        self._last_display_settings = settings
+        payload = json.dumps({"state": "display_settings", **settings})
+        logger.info("Broadcasting display settings — %s", settings)
+        self._broadcast(payload)
+
     def send_visitor_mode_ended(self):
         payload = json.dumps({"state": "visitor_mode_ended"})
         logger.info("Broadcasting visitor mode ended")
@@ -128,6 +135,11 @@ class DisplayServer:
         addr = websocket.remote_address
         self._clients.add(websocket)
         logger.info("Display client connected   — %s  (total: %d)", addr, len(self._clients))
+        if self._last_display_settings is not None:
+            try:
+                await websocket.send(json.dumps({"state": "display_settings", **self._last_display_settings}))
+            except Exception:
+                pass
 
         try:
             async for message in websocket:
