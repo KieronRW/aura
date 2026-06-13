@@ -29,6 +29,7 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
   String _connectionType = '';
   String _interface = '';
   String _method = 'dhcp';
+  late String _currentBaseIp;
 
   final _ipCtrl = TextEditingController();
   final _subnetCtrl = TextEditingController();
@@ -36,11 +37,12 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
   final _dns1Ctrl = TextEditingController();
   final _dns2Ctrl = TextEditingController();
 
-  String get _baseUrl => 'http://${widget.localIp}:8000';
+  String get _baseUrl => 'http://$_currentBaseIp:8000';
 
   @override
   void initState() {
     super.initState();
+    _currentBaseIp = widget.localIp;
     _loadSettings();
   }
 
@@ -150,17 +152,57 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
     _reconnectTimer = Timer(const Duration(seconds: 10), () async {
       if (!mounted) return;
       setState(() => _reconnecting = false);
-      await _loadSettings();
-      if (!mounted) return;
-      final newIp = _ipCtrl.text.trim();
-      if (newIp.isNotEmpty) {
+
+      // Query Supabase for the Pi's current IP (updated by its own heartbeat).
+      Future<String?> fetchFreshIp() async {
         try {
-          await Supabase.instance.client
+          final status = await Supabase.instance.client
               .from('device_status')
-              .update({'local_ip': newIp})
-              .eq('installation_id', widget.installation['id']);
+              .select('local_ip')
+              .eq('installation_id', widget.installation['id'])
+              .maybeSingle();
+          return status?['local_ip'] as String?;
         } catch (e) {
-          debugPrint('NetworkSettingsScreen: device_status update error: $e');
+          debugPrint('NetworkSettingsScreen: device_status fetch error: $e');
+          return null;
+        }
+      }
+
+      var freshIp = await fetchFreshIp();
+      if (!mounted) return;
+
+      if (freshIp != null && freshIp != widget.localIp) {
+        // Pi has already re-heartbeated with its new IP.
+        setState(() => _currentBaseIp = freshIp);
+        await _loadSettings();
+      } else {
+        // IP hasn't changed yet — show a message and poll every 5s for up to 60s.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Aura is reconnecting with a new network configuration. '
+              'This may take up to a minute.',
+            ),
+            backgroundColor: Color(0xFF222222),
+            duration: Duration(seconds: 60),
+          ),
+        );
+
+        final deadline = DateTime.now().add(const Duration(seconds: 60));
+        while (mounted && DateTime.now().isBefore(deadline)) {
+          await Future.delayed(const Duration(seconds: 5));
+          if (!mounted) return;
+          freshIp = await fetchFreshIp();
+          if (!mounted) return;
+          if (freshIp != null && freshIp != widget.localIp) {
+            setState(() => _currentBaseIp = freshIp);
+            break;
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).clearSnackBars();
+          await _loadSettings();
         }
       }
     });
