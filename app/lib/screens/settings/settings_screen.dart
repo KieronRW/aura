@@ -8,6 +8,7 @@ import '../auth/login_screen.dart';
 import '../automations/automations_screen.dart';
 import 'diagnostics_screen.dart';
 import 'locations_screen.dart';
+import 'about_screen.dart';
 import 'app_preferences_screen.dart';
 import 'manage_auras_screen.dart';
 import 'support_screen.dart';
@@ -157,8 +158,11 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsRow(
             icon: Icons.info_outline,
             title: 'About Aura',
-            subtitle: 'Version 1.0.1',
-            onTap: () {},
+            subtitle: 'Version 1.0.0',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AboutScreen()),
+            ),
           ),
 
           const SizedBox(height: 32),
