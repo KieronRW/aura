@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -20,12 +19,10 @@ class DisplaySettingsScreen extends StatefulWidget {
 
 class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
   Map<String, dynamic> _settings = {
-    'display_brightness': 100,
     'display_rotation': 0,
   };
   bool _loading = true;
   bool _saving = false;
-  Timer? _debounce;
 
   String get _baseUrl => 'http://${widget.localIp}:8000';
 
@@ -33,12 +30,6 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    super.dispose();
   }
 
   Future<void> _loadSettings() async {
@@ -56,16 +47,6 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
       }
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
-  }
-
-  void _onSliderChanged(String key, double raw) {
-    final value = raw.round();
-    setState(() => _settings[key] = value);
-    _debounce?.cancel();
-    _debounce = Timer(
-      const Duration(milliseconds: 300),
-      () => _postSetting(key, value),
-    );
   }
 
   void _onRotationChanged(int value) {
@@ -140,17 +121,6 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _sectionLabel('IMAGE'),
-                        const SizedBox(height: 12),
-                        _SliderRow(
-                          label: 'BRIGHTNESS',
-                          value: (_settings['display_brightness'] as num).toDouble(),
-                          min: 0,
-                          max: 100,
-                          divisions: 100,
-                          onChanged: (v) => _onSliderChanged('display_brightness', v),
-                        ),
-                        const SizedBox(height: 28),
                         _sectionLabel('ORIENTATION'),
                         const SizedBox(height: 16),
                         _RotationSelector(
@@ -174,78 +144,6 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
           color: Colors.white24,
         ),
       );
-}
-
-// ---------------------------------------------------------------------------
-// Slider row
-// ---------------------------------------------------------------------------
-
-class _SliderRow extends StatelessWidget {
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
-
-  const _SliderRow({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 11,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ),
-          Expanded(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: Colors.white38,
-                inactiveTrackColor: Colors.white12,
-                thumbColor: Colors.white,
-                overlayColor: Colors.white.withAlpha(20),
-                trackHeight: 1,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-              ),
-              child: Slider(
-                value: value.clamp(min, max),
-                min: min,
-                max: max,
-                divisions: divisions,
-                onChanged: onChanged,
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 36,
-            child: Text(
-              value.round().toString(),
-              textAlign: TextAlign.end,
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ---------------------------------------------------------------------------

@@ -420,8 +420,7 @@ def post_network_settings(payload: NetworkSettingsPayload):
 # ---------------------------------------------------------------------------
 
 class DisplaySettingsPayload(BaseModel):
-    display_brightness: Optional[int] = None   # 0–100
-    display_rotation: Optional[int] = None     # 0, 90, 180, 270
+    display_rotation: Optional[int] = None  # 0, 90, 180, 270
 
 
 @app.get("/display/settings")

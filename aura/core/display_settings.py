@@ -14,8 +14,7 @@ _SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 _INSTALLATION_ID = os.getenv("INSTALLATION_ID", "")
 
 DEFAULTS: dict[str, Any] = {
-    "display_brightness": 100,  # 0–100
-    "display_rotation": 0,      # 0, 90, 180, 270
+    "display_rotation": 0,  # 0, 90, 180, 270
 }
 
 _client = None
