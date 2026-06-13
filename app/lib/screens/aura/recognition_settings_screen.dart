@@ -23,7 +23,7 @@ class _RecognitionSettingsScreenState
     extends State<RecognitionSettingsScreen> {
   // Stored internally as 0–100 (percentage of 0.0–1.0) for slider display.
   // Converted to/from float on load and post.
-  Map<String, dynamic> _settings = {
+  final Map<String, dynamic> _settings = {
     'vision_confidence_gate': 75,
     'auto_learn_min': 60,
     'auto_learn_max': 72,
