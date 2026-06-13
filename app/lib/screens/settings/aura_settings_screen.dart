@@ -26,11 +26,26 @@ class AuraSettingsScreen extends ConsumerStatefulWidget {
 
 class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
   late Map<String, dynamic> _installation;
+  String _localIp = '';
 
   @override
   void initState() {
     super.initState();
     _installation = Map<String, dynamic>.from(widget.installation);
+    _fetchLocalIp();
+  }
+
+  Future<void> _fetchLocalIp() async {
+    try {
+      final status = await Supabase.instance.client
+          .from('device_status')
+          .select('local_ip')
+          .eq('installation_id', _installation['id'])
+          .maybeSingle();
+      if (mounted) setState(() => _localIp = status?['local_ip'] as String? ?? '');
+    } catch (e) {
+      debugPrint('AuraSettingsScreen: local_ip fetch error: $e');
+    }
   }
 
   Future<void> _addAura() async {
@@ -125,7 +140,6 @@ class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final auraName = _installation['name'] as String? ?? 'Aura';
-    final localIp = _installation['local_ip'] as String? ?? '';
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -164,7 +178,7 @@ class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
                 MaterialPageRoute(
                   builder: (_) => DisplaySettingsScreen(
                     installation: _installation,
-                    localIp: localIp,
+                    localIp: _localIp,
                   ),
                 ),
               ),
@@ -178,7 +192,7 @@ class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
                 MaterialPageRoute(
                   builder: (_) => CameraSettingsScreen(
                     installation: _installation,
-                    localIp: localIp,
+                    localIp: _localIp,
                   ),
                 ),
               ),
@@ -186,13 +200,13 @@ class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
             _SettingsRow(
               icon: Icons.wifi_outlined,
               title: 'Network',
-              subtitle: localIp.isNotEmpty ? localIp : 'DHCP',
+              subtitle: _localIp.isNotEmpty ? _localIp : 'DHCP',
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => NetworkSettingsScreen(
                     installation: _installation,
-                    localIp: localIp,
+                    localIp: _localIp,
                   ),
                 ),
               ),
