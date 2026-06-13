@@ -423,7 +423,7 @@ def main() -> None:
     _state["force_idle_cb"] = display.send_idle
     _state["force_recognition_cb"] = display.send_recognition
     _state["display_server"] = display
-    api.init(_state, display_server=display)
+    api.init(_state)
 
     # Start FastAPI server (non-critical — won't abort startup on failure)
     try:

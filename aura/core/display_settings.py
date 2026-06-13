@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +15,10 @@ _SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 _INSTALLATION_ID = os.getenv("INSTALLATION_ID", "")
 
 DEFAULTS: dict[str, Any] = {
-    "display_rotation": 0,  # 0, 90, 180, 270
+    "display_rotation": 90,  # 0, 90, 180, 270 — matches autostart wlr-randr default
 }
+
+_VALID_ROTATIONS = (0, 90, 180, 270)
 
 _client = None
 _installation_uuid: str | None = None
@@ -89,6 +92,31 @@ def get_settings() -> dict[str, Any]:
     except Exception as exc:
         log.warning("display_settings: get_settings failed: %s", exc)
     return settings
+
+
+def apply_rotation(rotation: int) -> bool:
+    """Apply display rotation immediately via wlr-randr. Returns True on success."""
+    if rotation not in _VALID_ROTATIONS:
+        log.warning("display_settings: invalid rotation %d — must be one of %s", rotation, _VALID_ROTATIONS)
+        return False
+    try:
+        subprocess.run(
+            ["wlr-randr", "--output", "HDMI-A-1", "--transform", str(rotation)],
+            check=True,
+            capture_output=True,
+            timeout=10,
+        )
+        log.info("display_settings: applied rotation %d° via wlr-randr", rotation)
+        return True
+    except FileNotFoundError:
+        log.warning("display_settings: wlr-randr not found — rotation not applied")
+        return False
+    except subprocess.CalledProcessError as exc:
+        log.warning("display_settings: wlr-randr error: %s", exc.stderr.decode().strip())
+        return False
+    except Exception as exc:
+        log.warning("display_settings: apply_rotation failed: %s", exc)
+        return False
 
 
 def save_settings(params: dict[str, Any]) -> bool:

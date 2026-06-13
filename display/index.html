@@ -459,8 +459,6 @@
           showVisitorBayOccupied(msg);
         } else if (msg.state === 'visitor_mode_ended') {
           showVisitorModeEnded();
-        } else if (msg.state === 'display_settings') {
-          applyDisplaySettings(msg);
         } else {
           showIdle();
         }
@@ -476,12 +474,6 @@
         wsDot.className = 'error';
         ws.close();
       });
-    }
-
-    function applyDisplaySettings(settings) {
-      if (settings.display_rotation !== undefined) {
-        document.body.style.transform = `rotate(${settings.display_rotation}deg)`;
-      }
     }
 
     connect();
