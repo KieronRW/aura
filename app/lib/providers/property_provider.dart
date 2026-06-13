@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/property.dart';
 import '../services/supabase_service.dart';
+import 'auth_provider.dart';
 
 class PropertiesNotifier extends AsyncNotifier<List<Property>> {
   @override
   Future<List<Property>> build() async {
+    ref.watch(authProvider);
     final raw = await SupabaseService.getProperties();
     return raw.map(Property.fromMap).toList();
   }

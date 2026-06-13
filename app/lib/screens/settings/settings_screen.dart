@@ -18,7 +18,8 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authProvider);
+    final userAsync = ref.watch(authProvider);
+    final user = userAsync.value;
 
     return SafeArea(
       child: ListView(

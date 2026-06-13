@@ -2,10 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/profile.dart';
 import '../models/vehicle.dart';
 import '../services/supabase_service.dart';
+import 'auth_provider.dart';
 
 class ProfilesNotifier extends AsyncNotifier<List<Profile>> {
   @override
   Future<List<Profile>> build() async {
+    ref.watch(authProvider);
     final raw = await SupabaseService.getProfiles();
     return raw.map(Profile.fromMap).toList();
   }

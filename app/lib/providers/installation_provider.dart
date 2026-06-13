@@ -2,10 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/installation.dart';
 import '../models/device_status.dart';
 import '../services/supabase_service.dart';
+import 'auth_provider.dart';
 
-final currentInstallationProvider = FutureProvider<Map<String, dynamic>?>(
-  (ref) => SupabaseService.getInstallation(),
-);
+final currentInstallationProvider = FutureProvider<Map<String, dynamic>?>((ref) {
+  ref.watch(authProvider);
+  return SupabaseService.getInstallation();
+});
 
 class InstallationsNotifier
     extends FamilyAsyncNotifier<List<Installation>, String> {
