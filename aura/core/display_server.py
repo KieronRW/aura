@@ -114,7 +114,11 @@ class DisplayServer:
         if self._loop is None or not self._loop.is_running():
             logger.warning("DisplayServer loop not running — message dropped")
             return
-        asyncio.run_coroutine_threadsafe(self._send_all(message), self._loop)
+        future = asyncio.run_coroutine_threadsafe(self._send_all(message), self._loop)
+        future.add_done_callback(
+            lambda f: logger.warning("DisplayServer _send_all raised: %s", f.exception())
+            if not f.cancelled() and f.exception() is not None else None
+        )
 
     async def _send_all(self, message: str):
         if not self._clients:

@@ -24,11 +24,13 @@ app.add_middleware(
 )
 
 _state: dict[str, Any] = {}
+_display_server = None
 
 
-def init(shared_state: dict[str, Any]) -> None:
-    global _state
+def init(shared_state: dict[str, Any], display_server=None) -> None:
+    global _state, _display_server
     _state = shared_state
+    _display_server = display_server
 
 
 def start_server(host: str, port: int) -> None:
@@ -437,7 +439,10 @@ def post_display_settings(payload: DisplaySettingsPayload):
         raise HTTPException(400, detail="No settings provided")
     saved = display_settings.save_settings(params)
     merged = display_settings.get_settings()
-    ds = _state.get("display_server")
+    ds = _display_server or _state.get("display_server")
+    logger.info("post_display_settings: ds=%s state_keys=%s merged=%s", ds, list(_state.keys()), merged)
     if ds is not None:
         ds.send_display_settings(merged)
+    else:
+        logger.warning("post_display_settings: display_server not available — broadcast skipped")
     return {"ok": True, "saved": saved}
