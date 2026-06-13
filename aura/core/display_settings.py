@@ -100,8 +100,9 @@ def apply_rotation(rotation: int) -> bool:
         log.warning("display_settings: invalid rotation %d — must be one of %s", rotation, _VALID_ROTATIONS)
         return False
     try:
+        transform = "normal" if rotation == 0 else str(rotation)
         subprocess.run(
-            ["wlr-randr", "--output", "HDMI-A-1", "--transform", str(rotation)],
+            ["wlr-randr", "--output", "HDMI-A-1", "--transform", transform],
             check=True,
             capture_output=True,
             timeout=10,
