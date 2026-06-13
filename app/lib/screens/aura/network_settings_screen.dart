@@ -266,6 +266,17 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
                   onChanged: (v) => setState(() => _method = v),
                 ),
 
+                if (_method == 'dhcp') ...[
+                  const SizedBox(height: 28),
+                  _sectionLabel('CURRENT NETWORK'),
+                  const SizedBox(height: 12),
+                  _infoRow('IP ADDRESS', _ipCtrl.text.isNotEmpty ? _ipCtrl.text : '—'),
+                  _infoRow('SUBNET MASK', _subnetCtrl.text.isNotEmpty ? _subnetCtrl.text : '—'),
+                  _infoRow('GATEWAY', _gatewayCtrl.text.isNotEmpty ? _gatewayCtrl.text : '—'),
+                  _infoRow('DNS PRIMARY', _dns1Ctrl.text.isNotEmpty ? _dns1Ctrl.text : '—'),
+                  _infoRow('DNS SECONDARY', _dns2Ctrl.text.isNotEmpty ? _dns2Ctrl.text : '—'),
+                ],
+
                 if (_method == 'static') ...[
                   const SizedBox(height: 28),
                   _sectionLabel('STATIC CONFIGURATION'),
