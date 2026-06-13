@@ -1,11 +1,16 @@
 import asyncio
+import json
 import logging
 import subprocess
 import threading
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 from aura.core.cloud import _get_client, _SUPABASE_URL, _SUPABASE_KEY
+
+_REPO = Path("/home/aura/aura")
+_SENTINEL_FILE = _REPO / ".update_in_progress"
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +32,79 @@ def _mark(command_id, status: str, result: dict | None = None) -> None:
         log.info("commands: command %s → %s", command_id, status)
     except Exception as exc:
         log.warning("commands: failed to mark %s as %r: %s", command_id, status, exc)
+
+
+def _do_update_software(command_id) -> None:
+    """Run git pull, write sentinel file, and restart the service."""
+    # 1. Capture current hash
+    try:
+        prev_hash = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(_REPO),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except Exception as exc:
+        log.warning("commands: update_software: git rev-parse failed: %s", exc)
+        _mark(command_id, "failed", {"error": f"git rev-parse failed: {exc}"})
+        return
+
+    log.info("commands: update_software: current hash=%s", prev_hash)
+
+    # 2. Run git pull
+    pull_result = subprocess.run(
+        ["git", "pull"],
+        cwd=str(_REPO),
+        capture_output=True,
+        text=True,
+    )
+    combined_output = pull_result.stdout + pull_result.stderr
+
+    # 3. Check for failure
+    if pull_result.returncode != 0 or "error" in combined_output.lower() or "CONFLICT" in combined_output:
+        log.warning("commands: update_software: git pull failed:\n%s", combined_output[:500])
+        _mark(command_id, "failed", {
+            "error": "git pull failed",
+            "output": combined_output[:2000],
+            "previous_hash": prev_hash,
+        })
+        return
+
+    # 4. Check if anything changed
+    try:
+        new_hash = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(_REPO),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except Exception as exc:
+        log.warning("commands: update_software: post-pull rev-parse failed: %s", exc)
+        _mark(command_id, "failed", {"error": f"post-pull rev-parse failed: {exc}", "previous_hash": prev_hash})
+        return
+
+    if new_hash == prev_hash:
+        log.info("commands: update_software: already up to date (%s)", new_hash)
+        _mark(command_id, "executed", {"message": "already up to date", "hash": new_hash})
+        return
+
+    log.info("commands: update_software: pulled %s → %s", prev_hash, new_hash[:8])
+
+    # 5. Write sentinel file — health check on next boot will confirm or roll back
+    try:
+        _SENTINEL_FILE.write_text(
+            json.dumps({"previous_hash": prev_hash, "command_id": command_id})
+        )
+    except Exception as exc:
+        log.warning("commands: update_software: failed to write sentinel: %s", exc)
+        _mark(command_id, "failed", {"error": f"sentinel write failed: {exc}", "previous_hash": prev_hash})
+        return
+
+    # 6. Restart service — kills this process; healthcheck updates status on next boot
+    log.info("commands: update_software: restarting service")
+    subprocess.run(["sudo", "systemctl", "restart", "aura"], check=False)
 
 
 def _dispatch(record: dict) -> None:
@@ -82,8 +160,7 @@ def _dispatch(record: dict) -> None:
         _mark(command_id, "failed", {"error": "not implemented"})
 
     elif command_type == "update_software":
-        log.info("commands: update_software not yet implemented")
-        _mark(command_id, "failed", {"error": "not implemented"})
+        _do_update_software(command_id)
 
     else:
         log.warning("commands: unknown command_type=%r — marking failed", command_type)

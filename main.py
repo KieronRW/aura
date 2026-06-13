@@ -390,6 +390,9 @@ def main() -> None:
     _print_banner()
     logger.info("AURA v%s starting up", _VERSION)
 
+    from aura.core.update_healthcheck import check_and_rollback_if_needed
+    check_and_rollback_if_needed()
+
     _start_time = time.monotonic()
     _installation_key = os.getenv("INSTALLATION_ID", "")
     _state: dict = {
