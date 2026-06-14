@@ -96,14 +96,14 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
         ),
         content: const Text(
           'Are you sure you want to sign out?',
-          style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.6),
+          style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text(
               'CANCEL',
-              style: TextStyle(color: Colors.white38, letterSpacing: 2),
+              style: TextStyle(color: Colors.white70, letterSpacing: 2),
             ),
           ),
           TextButton(

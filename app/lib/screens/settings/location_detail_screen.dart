@@ -166,7 +166,7 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
         content: Text(
           "Delete '$propertyName'? All Auras at this location will be released.",
           style: const TextStyle(
-            color: Colors.white38,
+            color: Colors.white70,
             fontSize: 13,
             height: 1.6,
           ),
@@ -176,7 +176,7 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text(
               'CANCEL',
-              style: TextStyle(color: Colors.white38, letterSpacing: 2),
+              style: TextStyle(color: Colors.white70, letterSpacing: 2),
             ),
           ),
           TextButton(

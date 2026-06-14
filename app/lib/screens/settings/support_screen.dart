@@ -291,13 +291,13 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
         content: Text(
           message,
           style: const TextStyle(
-              color: Colors.white38, fontSize: 13, height: 1.6),
+              color: Colors.white70, fontSize: 13, height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('CANCEL',
-                style: TextStyle(color: Colors.white38, letterSpacing: 2)),
+                style: TextStyle(color: Colors.white70, letterSpacing: 2)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -333,7 +333,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
           children: [
             const Text(
               'Briefly describe the issue:',
-              style: TextStyle(color: Colors.white38, fontSize: 13),
+              style: TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 12),
             TextField(

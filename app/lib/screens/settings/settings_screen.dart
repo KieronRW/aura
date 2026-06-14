@@ -183,9 +183,9 @@ class SettingsScreen extends ConsumerWidget {
                 builder: (_) => AlertDialog(
                   backgroundColor: const Color(0xFF111111),
                   title: const Text('SIGN OUT', style: TextStyle(color: Colors.white, fontSize: 14, letterSpacing: 3, fontWeight: FontWeight.w300)),
-                  content: const Text('Are you sure you want to sign out?', style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.6)),
+                  content: const Text('Are you sure you want to sign out?', style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6)),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL', style: TextStyle(color: Colors.white38, letterSpacing: 2))),
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL', style: TextStyle(color: Colors.white70, letterSpacing: 2))),
                     TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('SIGN OUT', style: TextStyle(color: Colors.redAccent, letterSpacing: 2))),
                   ],
                 ),

@@ -231,14 +231,14 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
                 '(e.g. physical access or Tailscale).'
               : 'Changing network settings may temporarily disconnect your Aura. '
                 'The app will attempt to reconnect automatically.',
-          style: const TextStyle(color: Colors.white38, fontSize: 13, height: 1.6),
+          style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text(
               'CANCEL',
-              style: TextStyle(color: Colors.white38, letterSpacing: 2),
+              style: TextStyle(color: Colors.white70, letterSpacing: 2),
             ),
           ),
           TextButton(

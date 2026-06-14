@@ -92,7 +92,7 @@ class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
         content: Text(
           'Remove "${_installation['name'] ?? 'this Aura'}" from your account? It can be reclaimed later.',
           style: const TextStyle(
-            color: Colors.white38,
+            color: Colors.white70,
             fontSize: 13,
             height: 1.6,
           ),
@@ -102,7 +102,7 @@ class _AuraSettingsScreenState extends ConsumerState<AuraSettingsScreen> {
             onPressed: () => nav.pop(),
             child: const Text(
               'CANCEL',
-              style: TextStyle(color: Colors.white38, letterSpacing: 2),
+              style: TextStyle(color: Colors.white70, letterSpacing: 2),
             ),
           ),
           TextButton(

@@ -272,14 +272,14 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen>
         ),
         content: const Text(
           'This will permanently delete this profile, all its vehicles, and all reference images. This cannot be undone.',
-          style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.6),
+          style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text(
               'CANCEL',
-              style: TextStyle(color: Colors.white38, letterSpacing: 1),
+              style: TextStyle(color: Colors.white70, letterSpacing: 1),
             ),
           ),
           TextButton(
