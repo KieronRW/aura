@@ -1,15 +1,8 @@
 import 'package:flutter/material.dart';
+import '../auth/terms_content.dart';
+
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
-
-  void _comingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Coming soon'),
-        backgroundColor: Colors.white12,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,11 +87,23 @@ class AboutScreen extends StatelessWidget {
               const SizedBox(height: 12),
               _LegalRow(
                 title: 'Terms of Service',
-                onTap: () => _comingSoon(context),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const TermsViewScreen(title: 'TERMS OF SERVICE'),
+                  ),
+                ),
               ),
               _LegalRow(
                 title: 'Privacy Policy',
-                onTap: () => _comingSoon(context),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const TermsViewScreen(title: 'PRIVACY POLICY'),
+                  ),
+                ),
               ),
 
               const SizedBox(height: 24),
