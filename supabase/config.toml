@@ -1,4 +1,10 @@
 
+[functions.cleanup-old-events]
+enabled = true
+verify_jwt = true
+import_map = "./functions/cleanup-old-events/deno.json"
+entrypoint = "./functions/cleanup-old-events/index.ts"
+
 [functions.cleanup-old-images]
 enabled = true
 verify_jwt = true
