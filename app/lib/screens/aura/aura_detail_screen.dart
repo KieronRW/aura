@@ -429,6 +429,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                         make: event['detected_make'] ?? 'Unknown',
                         model: event['detected_model'],
                         method: event['method'],
+                        confidence: event['confidence'] as double?,
                         time: _formatTime(event['arrived_at']),
                         date: _formatDate(event['arrived_at']),
                         imagePath: event['image_path'],
@@ -448,6 +449,7 @@ class _EventRow extends StatefulWidget {
   final String make;
   final String? model;
   final String? method;
+  final double? confidence;
   final String time;
   final String date;
   final String? imagePath;
@@ -456,6 +458,7 @@ class _EventRow extends StatefulWidget {
     required this.make,
     required this.model,
     required this.method,
+    this.confidence,
     required this.time,
     required this.date,
     this.imagePath,
@@ -502,6 +505,10 @@ class _EventRowState extends State<_EventRow> {
         return Icons.fingerprint;
       case 'vision':
         return Icons.auto_awesome;
+      case 'yolo':
+        return Icons.smart_toy_outlined;
+      case 'test':
+        return Icons.bug_report_outlined;
       default:
         return Icons.help_outline;
     }
@@ -513,8 +520,27 @@ class _EventRowState extends State<_EventRow> {
         return Colors.greenAccent;
       case 'vision':
         return Colors.white38;
+      case 'yolo':
+        return Colors.amber;
+      case 'test':
+        return Colors.white24;
       default:
         return Colors.white24;
+    }
+  }
+
+  String get _methodTooltip {
+    switch (widget.method) {
+      case 'fingerprint':
+        return 'Identified by fingerprint match';
+      case 'vision':
+        return 'Identified by Vision API';
+      case 'yolo':
+        return 'Identified by YOLO detection';
+      case 'test':
+        return 'Test recognition';
+      default:
+        return 'Unknown method';
     }
   }
 
@@ -597,7 +623,23 @@ class _EventRowState extends State<_EventRow> {
             ),
           ),
 
-          Icon(_methodIcon, color: _methodColor, size: 16),
+          Tooltip(
+            message: _methodTooltip,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_methodIcon, color: _methodColor, size: 16),
+                if (widget.confidence != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '${(widget.confidence! * 100).round()}%',
+                    style: const TextStyle(color: Colors.white24, fontSize: 9),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
