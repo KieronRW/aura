@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../automations/automations_screen.dart';
+import 'account_details_screen.dart';
 import 'diagnostics_screen.dart';
 import 'locations_screen.dart';
 import 'about_screen.dart';
@@ -39,13 +40,16 @@ class SettingsScreen extends ConsumerWidget {
           const _SectionHeader(title: 'ACCOUNT'),
           _SettingsRow(
             icon: Icons.person_outline,
-            title: 'Profile',
+            title: 'Account Details',
             subtitle: user?.email ?? '',
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AccountDetailsScreen()),
+            ),
           ),
           _SettingsRow(
             icon: Icons.credit_card_outlined,
-            title: 'Subscription',
+            title: 'Plan & Usage',
             subtitle: 'Free plan',
             onTap: () {},
           ),
