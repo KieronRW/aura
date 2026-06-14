@@ -293,9 +293,12 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                           onChanged: _onRotationChanged,
                         ),
 
-                        // ── 2. EXPOSURE & LIGHT ─────────────────────────
+                        // ── 2. SLIDERS ───────────────────────────────────
                         const SizedBox(height: 28),
-                        _sectionLabel('EXPOSURE & LIGHT'),
+                        _sectionLabelWithInfo(
+                          'SLIDERS',
+                          'Sharpness adjusts edge detail from smooth (0) to maximum (100).',
+                        ),
                         const SizedBox(height: 12),
                         _SliderRow(
                           label: 'BRIGHTNESS',
@@ -321,7 +324,38 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                           divisions: 100,
                           onChanged: (v) => _onSliderChanged('exposure', v),
                         ),
-                        const SizedBox(height: 20),
+                        _SliderRow(
+                          label: 'SHARPNESS',
+                          value: (_settings['sharpness'] as num).toDouble(),
+                          min: 0,
+                          max: 100,
+                          divisions: 100,
+                          onChanged: (v) => _onSliderChanged('sharpness', v),
+                        ),
+                        _SliderRow(
+                          label: 'SENSITIVITY',
+                          value: (_settings['motion_sensitivity'] as num).toDouble(),
+                          min: 0,
+                          max: 100,
+                          divisions: 100,
+                          onChanged: (v) => _onSliderChanged('motion_sensitivity', v),
+                        ),
+                        if (_settings['af_mode'] == 'manual') ...[
+                          _SliderRow(
+                            label: 'FOCUS',
+                            value: (_settings['lens_position'] as num).toDouble(),
+                            min: 0.0,
+                            max: 10.0,
+                            divisions: 100,
+                            labelFormatter: (v) => v.toStringAsFixed(1),
+                            onChanged: (v) => _onFloatSliderChanged('lens_position', v),
+                          ),
+                        ],
+
+                        // ── 3. MODES ─────────────────────────────────────
+                        const SizedBox(height: 28),
+                        _sectionLabel('MODES'),
+                        const SizedBox(height: 12),
                         _DropdownRow(
                           label: 'HDR MODE',
                           onInfo: () => _showInfo(
@@ -355,16 +389,12 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                             int.parse(v),
                           ),
                         ),
-
-                        // ── 3. FOCUS ─────────────────────────────────────
-                        const SizedBox(height: 28),
-                        _sectionLabel('FOCUS'),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 20),
                         _DropdownRow(
                           label: 'AUTOFOCUS MODE',
                           onInfo: () => _showInfo(
                             'Autofocus',
-                            'Continuous refocuses in real time. Auto triggers once on demand. Manual locks focus at the distance set by the slider below.',
+                            'Continuous refocuses in real time. Auto triggers once on demand. Manual locks focus at the distance set by the Lens Position slider above.',
                           ),
                           options: const {
                             'continuous': 'Continuous',
@@ -373,34 +403,6 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                           },
                           value: _settings['af_mode'] as String? ?? 'continuous',
                           onChanged: _onAfModeChanged,
-                        ),
-                        if (_settings['af_mode'] == 'manual') ...[
-                          const SizedBox(height: 16),
-                          _SliderRow(
-                            label: 'FOCUS',
-                            value: (_settings['lens_position'] as num).toDouble(),
-                            min: 0.0,
-                            max: 10.0,
-                            divisions: 100,
-                            labelFormatter: (v) => v.toStringAsFixed(1),
-                            onChanged: (v) => _onFloatSliderChanged('lens_position', v),
-                          ),
-                        ],
-
-                        // ── 4. IMAGE QUALITY ─────────────────────────────
-                        const SizedBox(height: 28),
-                        _sectionLabelWithInfo(
-                          'IMAGE QUALITY',
-                          'Sharpness adjusts edge detail from smooth (0) to maximum (100). Denoise reduces sensor noise at the cost of fine detail.',
-                        ),
-                        const SizedBox(height: 12),
-                        _SliderRow(
-                          label: 'SHARPNESS',
-                          value: (_settings['sharpness'] as num).toDouble(),
-                          min: 0,
-                          max: 100,
-                          divisions: 100,
-                          onChanged: (v) => _onSliderChanged('sharpness', v),
                         ),
                         const SizedBox(height: 20),
                         _DropdownRow(
@@ -431,19 +433,6 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                           },
                           value: _settings['awb_mode'] as String? ?? 'auto',
                           onChanged: (v) => _onStringChanged('awb_mode', v),
-                        ),
-
-                        // ── 5. MOTION DETECTION ──────────────────────────
-                        const SizedBox(height: 28),
-                        _sectionLabel('MOTION DETECTION'),
-                        const SizedBox(height: 12),
-                        _SliderRow(
-                          label: 'SENSITIVITY',
-                          value: (_settings['motion_sensitivity'] as num).toDouble(),
-                          min: 0,
-                          max: 100,
-                          divisions: 100,
-                          onChanged: (v) => _onSliderChanged('motion_sensitivity', v),
                         ),
                         const SizedBox(height: 24),
                       ],
