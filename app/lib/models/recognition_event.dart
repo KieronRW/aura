@@ -10,6 +10,7 @@ class RecognitionEvent {
   final String? detectedPlate;
   final String? imagePath;
   final double? confidence;
+  final String? method;
 
   const RecognitionEvent({
     required this.id,
@@ -23,6 +24,7 @@ class RecognitionEvent {
     this.detectedPlate,
     this.imagePath,
     this.confidence,
+    this.method,
   });
 
   factory RecognitionEvent.fromMap(Map<String, dynamic> map) => RecognitionEvent(
@@ -41,6 +43,7 @@ class RecognitionEvent {
     detectedPlate: map['detected_plate'] as String?,
     imagePath: map['image_path'] as String?,
     confidence: (map['confidence'] as num?)?.toDouble(),
+    method: map['method'] as String?,
   );
 
   Map<String, dynamic> toMap() => {
@@ -55,5 +58,6 @@ class RecognitionEvent {
     'detected_plate': detectedPlate,
     'image_path': imagePath,
     'confidence': confidence,
+    'method': method,
   };
 }
