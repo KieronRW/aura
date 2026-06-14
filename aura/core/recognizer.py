@@ -267,7 +267,7 @@ class Recognizer:
     def _parse_vision_entities(self, entities) -> tuple[str | None, str | None, float]:
         """
         Heuristic: the highest-scoring entity that contains a known car brand is the make.
-        The next distinct entity is treated as a model hint.
+        The next distinct entity that is not a generic vehicle term or a car brand is the model.
         """
         car_brands = {
             "toyota", "honda", "ford", "bmw", "mercedes", "volkswagen", "vw",
@@ -278,6 +278,17 @@ class Recognizer:
             "ferrari", "lamborghini", "maserati", "alfa romeo", "seat", "skoda",
             "opel", "vauxhall", "citroen", "ds", "mini", "bentley", "rolls-royce",
             "tesla", "rivian", "lucid", "genesis", "haval", "chery", "geely",
+        }
+
+        _GENERIC_VEHICLE_TERMS = {
+            "car", "vehicle", "motor vehicle", "automobile", "sedan", "hatchback",
+            "hot hatch", "suv", "sport utility vehicle", "compact sport utility vehicle",
+            "subcompact car", "compact car", "mid-size car", "full-size car",
+            "luxury vehicle", "family car", "city car", "crossover", "wagon",
+            "coupe", "convertible", "pickup truck", "truck", "minivan", "van",
+            "wheel", "tire", "bumper", "headlamp", "grille", "automotive design",
+            "automotive exterior", "automotive lighting", "performance car",
+            "personal luxury car", "sports car", "muscle car",
         }
 
         sorted_entities = sorted(entities, key=lambda e: e.score, reverse=True)
@@ -295,11 +306,16 @@ class Recognizer:
                 break
 
         if make:
-            # Take the next entity as a potential model label
             for entity in sorted_entities:
-                if entity.description and entity.description != make:
-                    model = entity.description
-                    break
+                if not entity.description or entity.description == make:
+                    continue
+                desc_lower = entity.description.lower()
+                if desc_lower in _GENERIC_VEHICLE_TERMS:
+                    continue
+                if any(brand in desc_lower for brand in car_brands):
+                    continue
+                model = entity.description
+                break
 
         return make, model, confidence
 
