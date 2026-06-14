@@ -28,6 +28,13 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
     'vertical_flip': false,
     'rotation': 0,
     'motion_sensitivity': 50,
+    'sharpness': 50,
+    'denoise_mode': 'fast',
+    'awb_mode': 'auto',
+    'hdr_mode': 'off',
+    'af_mode': 'continuous',
+    'lens_position': 0.0,
+    'flicker_period_us': 0,
   };
   bool _loading = true;
   bool _saving = false;
@@ -98,6 +105,102 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
     } catch (_) {}
     if (mounted) setState(() => _saving = false);
   }
+
+  Future<void> _postSettings(Map<String, dynamic> values) async {
+    if (!mounted) return;
+    setState(() => _saving = true);
+    try {
+      await http
+          .post(
+            Uri.parse('$_baseUrl/camera/settings'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(values),
+          )
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    if (mounted) setState(() => _saving = false);
+  }
+
+  void _onStringChanged(String key, String value) {
+    setState(() => _settings[key] = value);
+    _postSetting(key, value);
+  }
+
+  void _onFloatSliderChanged(String key, double value) {
+    setState(() => _settings[key] = value);
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 300),
+      () => _postSetting(key, value),
+    );
+  }
+
+  void _onIntChoiceChanged(String key, int value) {
+    setState(() => _settings[key] = value);
+    _postSetting(key, value);
+  }
+
+  void _onAfModeChanged(String value) {
+    setState(() => _settings['af_mode'] = value);
+    if (value == 'manual') {
+      _postSettings({
+        'af_mode': value,
+        'lens_position': (_settings['lens_position'] as num?)?.toDouble() ?? 0.0,
+      });
+    } else {
+      _postSetting('af_mode', value);
+    }
+  }
+
+  void _showInfo(String title, String body) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF111111),
+        shape: const RoundedRectangleBorder(),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            letterSpacing: 2,
+          ),
+        ),
+        content: Text(
+          body,
+          style: const TextStyle(color: Colors.white54, fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'OK',
+              style: TextStyle(color: Colors.white38, letterSpacing: 2),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabelWithInfo(String label, String info) => Row(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              letterSpacing: 3,
+              color: Colors.white24,
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => _showInfo(label, info),
+            child: const Icon(Icons.info_outline, size: 12, color: Colors.white24),
+          ),
+        ],
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -210,6 +313,112 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                         value: _settings['rotation'] as int? ?? 0,
                         onChanged: _onRotationChanged,
                       ),
+                      const SizedBox(height: 28),
+                      _sectionLabelWithInfo(
+                        'IMAGE QUALITY',
+                        'Sharpness adjusts edge detail from smooth (0) to maximum (100). Denoise reduces sensor noise at the cost of fine detail.',
+                      ),
+                      const SizedBox(height: 12),
+                      _SliderRow(
+                        label: 'SHARPNESS',
+                        value: (_settings['sharpness'] as num).toDouble(),
+                        min: 0,
+                        max: 100,
+                        divisions: 100,
+                        onChanged: (v) => _onSliderChanged('sharpness', v),
+                      ),
+                      const SizedBox(height: 16),
+                      _ChoiceRow(
+                        label: 'DENOISE',
+                        options: const {
+                          'off': 'OFF',
+                          'fast': 'FAST',
+                          'high_quality': 'HIGH QUALITY',
+                        },
+                        value: _settings['denoise_mode'] as String? ?? 'fast',
+                        onChanged: (v) => _onStringChanged('denoise_mode', v),
+                      ),
+                      const SizedBox(height: 28),
+                      _sectionLabelWithInfo(
+                        'WHITE BALANCE',
+                        'Corrects colour cast caused by the ambient light source. Auto adjusts continuously.',
+                      ),
+                      const SizedBox(height: 12),
+                      _ChoiceRow(
+                        options: const {
+                          'auto': 'AUTO',
+                          'daylight': 'DAYLIGHT',
+                          'cloudy': 'CLOUDY',
+                          'tungsten': 'TUNGSTEN',
+                          'fluorescent': 'FLUOR.',
+                          'indoor': 'INDOOR',
+                          'incandescent': 'INCAND.',
+                        },
+                        value: _settings['awb_mode'] as String? ?? 'auto',
+                        onChanged: (v) => _onStringChanged('awb_mode', v),
+                      ),
+                      const SizedBox(height: 28),
+                      _sectionLabelWithInfo(
+                        'HDR',
+                        'High Dynamic Range blends multiple exposures to retain detail in highlights and shadows simultaneously.',
+                      ),
+                      const SizedBox(height: 12),
+                      _ChoiceRow(
+                        options: const {
+                          'off': 'OFF',
+                          'single': 'SINGLE',
+                          'multi': 'MULTI',
+                          'night': 'NIGHT',
+                        },
+                        value: _settings['hdr_mode'] as String? ?? 'off',
+                        onChanged: (v) => _onStringChanged('hdr_mode', v),
+                      ),
+                      const SizedBox(height: 28),
+                      _sectionLabelWithInfo(
+                        'AUTOFOCUS',
+                        'Continuous refocuses in real time. Auto triggers once on demand. Manual locks focus at the distance set by the slider below.',
+                      ),
+                      const SizedBox(height: 12),
+                      _ChoiceRow(
+                        options: const {
+                          'continuous': 'CONT.',
+                          'auto': 'AUTO',
+                          'manual': 'MANUAL',
+                        },
+                        value: _settings['af_mode'] as String? ?? 'continuous',
+                        onChanged: _onAfModeChanged,
+                      ),
+                      if (_settings['af_mode'] == 'manual') ...[
+                        const SizedBox(height: 16),
+                        _SliderRow(
+                          label: 'FOCUS',
+                          value: (_settings['lens_position'] as num).toDouble(),
+                          min: 0.0,
+                          max: 10.0,
+                          divisions: 100,
+                          labelFormatter: (v) => v.toStringAsFixed(1),
+                          onChanged: (v) => _onFloatSliderChanged('lens_position', v),
+                        ),
+                      ],
+                      const SizedBox(height: 28),
+                      _sectionLabelWithInfo(
+                        'FLICKER',
+                        'Matches the camera shutter to your mains frequency to eliminate banding under fluorescent or LED lighting.',
+                      ),
+                      const SizedBox(height: 12),
+                      _ChoiceRow(
+                        options: const {
+                          '0': 'OFF',
+                          '20000': '50 HZ',
+                          '16667': '60 HZ',
+                        },
+                        value: (_settings['flicker_period_us'] as int? ?? 0).toString(),
+                        onChanged: (v) => _onIntChoiceChanged(
+                          'flicker_period_us',
+                          int.parse(v),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
@@ -363,6 +572,7 @@ class _SliderRow extends StatelessWidget {
   final double max;
   final int divisions;
   final ValueChanged<double> onChanged;
+  final String Function(double)? labelFormatter;
 
   const _SliderRow({
     required this.label,
@@ -371,6 +581,7 @@ class _SliderRow extends StatelessWidget {
     required this.max,
     required this.divisions,
     required this.onChanged,
+    this.labelFormatter,
   });
 
   @override
@@ -413,7 +624,9 @@ class _SliderRow extends StatelessWidget {
           SizedBox(
             width: 36,
             child: Text(
-              value.round().toString(),
+              labelFormatter != null
+                  ? labelFormatter!(value)
+                  : value.round().toString(),
               textAlign: TextAlign.end,
               style: const TextStyle(color: Colors.white38, fontSize: 11),
             ),
@@ -521,6 +734,71 @@ class _RotationSelector extends StatelessWidget {
                       fontSize: 12,
                       letterSpacing: 1,
                     ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Choice row — wrapped pill buttons for enum settings
+// ---------------------------------------------------------------------------
+
+class _ChoiceRow extends StatelessWidget {
+  final String? label;
+  final Map<String, String> options;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  const _ChoiceRow({
+    this.label,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label != null && label!.isNotEmpty) ...[
+          Text(
+            label!,
+            style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 11,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.entries.map((e) {
+            final selected = value == e.key;
+            return GestureDetector(
+              onTap: () => onChanged(e.key),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: selected ? Colors.white : Colors.transparent,
+                  border: Border.all(
+                    color: selected ? Colors.white : Colors.white24,
+                  ),
+                ),
+                child: Text(
+                  e.value,
+                  style: TextStyle(
+                    color: selected ? Colors.black : Colors.white38,
+                    fontSize: 10,
+                    letterSpacing: 1,
                   ),
                 ),
               ),

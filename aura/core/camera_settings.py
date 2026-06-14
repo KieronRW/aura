@@ -22,7 +22,22 @@ DEFAULTS: dict[str, Any] = {
     "vertical_flip": False,
     "rotation": 0,              # 0, 90, 180, 270
     "motion_sensitivity": 50,   # 0–100 (higher = more sensitive)
+    "sharpness": 50,            # 0–100 (50 = libcamera default 1.0)
+    "denoise_mode": "fast",     # "off" | "fast" | "high_quality"
+    "awb_mode": "auto",         # "auto" | "daylight" | "cloudy" | "tungsten" | "fluorescent" | "indoor" | "incandescent"
+    "hdr_mode": "off",          # "off" | "single" | "multi" | "night"
+    "af_mode": "continuous",    # "continuous" | "auto" | "manual"
+    "lens_position": 0.0,       # 0.0 (infinity) – 10.0 (macro); effective only in manual af_mode
+    "flicker_period_us": 0,     # 0=off | 20000=50Hz | 16667=60Hz
 }
+
+_AWB_MODE_MAP: dict[str, int] = {
+    "auto": 0, "incandescent": 1, "tungsten": 2,
+    "fluorescent": 3, "indoor": 4, "daylight": 5, "cloudy": 6,
+}
+_HDR_MODE_MAP: dict[str, int] = {"off": 0, "single": 3, "multi": 2, "night": 4}
+_AF_MODE_MAP: dict[str, int] = {"manual": 0, "auto": 1, "continuous": 2}
+_DENOISE_MODE_MAP: dict[str, int] = {"off": 0, "fast": 1, "high_quality": 2}
 
 _client = None
 _installation_uuid: str | None = None
@@ -99,6 +114,8 @@ def get_settings() -> dict[str, Any]:
             try:
                 if isinstance(default, bool):
                     val = str(val).lower() in ("true", "1", "yes")
+                elif isinstance(default, float):
+                    val = float(val)
                 elif isinstance(default, int):
                     val = int(float(val))
             except (ValueError, TypeError):
@@ -155,6 +172,42 @@ def apply_settings(params: dict[str, Any], camera) -> None:
     if "exposure" in params:
         exposure = max(-50, min(50, int(params["exposure"])))
         controls["ExposureValue"] = round(exposure * 8.0 / 50.0, 4)
+
+    if "sharpness" in params:
+        s = max(0, min(100, int(params["sharpness"])))
+        sharpness_f = (s / 50.0) if s <= 50 else (1.0 + (s - 50) * 15.0 / 50.0)
+        controls["Sharpness"] = round(sharpness_f, 4)
+
+    if "denoise_mode" in params:
+        v = _DENOISE_MODE_MAP.get(str(params["denoise_mode"]).lower())
+        if v is not None:
+            controls["NoiseReductionMode"] = v
+
+    if "awb_mode" in params:
+        v = _AWB_MODE_MAP.get(str(params["awb_mode"]).lower())
+        if v is not None:
+            controls["AwbMode"] = v
+
+    if "hdr_mode" in params:
+        v = _HDR_MODE_MAP.get(str(params["hdr_mode"]).lower())
+        if v is not None:
+            controls["HdrMode"] = v
+
+    if "af_mode" in params:
+        v = _AF_MODE_MAP.get(str(params["af_mode"]).lower())
+        if v is not None:
+            controls["AfMode"] = v
+
+    if "lens_position" in params:
+        controls["LensPosition"] = float(params["lens_position"])
+
+    if "flicker_period_us" in params:
+        period = int(params["flicker_period_us"])
+        if period == 0:
+            controls["AeFlickerMode"] = 0
+        else:
+            controls["AeFlickerMode"] = 1
+            controls["AeFlickerPeriod"] = period
 
     if controls:
         camera.apply_controls(controls)

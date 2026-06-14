@@ -195,6 +195,13 @@ class CameraSettingsPayload(BaseModel):
     vertical_flip: Optional[bool] = None
     rotation: Optional[int] = None             # 0, 90, 180, 270
     motion_sensitivity: Optional[int] = None   # 0–100
+    sharpness: Optional[int] = None            # 0–100
+    denoise_mode: Optional[str] = None         # "off" | "fast" | "high_quality"
+    awb_mode: Optional[str] = None             # "auto" | "daylight" | "cloudy" | "tungsten" | "fluorescent" | "indoor" | "incandescent"
+    hdr_mode: Optional[str] = None             # "off" | "single" | "multi" | "night"
+    af_mode: Optional[str] = None              # "continuous" | "auto" | "manual"
+    lens_position: Optional[float] = None      # 0.0 (infinity) – 10.0 (macro)
+    flicker_period_us: Optional[int] = None    # 0=off | 20000=50Hz | 16667=60Hz
 
 
 @app.get("/camera/settings")
