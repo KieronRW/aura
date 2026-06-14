@@ -1,5 +1,7 @@
 // Aura Detail screen — status, activity, settings for a specific Aura
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +28,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
   bool _loading = true;
   RealtimeChannel? _statusChannel;
   RealtimeChannel? _eventsChannel;
+  Timer? _statusTimer;
   String _searchQuery = '';
 
   @override
@@ -33,13 +36,25 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
     super.initState();
     _loadData();
     _subscribeToRealtime();
+    _statusTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _refreshStatus(),
+    );
   }
 
   @override
   void dispose() {
+    _statusTimer?.cancel();
     _statusChannel?.unsubscribe();
     _eventsChannel?.unsubscribe();
     super.dispose();
+  }
+
+  Future<void> _refreshStatus() async {
+    final installationId = widget.installation['id'] as String;
+    ref.invalidate(deviceStatusProvider(installationId));
+    final status = await ref.read(deviceStatusProvider(installationId).future);
+    if (mounted) setState(() => _deviceStatus = status);
   }
 
   void _subscribeToRealtime() {

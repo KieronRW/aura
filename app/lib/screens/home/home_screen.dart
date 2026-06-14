@@ -107,6 +107,7 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
   bool _loading = true;
   RealtimeChannel? _statusChannel;
   RealtimeChannel? _eventsChannel;
+  Timer? _statusTimer;
 
   late final _authSubscription =
       Supabase.instance.client.auth.onAuthStateChange.listen((data) {
@@ -128,14 +129,36 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
     super.initState();
     _loadData();
     _subscribeToRealtime();
+    _statusTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _refreshStatuses(),
+    );
   }
 
   @override
   void dispose() {
+    _statusTimer?.cancel();
     _authSubscription.cancel();
     _statusChannel?.unsubscribe();
     _eventsChannel?.unsubscribe();
     super.dispose();
+  }
+
+  Future<void> _refreshStatuses() async {
+    final ids = _propertyInstallations.values
+        .expand((list) => list)
+        .map((i) => i['id'] as String)
+        .toList();
+    if (ids.isEmpty) return;
+    for (final id in ids) {
+      ref.invalidate(deviceStatusProvider(id));
+    }
+    for (final id in ids) {
+      final status = await ref.read(deviceStatusProvider(id).future);
+      if (mounted && status != null) {
+        setState(() => _statusCache[id] = status);
+      }
+    }
   }
 
   void _subscribeToRealtime() {
