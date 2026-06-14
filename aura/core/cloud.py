@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import socket
+import subprocess
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -534,6 +535,18 @@ def update_departure(event_id: int) -> bool:
         return False
 
 
+def _get_cpu_temp() -> float | None:
+    try:
+        result = subprocess.run(
+            ["vcgencmd", "measure_temp"],
+            capture_output=True, text=True, timeout=2,
+        )
+        temp_str = result.stdout.strip().replace("temp=", "").replace("'C", "")
+        return float(temp_str)
+    except Exception:
+        return None
+
+
 def push_heartbeat(
     camera_ok: bool,
     display_clients: int,
@@ -569,6 +582,7 @@ def push_heartbeat(
         "cpu_percent":      psutil.cpu_percent(interval=None),
         "memory_percent":   psutil.virtual_memory().percent,
         "disk_percent":     psutil.disk_usage("/").percent,
+        "cpu_temp_c":       _get_cpu_temp(),
         "software_version": software_version,
         "camera_ok":        camera_ok,
         "display_clients":  display_clients,

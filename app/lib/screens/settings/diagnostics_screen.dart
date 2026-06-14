@@ -213,6 +213,11 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                                 ?.toDouble() ??
                             0,
                       ),
+                      const SizedBox(height: 12),
+                      _TempRow(
+                        tempC: (_deviceStatus?['cpu_temp_c'] as num?)
+                            ?.toDouble(),
+                      ),
                     ],
                   ),
                 ),
@@ -253,6 +258,52 @@ class _DiagnosticRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TempRow extends StatelessWidget {
+  final double? tempC;
+
+  const _TempRow({this.tempC});
+
+  Color _tempColor(double t) {
+    if (t >= 80) return Colors.redAccent;
+    if (t >= 70) return Colors.orangeAccent;
+    return Colors.white;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = 'CPU TEMP';
+    if (tempC == null) {
+      return Row(
+        children: [
+          SizedBox(
+            width: 64,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white38, fontSize: 13),
+            ),
+          ),
+          const Text('—', style: TextStyle(color: Colors.white38, fontSize: 13)),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        SizedBox(
+          width: 64,
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white38, fontSize: 13),
+          ),
+        ),
+        Text(
+          '${tempC!.toStringAsFixed(1)}°C',
+          style: TextStyle(color: _tempColor(tempC!), fontSize: 13),
+        ),
+      ],
     );
   }
 }
