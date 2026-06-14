@@ -289,6 +289,9 @@ class Recognizer:
             "wheel", "tire", "bumper", "headlamp", "grille", "automotive design",
             "automotive exterior", "automotive lighting", "performance car",
             "personal luxury car", "sports car", "muscle car",
+            "a-segment", "b-segment", "c-segment", "d-segment", "e-segment", "segment",
+            "supermini", "economy car", "small family car", "large family car",
+            "executive car",
         }
 
         sorted_entities = sorted(entities, key=lambda e: e.score, reverse=True)
