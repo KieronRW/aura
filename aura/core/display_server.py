@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import threading
+import time
 
 import websockets
 from websockets.server import WebSocketServerProtocol
@@ -74,7 +75,7 @@ class DisplayServer:
         self._broadcast(payload)
 
     def send_status_bar(self, data: dict):
-        payload = json.dumps({"state": "status_bar", **data})
+        payload = json.dumps({"state": "status_bar", "server_ts": time.time(), **data})
         logger.info("Broadcasting status_bar — show_time=%s show_weather=%s", data.get("show_time"), data.get("show_weather"))
         self._broadcast(payload)
 
