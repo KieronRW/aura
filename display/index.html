@@ -453,6 +453,56 @@
       recScreen.classList.add('active');
     }
 
+    // ── Status bar ──────────────────────────────────────────────────
+
+    const statusTime    = document.getElementById('status-time');
+    const statusWeather = document.getElementById('status-weather');
+    let _timeInterval   = null;
+
+    function updateStatusBar(msg) {
+      // Time
+      if (msg.show_time) {
+        statusTime.style.display = '';
+        clearInterval(_timeInterval);
+        function _tick() {
+          const now = new Date();
+          if (msg.time_format === '12h') {
+            const h    = now.getHours() % 12 || 12;
+            const m    = String(now.getMinutes()).padStart(2, '0');
+            const ampm = now.getHours() < 12 ? 'AM' : 'PM';
+            statusTime.textContent = `${h}:${m} ${ampm}`;
+          } else {
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            statusTime.textContent = `${h}:${m}`;
+          }
+        }
+        _tick();
+        _timeInterval = setInterval(_tick, 1000);
+      } else {
+        clearInterval(_timeInterval);
+        _timeInterval = null;
+        statusTime.style.display = 'none';
+        statusTime.textContent   = '';
+      }
+
+      // Weather
+      if (msg.show_weather && msg.temp_c != null) {
+        let tempStr;
+        if (msg.units === 'imperial') {
+          tempStr = Math.round(msg.temp_c * 9 / 5 + 32) + '°F';
+        } else {
+          tempStr = Math.round(msg.temp_c) + '°C';
+        }
+        const desc = msg.weather_description || '';
+        statusWeather.textContent = desc ? `${tempStr} · ${desc}` : tempStr;
+        statusWeather.style.display = '';
+      } else {
+        statusWeather.style.display = 'none';
+        statusWeather.textContent   = '';
+      }
+    }
+
     // ── Spacebar test mode ──────────────────────────────────────────
 
     document.addEventListener('keydown', (e) => {
@@ -489,14 +539,19 @@
         console.log('[AURA] ws message state:', msg.state);
         if (msg.state === 'recognition') {
           showRecognition(msg);
+          updateStatusBar(msg);
         } else if (msg.state === 'visitor_pre_arrival') {
           showVisitorPreArrival(msg);
+          updateStatusBar(msg);  // show_time/show_weather absent → both hidden
         } else if (msg.state === 'visitor_bay_occupied') {
           showVisitorBayOccupied(msg);
+          updateStatusBar(msg);
         } else if (msg.state === 'visitor_mode_ended') {
           showVisitorModeEnded();
+          updateStatusBar(msg);
         } else {
           showIdle();
+          updateStatusBar(msg);  // idle payload now carries show_time/show_weather: false
         }
       });
 

@@ -75,6 +75,8 @@ from aura.core.camera import Camera, MotionState
 from aura.core.cloud import (
     get_expected_visitors,
     get_installation_uuid,
+    get_property_location,
+    get_user_preferences,
     is_connected,
     log_recognition,
     log_unknown_vehicle,
@@ -86,6 +88,7 @@ from aura.core.cloud import (
     sync_vehicles,
     update_departure,
 )
+from aura.core import weather as _weather_mod
 from aura.core.display_server import DisplayServer
 from aura.core.enroller import ReferenceImageEnroller
 from aura.core.recognizer import Recognizer
@@ -98,6 +101,8 @@ _RECOGNITION_COOLDOWN  = 3        # seconds between recognition attempts
 _VEHICLE_SYNC_INTERVAL = 300     # re-sync vehicles from Supabase every 5 minutes
 _HEARTBEAT_INTERVAL    = 30      # push device_status heartbeat every 30 seconds
 _PRE_ARRIVAL_INTERVAL  = 10      # seconds between cycling pre-arrival visitor messages
+_PROPERTY_SYNC_INTERVAL = 3600   # refresh property location + user prefs every 1 hour
+_WEATHER_SYNC_INTERVAL  = 1800   # refresh weather every 30 minutes
 _BADGES_DIR = Path(__file__).parent / "assets" / "badges"
 _BADGE_BASE_URL = "http://localhost:8080/assets/badges"
 _DEFAULT_BADGE_URL = f"{_BADGE_BASE_URL}/default.png"
@@ -548,6 +553,36 @@ def main() -> None:
     pre_arrival_index: int = 0
     _in_visitor_mode: bool = False
 
+    # ── Property location / weather / preferences cache ──────────────────
+    last_property_sync_at: float = 0.0   # triggers immediately on first tick
+    last_weather_sync_at: float = 0.0
+    _cached_lat: float | None = None
+    _cached_lon: float | None = None
+    _cached_user_id: str | None = None
+    _cached_prefs: dict = {"units": "metric", "time_format": "24h"}
+    _cached_weather_data: dict | None = None
+    _last_status_bar: dict = {
+        "show_time": False, "show_weather": False,
+        "time_format": "24h", "units": "metric",
+        "temp_c": None, "weather_description": None,
+    }
+
+    def _make_status_bar(vehicle: dict | None) -> dict:
+        """Build status-bar kwargs for send_recognition from the matched vehicle's profile."""
+        show_time = bool((vehicle or {}).get("show_time"))
+        show_weather = bool((vehicle or {}).get("show_weather"))
+        temp_c = _cached_weather_data.get("temp_c") if _cached_weather_data else None
+        wcode = _cached_weather_data.get("weather_code") if _cached_weather_data else None
+        desc = _weather_mod.weather_code_to_description(wcode) if wcode is not None else None
+        return {
+            "show_time": show_time,
+            "show_weather": show_weather,
+            "time_format": _cached_prefs.get("time_format", "24h"),
+            "units": _cached_prefs.get("units", "metric"),
+            "temp_c": temp_c,
+            "weather_description": desc,
+        }
+
     # Startup scan: recognise any car already in frame
     logger.info("Startup: running initial recognition scan")
     time.sleep(3)
@@ -566,7 +601,8 @@ def main() -> None:
                     startup_result.method_used, vehicle["id"] if vehicle else None,
                     image_frame=frame,
                 )
-                display.send_recognition(make=startup_result.make or "", model=startup_result.model or "", greeting=greeting, badge_url=badge_url)
+                _last_status_bar = _make_status_bar(vehicle)
+                display.send_recognition(make=startup_result.make or "", model=startup_result.model or "", greeting=greeting, badge_url=badge_url, **_last_status_bar)
                 last_recognition_sent_at = time.monotonic()
                 last_recognized_make = startup_result.make or ""
                 last_hold_check_at = 0.0
@@ -638,6 +674,27 @@ def main() -> None:
                     software_version=_VERSION,
                 )
 
+            # ── Property location + user prefs (every 1 hour) ────────────────
+            if now_mono - last_property_sync_at >= _PROPERTY_SYNC_INTERVAL:
+                last_property_sync_at = now_mono
+                if _installation_uuid:
+                    _cached_lat, _cached_lon, _cached_user_id = get_property_location(_installation_uuid)
+                    if _cached_user_id:
+                        _cached_prefs = get_user_preferences(_cached_user_id)
+                    logger.info(
+                        "Property sync: lat=%s lon=%s user_id=%s prefs=%s",
+                        _cached_lat, _cached_lon, _cached_user_id, _cached_prefs,
+                    )
+
+            # ── Weather refresh (every 30 minutes) ───────────────────────────
+            if now_mono - last_weather_sync_at >= _WEATHER_SYNC_INTERVAL:
+                last_weather_sync_at = now_mono
+                if _cached_lat is not None and _cached_lon is not None:
+                    w = _weather_mod.get_weather(_cached_lat, _cached_lon)
+                    if w is not None:
+                        _cached_weather_data = w
+                        logger.info("Weather updated: %.1f°C code=%d", w["temp_c"], w["weather_code"])
+
             # ── YOLO hold: if we already recognised a car, skip motion detection ──
             #    last_hold_check_at is reset to 0 on new recognition so the first
             #    hold check fires on the very next iteration (~250 ms later).
@@ -656,7 +713,7 @@ def main() -> None:
                             # Keepalive: re-send badge every 30 s to prevent display timeout
                             if now_mono - last_recognition_sent_at >= 30.0:
                                 badge_url = _badge_url(last_recognized_make)
-                                display.send_recognition(make=last_recognized_make, model="", greeting="", badge_url=badge_url)
+                                display.send_recognition(make=last_recognized_make, model="", greeting="", badge_url=badge_url, **_last_status_bar)
                                 last_recognition_sent_at = now_mono
                                 logger.info("Re-sent badge to display (keepalive)")
                         else:
@@ -801,11 +858,13 @@ def main() -> None:
                             )
 
                     if visitor:
+                        _last_status_bar = _make_status_bar(None)  # visitors have no profile toggles
                         display.send_recognition(
                             make=result.make or "",
                             model=result.model or "",
                             greeting=greeting,
                             badge_url=badge_url,
+                            **_last_status_bar,
                         )
                     else:
                         display.send_visitor_bay_occupied(greeting)
@@ -933,11 +992,13 @@ def main() -> None:
                             _vehicle_id, result.best_fp_score, result.confidence,
                         )
 
+                _last_status_bar = _make_status_bar(vehicle)
                 display.send_recognition(
                     make=result.make or "",
                     model=result.model or "",
                     greeting=greeting,
                     badge_url=badge_url,
+                    **_last_status_bar,
                 )
                 last_recognition_sent_at = time.monotonic()
                 last_recognized_make = result.make or ""

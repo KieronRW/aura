@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/installation_provider.dart';
 import '../../providers/property_provider.dart';
@@ -114,20 +117,53 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
     try {
       final street = _streetCtrl.text.trim();
       final city = _cityCtrl.text.trim();
+      final country = _countryCtrl.text.trim();
       final addressParts = [street, city].where((s) => s.isNotEmpty).toList();
       final address = addressParts.isNotEmpty ? addressParts.join(', ') : null;
+
+      // Geocode city → lat/lon via Open-Meteo (best-effort, never blocks save)
+      double? lat;
+      double? lon;
+      final geocodeQuery = city.isNotEmpty ? city : null;
+      if (geocodeQuery != null) {
+        try {
+          final params = <String, String>{
+            'name': geocodeQuery,
+            'count': '1',
+            if (country.isNotEmpty) 'country': country,
+          };
+          final uri = Uri.https('geocoding-api.open-meteo.com', '/v1/search', params);
+          final geoResp = await http.get(uri).timeout(const Duration(seconds: 5));
+          if (geoResp.statusCode == 200) {
+            final body = jsonDecode(geoResp.body) as Map<String, dynamic>;
+            final results = body['results'] as List<dynamic>?;
+            if (results != null && results.isNotEmpty) {
+              final first = results[0] as Map<String, dynamic>;
+              lat = (first['latitude'] as num?)?.toDouble();
+              lon = (first['longitude'] as num?)?.toDouble();
+              debugPrint('Geocode: $geocodeQuery → lat=$lat, lon=$lon');
+            } else {
+              debugPrint('Geocode: no results for $geocodeQuery');
+            }
+          }
+        } catch (e) {
+          debugPrint('Geocode error (non-fatal): $e');
+        }
+      }
 
       await Supabase.instance.client.from('properties').update({
         'name': name,
         'address': address,
         'property_type': _propertyType,
-        'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : null,
+        'country': country.isNotEmpty ? country : null,
         'province': _provinceCtrl.text.trim().isNotEmpty ? _provinceCtrl.text.trim() : null,
         'city': city.isNotEmpty ? city : null,
         'street_address': street.isNotEmpty ? street : null,
         'postal_code': _postalCtrl.text.trim().isNotEmpty ? _postalCtrl.text.trim() : null,
         'greeting_tone': _toneCtrl.text.trim().isNotEmpty ? _toneCtrl.text.trim() : null,
         'safety_reminder': _safetyCtrl.text.trim().isNotEmpty ? _safetyCtrl.text.trim() : null,
+        'latitude': ?lat,
+        'longitude': ?lon,
       }).eq('id', widget.property['id']);
 
       ref.invalidate(propertiesProvider);

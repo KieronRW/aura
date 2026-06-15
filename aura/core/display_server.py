@@ -54,20 +54,37 @@ class DisplayServer:
         model: str | None,
         greeting: str,
         badge_url: str | None,
+        *,
+        show_time: bool = False,
+        show_weather: bool = False,
+        time_format: str = "24h",
+        units: str = "metric",
+        temp_c: float | None = None,
+        weather_description: str | None = None,
     ):
         payload = json.dumps({
-            "state":     "recognition",
-            "make":      make,
-            "model":     model or "",
-            "greeting":  greeting,
-            "badge_url": badge_url or "",
+            "state":               "recognition",
+            "make":                make,
+            "model":               model or "",
+            "greeting":            greeting,
+            "badge_url":           badge_url or "",
+            "show_time":           show_time,
+            "show_weather":        show_weather,
+            "time_format":         time_format,
+            "units":               units,
+            "temp_c":              temp_c,
+            "weather_description": weather_description,
         })
-        logger.info("Broadcasting recognition — make=%s model=%s", make, model)
+        logger.info("Broadcasting recognition — make=%s model=%s show_time=%s show_weather=%s", make, model, show_time, show_weather)
         self._is_idle = False
         self._broadcast(payload)
 
     def send_idle(self):
-        payload = json.dumps({"state": "idle"})
+        payload = json.dumps({
+            "state":        "idle",
+            "show_time":    False,
+            "show_weather": False,
+        })
         if not self._is_idle:
             logger.info("Broadcasting idle")
             self._is_idle = True

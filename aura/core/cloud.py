@@ -133,6 +133,7 @@ def sync_vehicles() -> list[dict]:
     installations.installation_key = INSTALLATION_ID.
     Each vehicle dict gains a 'reference_fingerprints' key: a list of
     fingerprint_data JSON strings from vehicle_reference_images.
+    Each vehicle dict also gains 'show_time' and 'show_weather' from its profile.
     """
     client = _get_client()
     if client is None:
@@ -140,14 +141,16 @@ def sync_vehicles() -> list[dict]:
     try:
         response = (
             client.table("vehicles")
-            .select("*, profiles!inner(installations!inner(installation_key))")
+            .select("*, profiles!inner(show_time, show_weather, installations!inner(installation_key))")
             .eq("is_active", True)
             .filter("profiles.installations.installation_key", "eq", _INSTALLATION_ID)
             .execute()
         )
         vehicles = response.data or []
         for v in vehicles:
-            v.pop("profiles", None)
+            profile_data = v.pop("profiles", None) or {}
+            v["show_time"] = bool(profile_data.get("show_time"))
+            v["show_weather"] = bool(profile_data.get("show_weather"))
 
         if vehicles:
             vehicle_ids = [v["id"] for v in vehicles]
@@ -189,6 +192,64 @@ def sync_settings() -> dict:
     except Exception as exc:
         log.warning("sync_settings failed: %s", exc)
         return {}
+
+
+def get_property_location(installation_uuid: str) -> tuple[float | None, float | None, str | None]:
+    """Return (latitude, longitude, user_id) for the property linked to this installation.
+
+    Returns (None, None, None) if unavailable. Caller should cache; this does not cache internally.
+    """
+    client = _get_client()
+    if client is None:
+        return None, None, None
+    try:
+        response = (
+            client.table("installations")
+            .select("properties!inner(latitude, longitude, user_id)")
+            .eq("id", installation_uuid)
+            .limit(1)
+            .execute()
+        )
+        if not response.data:
+            return None, None, None
+        prop = (response.data[0].get("properties") or {})
+        lat = prop.get("latitude")
+        lon = prop.get("longitude")
+        user_id = prop.get("user_id")
+        return (
+            float(lat) if lat is not None else None,
+            float(lon) if lon is not None else None,
+            str(user_id) if user_id is not None else None,
+        )
+    except Exception as exc:
+        log.warning("get_property_location failed: %s", exc)
+        return None, None, None
+
+
+def get_user_preferences(user_id: str) -> dict:
+    """Return app_preferences for user_id as {"units": ..., "time_format": ...}.
+
+    Defaults to metric / 24h if row not found. Never raises.
+    """
+    client = _get_client()
+    if client is None:
+        return {"units": "metric", "time_format": "24h"}
+    try:
+        response = (
+            client.table("app_preferences")
+            .select("units, time_format")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        prefs = response.data[0] if response.data else {}
+        return {
+            "units": prefs.get("units") or "metric",
+            "time_format": prefs.get("time_format") or "24h",
+        }
+    except Exception as exc:
+        log.warning("get_user_preferences failed: %s", exc)
+        return {"units": "metric", "time_format": "24h"}
 
 
 def get_expected_visitors(installation_id: str | None = None) -> list[dict]:
