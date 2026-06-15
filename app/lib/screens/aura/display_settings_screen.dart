@@ -22,6 +22,7 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
     'display_rotation': 0,
     'show_time': false,
     'show_weather': false,
+    'status_bar_scale': 100,
   };
   bool _loading = true;
   bool _saving = false;
@@ -154,6 +155,23 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
                           value: _settings['show_weather'] as bool? ?? false,
                           onChanged: _onShowWeatherChanged,
                         ),
+                        const SizedBox(height: 24),
+                        _sectionLabel('STATUS BAR SIZE'),
+                        const SizedBox(height: 4),
+                        _SliderRow(
+                          title: 'Scale',
+                          subtitle: 'Resize the status bar and its content',
+                          value: (_settings['status_bar_scale'] as num? ?? 100).toDouble(),
+                          min: 50,
+                          max: 200,
+                          divisions: 15,
+                          label: '${(_settings['status_bar_scale'] as num? ?? 100).round()}%',
+                          onChanged: (v) => setState(
+                            () => _settings['status_bar_scale'] = v.round(),
+                          ),
+                          onChangeEnd: (v) =>
+                              _postSetting('status_bar_scale', v.round()),
+                        ),
                       ],
                     ),
                   ),
@@ -225,6 +243,99 @@ class _ToggleRow extends StatelessWidget {
             activeTrackColor: Colors.white38,
             inactiveThumbColor: Colors.white38,
             inactiveTrackColor: Colors.white12,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Slider row
+// ---------------------------------------------------------------------------
+
+class _SliderRow extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final double value;
+  final double min;
+  final double max;
+  final int? divisions;
+  final String label;
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onChangeEnd;
+
+  const _SliderRow({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.min,
+    required this.max,
+    this.divisions,
+    required this.label,
+    required this.onChanged,
+    required this.onChangeEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.white12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
+                ],
+              ),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 1.5,
+              thumbColor: Colors.white,
+              activeTrackColor: Colors.white38,
+              inactiveTrackColor: Colors.white12,
+              overlayColor: Colors.white10,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+            ),
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              onChanged: onChanged,
+              onChangeEnd: onChangeEnd,
+            ),
           ),
         ],
       ),

@@ -587,6 +587,7 @@ def main() -> None:
             "units": _cached_prefs.get("units", "metric"),
             "temp_c": temp_c,
             "weather_code": wcode,
+            "status_bar_scale": _cached_display_settings.get("status_bar_scale", 100),
         })
 
     _state["force_status_bar_cb"] = _force_status_bar
@@ -743,6 +744,7 @@ def main() -> None:
                     "units": _cached_prefs.get("units", "metric"),
                     "temp_c": temp_c,
                     "weather_code": wcode,
+                    "status_bar_scale": _cached_display_settings.get("status_bar_scale", 100),
                 })
 
             # ── YOLO hold: if we already recognised a car, skip motion detection ──

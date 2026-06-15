@@ -11,6 +11,7 @@
   <style>
     :root {
       --status-bar-height: 90px;
+      --status-bar-scale:  1;   /* updated by JS from msg.status_bar_scale / 100 */
     }
 
     *, *::before, *::after {
@@ -36,7 +37,7 @@
 
     .screen {
       position: fixed;
-      inset: 0 0 var(--status-bar-height) 0;
+      inset: 0 0 calc(var(--status-bar-height) * var(--status-bar-scale)) 0;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -294,17 +295,23 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: var(--status-bar-height);
+      height: calc(var(--status-bar-height) * var(--status-bar-scale));
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 40px;
       background: #000;
       color: rgba(255, 255, 255, 0.4);
-      font-size: 24px;
+      font-size: calc(24px * var(--status-bar-scale));
       font-weight: 300;
       letter-spacing: 2px;
       z-index: 100;
+    }
+
+    #status-weather svg {
+      width:  calc(32px * var(--status-bar-scale));
+      height: calc(32px * var(--status-bar-scale));
+      flex-shrink: 0;
     }
 
     #status-time, #status-weather {
@@ -584,6 +591,14 @@
         console.log('STATUS BAR delay:', delay, 's');
       }
       document.title = 'SB: st=' + msg.show_time + ' sw=' + msg.show_weather + ' t=' + msg.temp_c;
+
+      // Scale
+      if (msg.status_bar_scale != null) {
+        document.documentElement.style.setProperty(
+          '--status-bar-scale',
+          (msg.status_bar_scale / 100).toFixed(2)
+        );
+      }
 
       // Time
       if (msg.show_time) {

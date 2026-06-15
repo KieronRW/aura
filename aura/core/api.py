@@ -430,6 +430,7 @@ class DisplaySettingsPayload(BaseModel):
     display_rotation: Optional[int] = None  # 0, 90, 180, 270
     show_time: Optional[bool] = None
     show_weather: Optional[bool] = None
+    status_bar_scale: Optional[int] = None  # percentage, 50–200
 
 
 @app.get("/display/settings")
@@ -448,7 +449,7 @@ def post_display_settings(payload: DisplaySettingsPayload):
     applied = False
     if "display_rotation" in params:
         applied = display_settings.apply_rotation(params["display_rotation"])
-    if "show_time" in params or "show_weather" in params:
+    if "show_time" in params or "show_weather" in params or "status_bar_scale" in params:
         cb = _state.get("force_status_bar_cb")
         if cb is not None:
             try:
