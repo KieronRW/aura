@@ -75,7 +75,7 @@ class DisplayServer:
 
     def send_status_bar(self, data: dict):
         payload = json.dumps({"state": "status_bar", **data})
-        logger.debug("Broadcasting status_bar — show_time=%s show_weather=%s", data.get("show_time"), data.get("show_weather"))
+        logger.info("Broadcasting status_bar — show_time=%s show_weather=%s", data.get("show_time"), data.get("show_weather"))
         self._broadcast(payload)
 
     def send_visitor_pre_arrival(self, name: str, message: str):
