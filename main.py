@@ -418,6 +418,7 @@ def main() -> None:
         "trigger_recognition_cb":      None,
         "force_idle_cb":               None,
         "force_recognition_cb":        None,
+        "force_status_bar_cb":         None,
         "installation_key":            _installation_key,
         "name":                        socket.gethostname(),
         "software_version":            _VERSION,
@@ -567,6 +568,25 @@ def main() -> None:
     _cached_prefs: dict = {"units": "metric", "time_format": "24h"}
     _cached_weather_data: dict | None = None
     _cached_display_settings: dict = {"show_time": False, "show_weather": False}
+
+    def _force_status_bar() -> None:
+        """Broadcast a status_bar WS message immediately using current cached data."""
+        s = _cached_display_settings
+        show_time = bool(s.get("show_time"))
+        show_weather = bool(s.get("show_weather"))
+        temp_c = _cached_weather_data.get("temp_c") if _cached_weather_data else None
+        wcode = _cached_weather_data.get("weather_code") if _cached_weather_data else None
+        desc = _weather_mod.weather_code_to_description(wcode) if wcode is not None else None
+        display.send_status_bar({
+            "show_time": show_time,
+            "show_weather": show_weather,
+            "time_format": _cached_prefs.get("time_format", "24h"),
+            "units": _cached_prefs.get("units", "metric"),
+            "temp_c": temp_c,
+            "weather_description": desc,
+        })
+
+    _state["force_status_bar_cb"] = _force_status_bar
 
     # Startup scan: recognise any car already in frame
     logger.info("Startup: running initial recognition scan")

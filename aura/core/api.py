@@ -448,6 +448,13 @@ def post_display_settings(payload: DisplaySettingsPayload):
     applied = False
     if "display_rotation" in params:
         applied = display_settings.apply_rotation(params["display_rotation"])
+    if "show_time" in params or "show_weather" in params:
+        cb = _state.get("force_status_bar_cb")
+        if cb is not None:
+            try:
+                cb()
+            except Exception as exc:
+                logger.warning("force_status_bar_cb failed: %s", exc)
     return {"ok": True, "saved": saved, "applied": applied}
 
 
