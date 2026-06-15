@@ -195,6 +195,7 @@ def get_property_location(installation_uuid: str) -> tuple[float | None, float |
     """Return (latitude, longitude, user_id) for the property linked to this installation.
 
     Returns (None, None, None) if unavailable. Caller should cache; this does not cache internally.
+    Uses a left join (not !inner) so the installation row is returned even when property_id is null.
     """
     client = _get_client()
     if client is None:
@@ -202,17 +203,32 @@ def get_property_location(installation_uuid: str) -> tuple[float | None, float |
     try:
         response = (
             client.table("installations")
-            .select("properties!inner(latitude, longitude, user_id)")
+            .select("properties(latitude, longitude, user_id)")
             .eq("id", installation_uuid)
             .limit(1)
             .execute()
         )
         if not response.data:
+            log.warning(
+                "get_property_location: installation %s not found in database",
+                installation_uuid,
+            )
             return None, None, None
         prop = (response.data[0].get("properties") or {})
+        if not prop:
+            log.warning(
+                "get_property_location: installation %s has no linked property"
+                " — set installations.property_id in Supabase",
+                installation_uuid,
+            )
+            return None, None, None
         lat = prop.get("latitude")
         lon = prop.get("longitude")
         user_id = prop.get("user_id")
+        log.info(
+            "get_property_location: resolved lat=%s lon=%s user_id=%s for installation %s",
+            lat, lon, user_id, installation_uuid,
+        )
         return (
             float(lat) if lat is not None else None,
             float(lon) if lon is not None else None,

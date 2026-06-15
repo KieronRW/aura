@@ -558,8 +558,10 @@ def main() -> None:
     _in_visitor_mode: bool = False
 
     # ── Property location / weather / preferences / status-bar cache ─────
-    last_property_sync_at: float = 0.0          # triggers immediately on first tick
-    last_weather_sync_at: float = 0.0
+    # Negative offsets ensure the first loop tick fires the sync regardless of system uptime.
+    # (time.monotonic() starts from boot, so 0.0 would require > 1-hour uptime before firing.)
+    last_property_sync_at: float = -_PROPERTY_SYNC_INTERVAL
+    last_weather_sync_at: float = -_WEATHER_SYNC_INTERVAL
     last_display_settings_at: float = 0.0
     last_status_bar_at: float = 0.0
     _cached_lat: float | None = None
@@ -684,22 +686,43 @@ def main() -> None:
             if now_mono - last_property_sync_at >= _PROPERTY_SYNC_INTERVAL:
                 last_property_sync_at = now_mono
                 if _installation_uuid:
-                    _cached_lat, _cached_lon, _cached_user_id = get_property_location(_installation_uuid)
-                    if _cached_user_id:
-                        _cached_prefs = get_user_preferences(_cached_user_id)
-                    logger.info(
-                        "Property sync: lat=%s lon=%s user_id=%s prefs=%s",
-                        _cached_lat, _cached_lon, _cached_user_id, _cached_prefs,
+                    logger.info("Property sync: fetching location for uuid=%s", _installation_uuid)
+                    try:
+                        _cached_lat, _cached_lon, _cached_user_id = get_property_location(_installation_uuid)
+                        if _cached_user_id:
+                            _cached_prefs = get_user_preferences(_cached_user_id)
+                        logger.info(
+                            "Property sync complete: lat=%s lon=%s user_id=%s prefs=%s",
+                            _cached_lat, _cached_lon, _cached_user_id, _cached_prefs,
+                        )
+                        if _cached_lat is None or _cached_lon is None:
+                            logger.warning(
+                                "Property sync: no location — verify installations.property_id is set for uuid=%s",
+                                _installation_uuid,
+                            )
+                    except Exception:
+                        logger.exception("Property sync failed unexpectedly")
+                else:
+                    logger.warning(
+                        "Property sync skipped: installation UUID is None — check INSTALLATION_ID env var and Supabase"
                     )
 
             # ── Weather refresh (every 30 minutes) ───────────────────────────
             if now_mono - last_weather_sync_at >= _WEATHER_SYNC_INTERVAL:
                 last_weather_sync_at = now_mono
                 if _cached_lat is not None and _cached_lon is not None:
-                    w = _weather_mod.get_weather(_cached_lat, _cached_lon)
-                    if w is not None:
-                        _cached_weather_data = w
-                        logger.info("Weather updated: %.1f°C code=%d", w["temp_c"], w["weather_code"])
+                    logger.info("Weather sync: fetching for lat=%.4f lon=%.4f", _cached_lat, _cached_lon)
+                    try:
+                        w = _weather_mod.get_weather(_cached_lat, _cached_lon)
+                        if w is not None:
+                            _cached_weather_data = w
+                            logger.info("Weather updated: %.1f°C code=%d", w["temp_c"], w["weather_code"])
+                        else:
+                            logger.warning("Weather sync: get_weather returned None")
+                    except Exception:
+                        logger.exception("Weather sync failed unexpectedly")
+                else:
+                    logger.debug("Weather sync skipped: no location cached yet (lat=%s lon=%s)", _cached_lat, _cached_lon)
 
             # ── Display settings cache refresh (every 30 s) ───────────────────
             if now_mono - last_display_settings_at >= _DISPLAY_SETTINGS_CACHE_TTL:
