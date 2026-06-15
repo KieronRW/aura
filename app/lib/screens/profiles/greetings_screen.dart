@@ -40,21 +40,28 @@ class _GreetingsScreenState extends ConsumerState<GreetingsScreen> {
     super.dispose();
   }
 
+  Future<void> _saveToggle(String column, bool value) async {
+    try {
+      await Supabase.instance.client
+          .from('profiles')
+          .update({column: value}).eq('id', widget.profile['id']);
+      ref.read(profilesProvider.notifier).refresh();
+    } catch (e) {
+      debugPrint('Toggle save error ($column): $e');
+    }
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
       await Supabase.instance.client.from('profiles').update({
         'greeting': _greetingCtrl.text.trim(),
-        'ai_greeting_enabled': _aiVaried,
-        'show_weather': _showWeather,
-        'show_time': _showTime,
-        'show_smart_home': _showSmartHome,
       }).eq('id', widget.profile['id']);
       ref.read(profilesProvider.notifier).refresh();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Greetings settings saved'),
+            content: Text('Greeting saved'),
             backgroundColor: Color(0xFF222222),
           ),
         );
@@ -114,19 +121,28 @@ class _GreetingsScreenState extends ConsumerState<GreetingsScreen> {
           title: 'AI-varied',
           subtitle: 'Greeting is uniquely phrased each time',
           value: _aiVaried,
-          onChanged: (v) => setState(() => _aiVaried = v),
+          onChanged: (v) {
+            setState(() => _aiVaried = v);
+            _saveToggle('ai_greeting_enabled', v);
+          },
         ),
         _ToggleRow(
           title: 'Show weather',
           subtitle: 'Display current weather on the mirror',
           value: _showWeather,
-          onChanged: (v) => setState(() => _showWeather = v),
+          onChanged: (v) {
+            setState(() => _showWeather = v);
+            _saveToggle('show_weather', v);
+          },
         ),
         _ToggleRow(
           title: 'Show time',
           subtitle: 'Display current time on the mirror',
           value: _showTime,
-          onChanged: (v) => setState(() => _showTime = v),
+          onChanged: (v) {
+            setState(() => _showTime = v);
+            _saveToggle('show_time', v);
+          },
         ),
         _ToggleRow(
           title: 'Smart home status',
