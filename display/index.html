@@ -471,18 +471,32 @@
       if (msg.show_time) {
         statusTime.style.display = 'block'; // FIX: '' falls back to CSS display:none
         clearInterval(_timeInterval);
+        const _DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        const _MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        function _ordinal(d) {
+          if (d >= 11 && d <= 13) return d + 'th';
+          switch (d % 10) {
+            case 1: return d + 'st';
+            case 2: return d + 'nd';
+            case 3: return d + 'rd';
+            default: return d + 'th';
+          }
+        }
         function _tick() {
-          const now = new Date();
+          const now     = new Date();
+          const datePart = _DAYS[now.getDay()] + ' ' + _ordinal(now.getDate()) + ' ' + _MONTHS[now.getMonth()];
+          let timePart;
           if (msg.time_format === '12h') {
             const h    = now.getHours() % 12 || 12;
             const m    = String(now.getMinutes()).padStart(2, '0');
             const ampm = now.getHours() < 12 ? 'AM' : 'PM';
-            statusTime.textContent = `${h}:${m} ${ampm}`;
+            timePart = `${h}:${m} ${ampm}`;
           } else {
             const h = String(now.getHours()).padStart(2, '0');
             const m = String(now.getMinutes()).padStart(2, '0');
-            statusTime.textContent = `${h}:${m}`;
+            timePart = `${h}:${m}`;
           }
+          statusTime.textContent = `${datePart} · ${timePart}`;
         }
         _tick();
         _timeInterval = setInterval(_tick, 1000);
