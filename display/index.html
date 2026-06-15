@@ -9,6 +9,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,200;0,300;1,200;1,300&family=Montserrat:wght@100;200;300&display=swap" rel="stylesheet">
 
   <style>
+    :root {
+      --status-bar-height: 90px;
+    }
+
     *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
@@ -32,7 +36,7 @@
 
     .screen {
       position: fixed;
-      inset: 0;
+      inset: 0 0 var(--status-bar-height) 0;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -280,6 +284,32 @@
       0%, 100% { opacity: 1;   }
       50%       { opacity: 0.2; }
     }
+
+    /* ================================================================
+       STATUS BAR — permanent bottom strip (time / weather)
+    ================================================================ */
+
+    #status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: var(--status-bar-height);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      background: #000;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 24px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      z-index: 100;
+    }
+
+    #status-time, #status-weather {
+      display: none; /* hidden until JS enables based on profile toggles */
+    }
   </style>
 </head>
 
@@ -319,6 +349,12 @@
   <!-- ── Visitor pre-arrival screen ──────────────────────────────── -->
   <div id="visitor-screen" class="screen">
     <div class="visitor-message" id="visitor-message"></div>
+  </div>
+
+  <!-- ── Status bar — always on top, never hidden by screen transitions ── -->
+  <div id="status-bar">
+    <div id="status-time"></div>
+    <div id="status-weather"></div>
   </div>
 
   <div id="ws-dot"></div>
