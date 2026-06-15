@@ -580,14 +580,13 @@ def main() -> None:
         show_weather = bool(s.get("show_weather"))
         temp_c = _cached_weather_data.get("temp_c") if _cached_weather_data else None
         wcode = _cached_weather_data.get("weather_code") if _cached_weather_data else None
-        desc = _weather_mod.weather_code_to_description(wcode) if wcode is not None else None
         display.send_status_bar({
             "show_time": show_time,
             "show_weather": show_weather,
             "time_format": _cached_prefs.get("time_format", "24h"),
             "units": _cached_prefs.get("units", "metric"),
             "temp_c": temp_c,
-            "weather_description": desc,
+            "weather_code": wcode,
         })
 
     _state["force_status_bar_cb"] = _force_status_bar
@@ -736,7 +735,6 @@ def main() -> None:
                 show_weather = bool(_cached_display_settings.get("show_weather"))
                 temp_c = _cached_weather_data.get("temp_c") if _cached_weather_data else None
                 wcode = _cached_weather_data.get("weather_code") if _cached_weather_data else None
-                desc = _weather_mod.weather_code_to_description(wcode) if wcode is not None else None
                 logger.info("STATUS BAR BROADCAST: show_time=%s show_weather=%s temp_c=%s", show_time, show_weather, temp_c)
                 display.send_status_bar({
                     "show_time": show_time,
@@ -744,7 +742,7 @@ def main() -> None:
                     "time_format": _cached_prefs.get("time_format", "24h"),
                     "units": _cached_prefs.get("units", "metric"),
                     "temp_c": temp_c,
-                    "weather_description": desc,
+                    "weather_code": wcode,
                 })
 
             # ── YOLO hold: if we already recognised a car, skip motion detection ──
