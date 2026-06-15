@@ -460,9 +460,12 @@
     let _timeInterval   = null;
 
     function updateStatusBar(msg) {
+      console.log('STATUS BAR MSG RECEIVED:', msg);
+      document.title = 'SB: st=' + msg.show_time + ' sw=' + msg.show_weather + ' t=' + msg.temp_c;
+
       // Time
       if (msg.show_time) {
-        statusTime.style.display = '';
+        statusTime.style.display = 'block'; // FIX: '' falls back to CSS display:none
         clearInterval(_timeInterval);
         function _tick() {
           const now = new Date();
@@ -495,8 +498,8 @@
           tempStr = Math.round(msg.temp_c) + '°C';
         }
         const desc = msg.weather_description || '';
-        statusWeather.textContent = desc ? `${tempStr} · ${desc}` : tempStr;
-        statusWeather.style.display = '';
+        statusWeather.textContent   = desc ? `${tempStr} · ${desc}` : tempStr;
+        statusWeather.style.display = 'block'; // FIX: '' falls back to CSS display:none
       } else {
         statusWeather.style.display = 'none';
         statusWeather.textContent   = '';
