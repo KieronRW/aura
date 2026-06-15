@@ -539,19 +539,16 @@
         console.log('[AURA] ws message state:', msg.state);
         if (msg.state === 'recognition') {
           showRecognition(msg);
+        } else if (msg.state === 'status_bar') {
           updateStatusBar(msg);
         } else if (msg.state === 'visitor_pre_arrival') {
           showVisitorPreArrival(msg);
-          updateStatusBar(msg);  // show_time/show_weather absent → both hidden
         } else if (msg.state === 'visitor_bay_occupied') {
           showVisitorBayOccupied(msg);
-          updateStatusBar(msg);
         } else if (msg.state === 'visitor_mode_ended') {
           showVisitorModeEnded();
-          updateStatusBar(msg);
         } else {
           showIdle();
-          updateStatusBar(msg);  // idle payload now carries show_time/show_weather: false
         }
       });
 

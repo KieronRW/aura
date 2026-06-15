@@ -16,6 +16,8 @@ _INSTALLATION_ID = os.getenv("INSTALLATION_ID", "")
 
 DEFAULTS: dict[str, Any] = {
     "display_rotation": 90,  # 0, 90, 180, 270 — matches autostart wlr-randr default
+    "show_time": False,
+    "show_weather": False,
 }
 
 _VALID_ROTATIONS = (0, 90, 180, 270)

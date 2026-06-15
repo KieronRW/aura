@@ -17,8 +17,6 @@ class GreetingsScreen extends ConsumerStatefulWidget {
 class _GreetingsScreenState extends ConsumerState<GreetingsScreen> {
   late final TextEditingController _greetingCtrl;
   bool _aiVaried = false;
-  bool _showWeather = false;
-  bool _showTime = false;
   bool _showSmartHome = false;
   bool _saving = false;
 
@@ -29,8 +27,6 @@ class _GreetingsScreenState extends ConsumerState<GreetingsScreen> {
       text: widget.profile['greeting'] as String? ?? '',
     );
     _aiVaried = widget.profile['ai_greeting_enabled'] as bool? ?? false;
-    _showWeather = widget.profile['show_weather'] as bool? ?? false;
-    _showTime = widget.profile['show_time'] as bool? ?? false;
     _showSmartHome = widget.profile['show_smart_home'] as bool? ?? false;
   }
 
@@ -124,24 +120,6 @@ class _GreetingsScreenState extends ConsumerState<GreetingsScreen> {
           onChanged: (v) {
             setState(() => _aiVaried = v);
             _saveToggle('ai_greeting_enabled', v);
-          },
-        ),
-        _ToggleRow(
-          title: 'Show weather',
-          subtitle: 'Display current weather on the mirror',
-          value: _showWeather,
-          onChanged: (v) {
-            setState(() => _showWeather = v);
-            _saveToggle('show_weather', v);
-          },
-        ),
-        _ToggleRow(
-          title: 'Show time',
-          subtitle: 'Display current time on the mirror',
-          value: _showTime,
-          onChanged: (v) {
-            setState(() => _showTime = v);
-            _saveToggle('show_time', v);
           },
         ),
         _ToggleRow(

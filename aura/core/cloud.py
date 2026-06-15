@@ -133,7 +133,6 @@ def sync_vehicles() -> list[dict]:
     installations.installation_key = INSTALLATION_ID.
     Each vehicle dict gains a 'reference_fingerprints' key: a list of
     fingerprint_data JSON strings from vehicle_reference_images.
-    Each vehicle dict also gains 'show_time' and 'show_weather' from its profile.
     """
     client = _get_client()
     if client is None:
@@ -141,16 +140,14 @@ def sync_vehicles() -> list[dict]:
     try:
         response = (
             client.table("vehicles")
-            .select("*, profiles!inner(show_time, show_weather, installations!inner(installation_key))")
+            .select("*, profiles!inner(installations!inner(installation_key))")
             .eq("is_active", True)
             .filter("profiles.installations.installation_key", "eq", _INSTALLATION_ID)
             .execute()
         )
         vehicles = response.data or []
         for v in vehicles:
-            profile_data = v.pop("profiles", None) or {}
-            v["show_time"] = bool(profile_data.get("show_time"))
-            v["show_weather"] = bool(profile_data.get("show_weather"))
+            v.pop("profiles", None)
 
         if vehicles:
             vehicle_ids = [v["id"] for v in vehicles]

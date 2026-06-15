@@ -20,6 +20,8 @@ class DisplaySettingsScreen extends StatefulWidget {
 class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
   Map<String, dynamic> _settings = {
     'display_rotation': 0,
+    'show_time': false,
+    'show_weather': false,
   };
   bool _loading = true;
   bool _saving = false;
@@ -52,6 +54,16 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
   void _onRotationChanged(int value) {
     setState(() => _settings['display_rotation'] = value);
     _postSetting('display_rotation', value);
+  }
+
+  void _onShowTimeChanged(bool value) {
+    setState(() => _settings['show_time'] = value);
+    _postSetting('show_time', value);
+  }
+
+  void _onShowWeatherChanged(bool value) {
+    setState(() => _settings['show_weather'] = value);
+    _postSetting('show_weather', value);
   }
 
   Future<void> _postSetting(String key, dynamic value) async {
@@ -127,6 +139,21 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
                           value: _settings['display_rotation'] as int? ?? 0,
                           onChanged: _onRotationChanged,
                         ),
+                        const SizedBox(height: 32),
+                        _sectionLabel('STATUS BAR'),
+                        const SizedBox(height: 4),
+                        _ToggleRow(
+                          title: 'Show time',
+                          subtitle: 'Display clock in the bottom bar',
+                          value: _settings['show_time'] as bool? ?? false,
+                          onChanged: _onShowTimeChanged,
+                        ),
+                        _ToggleRow(
+                          title: 'Show weather',
+                          subtitle: 'Display temperature and conditions',
+                          value: _settings['show_weather'] as bool? ?? false,
+                          onChanged: _onShowWeatherChanged,
+                        ),
                       ],
                     ),
                   ),
@@ -144,6 +171,65 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
           color: Colors.white24,
         ),
       );
+}
+
+// ---------------------------------------------------------------------------
+// Toggle row
+// ---------------------------------------------------------------------------
+
+class _ToggleRow extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _ToggleRow({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.white12)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: Colors.white,
+            activeTrackColor: Colors.white38,
+            inactiveThumbColor: Colors.white38,
+            inactiveTrackColor: Colors.white12,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

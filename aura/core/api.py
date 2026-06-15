@@ -428,6 +428,8 @@ def post_network_settings(payload: NetworkSettingsPayload):
 
 class DisplaySettingsPayload(BaseModel):
     display_rotation: Optional[int] = None  # 0, 90, 180, 270
+    show_time: Optional[bool] = None
+    show_weather: Optional[bool] = None
 
 
 @app.get("/display/settings")
