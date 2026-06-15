@@ -570,7 +570,9 @@ def main() -> None:
     _cached_display_settings: dict = {"show_time": False, "show_weather": False}
 
     def _force_status_bar() -> None:
-        """Broadcast a status_bar WS message immediately using current cached data."""
+        """Broadcast a status_bar WS message immediately, refreshing display settings first."""
+        nonlocal _cached_display_settings
+        _cached_display_settings = _display_settings_mod.get_settings()
         s = _cached_display_settings
         show_time = bool(s.get("show_time"))
         show_weather = bool(s.get("show_weather"))
