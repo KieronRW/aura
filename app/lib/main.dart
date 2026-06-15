@@ -49,6 +49,7 @@ class _AuraAppState extends ConsumerState<AuraApp> {
 
   void _handleAuthStateChanges() {
     Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+      print('AUTH STATE CHANGE: event=${state.event} session=${state.session?.user.id}');
       if (state.session == null) {
         // User signed out — reset terms gate so next login re-checks.
         ref.read(termsAcceptedProvider.notifier).state = false;
@@ -67,6 +68,7 @@ class _AuraAppState extends ConsumerState<AuraApp> {
         .eq('user_id', userId)
         .limit(1);
     final accepted = (rows as List).isNotEmpty;
+    print('TERMS CHECK for $userId: rows=${rows.length} accepted=$accepted');
     if (accepted && mounted) {
       ref.read(termsAcceptedProvider.notifier).state = true;
     }
@@ -75,6 +77,7 @@ class _AuraAppState extends ConsumerState<AuraApp> {
 
   Widget _buildHome(Session session) {
     final termsAccepted = ref.watch(termsAcceptedProvider);
+    print('BUILD HOME: termsAccepted=$termsAccepted userId=${session.user.id} lastChecked=$_lastCheckedUserId');
     if (termsAccepted) return const HomeScreen();
 
     final userId = session.user.id;
