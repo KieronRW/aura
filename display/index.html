@@ -462,14 +462,6 @@
     function updateStatusBar(msg) {
       console.log('STATUS BAR MSG RECEIVED:', msg);
       document.title = 'SB: st=' + msg.show_time + ' sw=' + msg.show_weather + ' t=' + msg.temp_c;
-      let dbg = document.getElementById('debug-status');
-      if (!dbg) {
-        dbg = document.createElement('div');
-        dbg.id = 'debug-status';
-        dbg.style.cssText = 'position:fixed;top:10px;left:10px;color:lime;font-size:20px;z-index:9999;background:black;padding:10px;';
-        document.body.appendChild(dbg);
-      }
-      dbg.textContent = 'STATUS_BAR: ' + JSON.stringify(msg);
 
       // Time
       if (msg.show_time) {
