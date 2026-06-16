@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/supabase_service.dart';
 
@@ -7,15 +8,17 @@ class VisitorDataNotifier
   Future<Map<String, List<Map<String, dynamic>>>> build(
     String installationId,
   ) async {
-    final results = await Future.wait([
-      SupabaseService.getExpectedVisitors(installationId),
-      SupabaseService.getUnknownVehicles(installationId),
-      SupabaseService.getVisitorHistory(installationId),
-    ]);
+    debugPrint('visitorDataProvider: fetching expected visitors...');
+    final visitors = await SupabaseService.getExpectedVisitors(installationId);
+    debugPrint('visitorDataProvider: got ${visitors.length} visitors — fetching unknown vehicles...');
+    final unknownVehicles = await SupabaseService.getUnknownVehicles(installationId);
+    debugPrint('visitorDataProvider: got ${unknownVehicles.length} unknown vehicles — fetching history...');
+    final history = await SupabaseService.getVisitorHistory(installationId);
+    debugPrint('visitorDataProvider: got ${history.length} history rows — done');
     return {
-      'visitors': results[0],
-      'unknownVehicles': results[1],
-      'history': results[2],
+      'visitors': visitors,
+      'unknownVehicles': unknownVehicles,
+      'history': history,
     };
   }
 

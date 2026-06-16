@@ -223,7 +223,8 @@ class SupabaseService {
           .select('*')
           .eq('installation_id', installationId)
           .eq('is_active', true)
-          .order('expected_from', ascending: true);
+          .order('expected_from', ascending: true)
+          .timeout(const Duration(seconds: 10));
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('getExpectedVisitors error: $e');
@@ -240,7 +241,8 @@ class SupabaseService {
           .select('*')
           .eq('installation_id', installationId)
           .eq('status', 'unreviewed')
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('getUnknownVehicles error: $e');
@@ -259,7 +261,8 @@ class SupabaseService {
           .eq('installation_id', installationId)
           .not('visitor_id', 'is', null)
           .order('arrived_at', ascending: false)
-          .limit(limit);
+          .limit(limit)
+          .timeout(const Duration(seconds: 10));
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('getVisitorHistory error: $e');
