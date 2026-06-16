@@ -626,7 +626,7 @@ def main() -> None:
                 log_recognition(
                     startup_result.make or "", startup_result.model or "", startup_result.confidence,
                     startup_result.method_used, vehicle["id"] if vehicle else None,
-                    image_frame=frame,
+                    image_frame=startup_frame,
                 )
                 display.send_recognition(make=startup_result.make or "", model=startup_result.model or "", greeting=greeting, badge_url=badge_url)
                 last_recognition_sent_at = time.monotonic()

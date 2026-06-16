@@ -159,4 +159,9 @@ class DisplayServer:
                 self._ready.set()
                 await asyncio.Future()  # run forever
 
-        self._loop.run_until_complete(serve())
+        try:
+            self._loop.run_until_complete(serve())
+        except RuntimeError as exc:
+            # Normal shutdown path: stop() calls loop.stop() which interrupts
+            # run_until_complete before the Future completes.
+            logger.info("DisplayServer loop stopped: %s", exc)

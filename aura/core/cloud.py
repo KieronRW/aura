@@ -195,33 +195,53 @@ def get_property_location(installation_uuid: str) -> tuple[float | None, float |
     """Return (latitude, longitude, user_id) for the property linked to this installation.
 
     Returns (None, None, None) if unavailable. Caller should cache; this does not cache internally.
-    Uses a left join (not !inner) so the installation row is returned even when property_id is null.
+    Uses two sequential queries instead of embedded resource syntax to avoid PostgREST/Cloudflare
+    400 errors that occur with parenthesised select strings on some proxy configurations.
     """
     client = _get_client()
     if client is None:
         return None, None, None
     try:
-        response = (
+        # Step 1 — resolve property_id from the installation row
+        inst_resp = (
             client.table("installations")
-            .select("properties(latitude, longitude, user_id)")
+            .select("property_id")
             .eq("id", installation_uuid)
             .limit(1)
             .execute()
         )
-        if not response.data:
+        if not inst_resp.data:
             log.warning(
                 "get_property_location: installation %s not found in database",
                 installation_uuid,
             )
             return None, None, None
-        prop = (response.data[0].get("properties") or {})
-        if not prop:
+
+        property_id = inst_resp.data[0].get("property_id")
+        if not property_id:
             log.warning(
-                "get_property_location: installation %s has no linked property"
+                "get_property_location: installation %s has no property_id"
                 " — set installations.property_id in Supabase",
                 installation_uuid,
             )
             return None, None, None
+
+        # Step 2 — fetch coordinates and user_id from the property
+        prop_resp = (
+            client.table("properties")
+            .select("latitude, longitude, user_id")
+            .eq("id", property_id)
+            .limit(1)
+            .execute()
+        )
+        if not prop_resp.data:
+            log.warning(
+                "get_property_location: property %s not found in database",
+                property_id,
+            )
+            return None, None, None
+
+        prop = prop_resp.data[0]
         lat = prop.get("latitude")
         lon = prop.get("longitude")
         user_id = prop.get("user_id")
@@ -568,7 +588,7 @@ def add_auto_learn_embedding(vehicle_id, fp_json: str) -> bool:
             .select("id, created_at")
             .eq("vehicle_id", vehicle_id)
             .eq("angle", "auto")
-            .order("created_at", ascending=True)
+            .order("created_at", desc=False)
             .execute()
         )
         existing = resp.data or []
