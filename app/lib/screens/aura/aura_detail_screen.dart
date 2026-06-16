@@ -30,6 +30,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
   RealtimeChannel? _eventsChannel;
   Timer? _statusTimer;
   String _searchQuery = '';
+  bool _updateDismissed = false;
 
   @override
   void initState() {
@@ -192,6 +193,35 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
     return '${dt.day}/${dt.month}';
   }
 
+  Future<void> _sendUpdateCommand() async {
+    final installationId = widget.installation['id'] as String;
+    try {
+      await Supabase.instance.client.from('commands').insert({
+        'installation_id': installationId,
+        'command_type': 'update_software',
+        'status': 'pending',
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Update command sent'),
+            backgroundColor: Colors.white12,
+          ),
+        );
+        setState(() => _updateDismissed = true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to send update command'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   void _showRenameDialog() {
     final controller = TextEditingController(
       text: widget.installation['name'] ?? '',
@@ -290,6 +320,53 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
               child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
+              // ── Update available banner ──────────────────────────────────
+              if (_deviceStatus?['update_available'] == true && !_updateDismissed)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1500),
+                    border: Border.all(color: Colors.amberAccent.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.system_update_outlined,
+                          color: Colors.amberAccent, size: 16),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Update available',
+                          style: TextStyle(
+                            color: Colors.amberAccent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w300,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _sendUpdateCommand,
+                        child: const Text(
+                          'UPDATE NOW',
+                          style: TextStyle(
+                            color: Colors.amberAccent,
+                            fontSize: 10,
+                            letterSpacing: 1.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: () => setState(() => _updateDismissed = true),
+                        child: const Icon(Icons.close,
+                            color: Colors.white24, size: 16),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // ── Status card ───────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -335,6 +412,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                   ],
                 ),
               ),
+              // ─────────────────────────────────────────────────────────────
 
               const SizedBox(height: 32),
 

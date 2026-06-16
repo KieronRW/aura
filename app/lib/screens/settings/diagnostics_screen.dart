@@ -1,4 +1,4 @@
-// Diagnostics screen — live device status, CPU, memory, disk, and remote log viewer
+// Diagnostics screen (Level 2) — live device status, system resources, remote logs
 
 import 'dart:async';
 
@@ -9,7 +9,9 @@ import '../../providers/installation_provider.dart';
 import '../../services/supabase_service.dart';
 
 class DiagnosticsScreen extends ConsumerStatefulWidget {
-  const DiagnosticsScreen({super.key});
+  final String installationId;
+
+  const DiagnosticsScreen({super.key, required this.installationId});
 
   @override
   ConsumerState<DiagnosticsScreen> createState() => _DiagnosticsScreenState();
@@ -23,7 +25,6 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   List<Map<String, dynamic>> _logs = [];
   bool _logsLoading = true;
   String? _selectedSeverity; // null = ALL
-  String? _installationId;
   Timer? _logsTimer;
 
   @override
@@ -59,15 +60,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   }
 
   Future<void> _loadData() async {
-    final installation = await ref.read(currentInstallationProvider.future);
-    if (installation == null) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-    _installationId = installation['id'] as String?;
-    ref.invalidate(deviceStatusProvider(installation['id']));
+    ref.invalidate(deviceStatusProvider(widget.installationId));
     final status = await ref.read(
-      deviceStatusProvider(installation['id']).future,
+      deviceStatusProvider(widget.installationId).future,
     );
     if (mounted) {
       setState(() {
@@ -79,10 +74,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   }
 
   Future<void> _loadLogs() async {
-    final id = _installationId;
-    if (id == null) return;
     final logs = await SupabaseService.getRecentDiagnosticLogs(
-      id,
+      widget.installationId,
       limit: 50,
       severity: _selectedSeverity,
     );

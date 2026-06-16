@@ -7,7 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../automations/automations_screen.dart';
 import 'account_details_screen.dart';
-import 'diagnostics_screen.dart';
+import 'diagnostics_overview_screen.dart';
 import 'locations_screen.dart';
 import 'about_screen.dart';
 import 'app_preferences_screen.dart';
@@ -149,7 +149,7 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Diagnostics',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const DiagnosticsScreen()),
+              MaterialPageRoute(builder: (_) => const DiagnosticsOverviewScreen()),
             ),
           ),
           _SettingsRow(

@@ -431,6 +431,7 @@ class DisplaySettingsPayload(BaseModel):
     show_time: Optional[bool] = None
     show_weather: Optional[bool] = None
     status_bar_scale: Optional[int] = None  # percentage, 50–200
+    auto_update: Optional[bool] = None
 
 
 @app.get("/display/settings")

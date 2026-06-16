@@ -71,7 +71,7 @@ from aura.config.settings import (
 )
 from aura.core import api
 from aura.core import detector as yolo_detector
-from aura.core.commands import start_command_listener
+from aura.core.commands import start_command_listener, trigger_auto_update
 from aura.core.discovery import DiscoveryService
 from aura.core.camera import Camera, MotionState
 from aura.core.cloud import (
@@ -109,6 +109,7 @@ _PRE_ARRIVAL_INTERVAL  = 10      # seconds between cycling pre-arrival visitor m
 _PROPERTY_SYNC_INTERVAL         = 3600   # refresh property location + user prefs every 1 hour
 _WEATHER_SYNC_INTERVAL          = 1800   # refresh weather every 30 minutes
 _HEALTH_SNAPSHOT_INTERVAL       = 1800   # remote diagnostics health snapshot every 30 minutes
+_UPDATE_CHECK_INTERVAL          = 3600   # check git remote for updates every 1 hour
 _STATUS_BAR_BROADCAST_INTERVAL  = 10     # push status_bar WS message every 10 seconds
 _DISPLAY_SETTINGS_CACHE_TTL     = 30     # re-read display settings from Supabase every 30 seconds
 _BADGES_DIR = Path(__file__).parent / "assets" / "badges"
@@ -418,6 +419,7 @@ def main() -> None:
         "display_clients":             0,
         "supabase_ok":                 False,
         "uptime_seconds":              0.0,
+        "update_available":            False,
         "synced_vehicles":             [],
         "recent_events":               [],
         "trigger_recognition_cb":      None,
@@ -576,6 +578,8 @@ def main() -> None:
     last_property_sync_at: float = -_PROPERTY_SYNC_INTERVAL
     last_weather_sync_at: float = -_WEATHER_SYNC_INTERVAL
     last_health_snapshot_at: float = -_HEALTH_SNAPSHOT_INTERVAL
+    last_update_check_at: float = -_UPDATE_CHECK_INTERVAL
+    _auto_update_triggered: bool = False
     last_display_settings_at: float = 0.0
     last_status_bar_at: float = 0.0
     _cached_lat: float | None = None
@@ -694,6 +698,7 @@ def main() -> None:
                     display_clients=_state["display_clients"],
                     current_state=_state["current_state"],
                     software_version=_VERSION,
+                    update_available=_state["update_available"],
                 )
 
             # ── Health snapshot (every 30 min) ────────────────────────────────
@@ -756,6 +761,38 @@ def main() -> None:
                         log_warning('general', 'Weather fetch failed', {'lat': _cached_lat, 'lon': _cached_lon, 'error': str(e)})
                 else:
                     logger.debug("Weather sync skipped: no location cached yet (lat=%s lon=%s)", _cached_lat, _cached_lon)
+
+            # ── Update check (every hour, runs in background thread) ─────────
+            if now_mono - last_update_check_at >= _UPDATE_CHECK_INTERVAL:
+                last_update_check_at = now_mono
+
+                def _run_update_check(s=_state):
+                    from aura.core import update_check as _uc
+                    try:
+                        available = _uc.is_update_available()
+                        if available and not s["update_available"]:
+                            remote_ver = _uc.get_remote_version()
+                            log_info('update', 'Update available', {'remote_version': remote_ver})
+                        s["update_available"] = available
+                    except Exception as exc:
+                        logger.warning("Update check failed: %s", exc)
+
+                threading.Thread(
+                    target=_run_update_check, daemon=True, name="update-check"
+                ).start()
+
+            # ── Auto-update trigger (2–4 AM, once per available cycle) ────────
+            if _state["update_available"] and not _auto_update_triggered:
+                _now_local = datetime.now()
+                _auto_enabled = str(_synced_settings.get("auto_update", "true")).lower() in (
+                    "true", "1", "yes"
+                )
+                if _auto_enabled and 2 <= _now_local.hour < 4:
+                    trigger_auto_update()
+                    log_info('update', 'Auto-update triggered', {'hour': _now_local.hour})
+                    _auto_update_triggered = True
+            elif not _state["update_available"]:
+                _auto_update_triggered = False
 
             # ── Display settings cache refresh (every 30 s) ───────────────────
             if now_mono - last_display_settings_at >= _DISPLAY_SETTINGS_CACHE_TTL:

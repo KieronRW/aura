@@ -318,4 +318,56 @@ class SupabaseService {
       return [];
     }
   }
+
+  // ── Diagnostics Overview (Level 1) ───────────────────────────
+  // Returns one entry per installation with aggregated diagnostics summary.
+
+  static Future<List<Map<String, dynamic>>>
+      getInstallationsDiagnosticsSummary(String propertyId) async {
+    try {
+      final installations = await getInstallationsByProperty(propertyId);
+      if (installations.isEmpty) return [];
+
+      final ids = installations.map((i) => i['id'] as String).toList();
+
+      // Batch fetch device_status for all installations
+      final statusRows = await _client
+          .from('device_status')
+          .select('*')
+          .inFilter('installation_id', ids);
+      final statusMap = {
+        for (final row in List<Map<String, dynamic>>.from(statusRows))
+          row['installation_id'] as String: row,
+      };
+
+      // Batch fetch errors/criticals from the last 12 hours
+      final since =
+          DateTime.now().toUtc().subtract(const Duration(hours: 12)).toIso8601String();
+      final errorRows = await _client
+          .from('diagnostics_logs')
+          .select('installation_id')
+          .inFilter('installation_id', ids)
+          .inFilter('severity', ['error', 'critical'])
+          .gte('created_at', since);
+      final errorCounts = <String, int>{};
+      for (final row in List<Map<String, dynamic>>.from(errorRows)) {
+        final id = row['installation_id'] as String;
+        errorCounts[id] = (errorCounts[id] ?? 0) + 1;
+      }
+
+      return installations.map((inst) {
+        final id = inst['id'] as String;
+        final count = errorCounts[id] ?? 0;
+        return {
+          'installation': inst,
+          'device_status': statusMap[id],
+          'has_recent_errors': count > 0,
+          'error_count': count,
+        };
+      }).toList();
+    } catch (e) {
+      debugPrint('getInstallationsDiagnosticsSummary error: $e');
+      return [];
+    }
+  }
 }

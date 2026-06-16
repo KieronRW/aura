@@ -173,6 +173,21 @@ def _dispatch(record: dict) -> None:
         _mark(command_id, "failed", {"error": f"unknown command_type: {command_type}"})
 
 
+def trigger_auto_update() -> None:
+    """Initiate an OTA software update from the scheduled auto-update timer in main.py.
+
+    Uses a synthetic command_id so _mark() calls silently no-op (no database row exists).
+    The update flow (git pull, sentinel file, service restart, health check) is identical
+    to an app-triggered update_software command.
+    """
+    threading.Thread(
+        target=_do_update_software,
+        args=("auto-update",),
+        daemon=True,
+        name="auto-update",
+    ).start()
+
+
 def start_command_listener(installation_id: str) -> None:
     """Subscribe to Realtime INSERT events on the commands table for this installation.
 

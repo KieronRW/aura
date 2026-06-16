@@ -631,6 +631,7 @@ def push_heartbeat(
     display_clients: int,
     current_state: str,
     software_version: str,
+    update_available: bool = False,
 ) -> None:
     """Upsert a heartbeat row into device_status. Fails silently if Supabase is unreachable."""
     client = _get_client()
@@ -666,6 +667,7 @@ def push_heartbeat(
         "camera_ok":        camera_ok,
         "display_clients":  display_clients,
         "current_state":    current_state,
+        "update_available": update_available,
     }
 
     try:

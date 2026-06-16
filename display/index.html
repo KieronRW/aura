@@ -425,7 +425,6 @@
     }
 
     function showVisitorPreArrival(data) {
-      console.log('[AURA] showVisitorPreArrival:', data.visitor_name, '|', data.message);
       isVisitorModeActive = true;
       currentState = 'visitor_pre_arrival';
       visitorMessage.textContent = data.message || '';
@@ -462,9 +461,8 @@
 
       if (data.badge_url) {
         const probe = new Image();
-        console.log('Probing badge URL:', data.badge_url);
-        probe.onload  = () => { console.log('Badge loaded OK:', data.badge_url); applyBadge(data.badge_url); };
-        probe.onerror = () => { console.warn('Badge failed to load:', data.badge_url); applyBadge(null); };
+        probe.onload  = () => { applyBadge(data.badge_url); };
+        probe.onerror = () => { applyBadge(null); };
         probe.src = data.badge_url;
       } else {
         applyBadge(null);
@@ -585,13 +583,6 @@
     }
 
     function updateStatusBar(msg) {
-      console.log('STATUS BAR MSG RECEIVED:', msg);
-      if (msg.server_ts) {
-        const delay = (Date.now() / 1000 - msg.server_ts).toFixed(2);
-        console.log('STATUS BAR delay:', delay, 's');
-      }
-      document.title = 'SB: st=' + msg.show_time + ' sw=' + msg.show_weather + ' t=' + msg.temp_c;
-
       // Scale
       if (msg.status_bar_scale != null) {
         document.documentElement.style.setProperty(
@@ -699,7 +690,6 @@
       ws.addEventListener('message', ({ data }) => {
         let msg;
         try { msg = JSON.parse(data); } catch { return; }
-        console.log('[AURA] ws message state:', msg.state);
         if (msg.state === 'recognition') {
           showRecognition(msg);
         } else if (msg.state === 'status_bar') {

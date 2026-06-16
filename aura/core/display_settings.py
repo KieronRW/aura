@@ -19,6 +19,7 @@ DEFAULTS: dict[str, Any] = {
     "show_time": False,
     "show_weather": False,
     "status_bar_scale": 100,  # percentage, 50–200; 100 = default size
+    "auto_update": True,      # units stay current by default; updated between 02:00–04:00
 }
 
 _VALID_ROTATIONS = (0, 90, 180, 270)

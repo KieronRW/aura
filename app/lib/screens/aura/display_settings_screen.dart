@@ -23,6 +23,7 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
     'show_time': false,
     'show_weather': false,
     'status_bar_scale': 100,
+    'auto_update': true,
   };
   bool _loading = true;
   bool _saving = false;
@@ -65,6 +66,11 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
   void _onShowWeatherChanged(bool value) {
     setState(() => _settings['show_weather'] = value);
     _postSetting('show_weather', value);
+  }
+
+  void _onAutoUpdateChanged(bool value) {
+    setState(() => _settings['auto_update'] = value);
+    _postSetting('auto_update', value);
   }
 
   Future<void> _postSetting(String key, dynamic value) async {
@@ -171,6 +177,15 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
                           ),
                           onChangeEnd: (v) =>
                               _postSetting('status_bar_scale', v.round()),
+                        ),
+                        const SizedBox(height: 32),
+                        _sectionLabel('UPDATES'),
+                        const SizedBox(height: 4),
+                        _ToggleRow(
+                          title: 'Automatic Updates',
+                          subtitle: 'Mirror updates automatically between 2–4 AM',
+                          value: _settings['auto_update'] as bool? ?? true,
+                          onChanged: _onAutoUpdateChanged,
                         ),
                       ],
                     ),
