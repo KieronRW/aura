@@ -578,7 +578,6 @@ def main() -> None:
     last_health_snapshot_at: float = -_HEALTH_SNAPSHOT_INTERVAL
     last_display_settings_at: float = 0.0
     last_status_bar_at: float = 0.0
-    _cached_system_stats: dict = {'cpu_percent': 0.0, 'memory_percent': 0.0, 'disk_percent': 0.0, 'cpu_temp_c': None}
     _cached_lat: float | None = None
     _cached_lon: float | None = None
     _cached_user_id: str | None = None
@@ -690,10 +689,6 @@ def main() -> None:
             # ── Heartbeat (every 30 s) ────────────────────────────────────────
             if now_mono - last_heartbeat_at >= _HEARTBEAT_INTERVAL:
                 last_heartbeat_at = now_mono
-                _cached_system_stats['cpu_percent'] = psutil.cpu_percent(interval=None)
-                _cached_system_stats['memory_percent'] = psutil.virtual_memory().percent
-                _cached_system_stats['disk_percent'] = psutil.disk_usage('/').percent
-                _cached_system_stats['cpu_temp_c'] = get_cpu_temp()
                 push_heartbeat(
                     camera_ok=_state["camera_ok"],
                     display_clients=_state["display_clients"],
@@ -702,13 +697,17 @@ def main() -> None:
                 )
 
             # ── Health snapshot (every 30 min) ────────────────────────────────
+            # Reads psutil fresh here — NOT during the heartbeat tick — to avoid
+            # calling cpu_percent(interval=None) twice in quick succession, which
+            # would make push_heartbeat measure over a microsecond window and
+            # report ~100% CPU erroneously.
             if now_mono - last_health_snapshot_at >= _HEALTH_SNAPSHOT_INTERVAL:
                 last_health_snapshot_at = now_mono
                 log_info('health_snapshot', 'Periodic health check', {
-                    'cpu_percent': _cached_system_stats['cpu_percent'],
-                    'memory_percent': _cached_system_stats['memory_percent'],
-                    'disk_percent': _cached_system_stats['disk_percent'],
-                    'cpu_temp_c': _cached_system_stats['cpu_temp_c'],
+                    'cpu_percent': psutil.cpu_percent(interval=None),
+                    'memory_percent': psutil.virtual_memory().percent,
+                    'disk_percent': psutil.disk_usage('/').percent,
+                    'cpu_temp_c': get_cpu_temp(),
                     'uptime_seconds': int(now_mono - _start_time),
                     'display_clients': _state['display_clients'],
                     'camera_ok': _state['camera_ok'],
