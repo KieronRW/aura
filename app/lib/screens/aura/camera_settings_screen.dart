@@ -340,17 +340,6 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                           divisions: 100,
                           onChanged: (v) => _onSliderChanged('motion_sensitivity', v),
                         ),
-                        if (_settings['af_mode'] == 'manual') ...[
-                          _SliderRow(
-                            label: 'FOCUS',
-                            value: (_settings['lens_position'] as num).toDouble(),
-                            min: 0.0,
-                            max: 10.0,
-                            divisions: 100,
-                            labelFormatter: (v) => v.toStringAsFixed(1),
-                            onChanged: (v) => _onFloatSliderChanged('lens_position', v),
-                          ),
-                        ],
 
                         // ── 3. MODES ─────────────────────────────────────
                         const SizedBox(height: 28),
@@ -394,7 +383,7 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                           label: 'AUTOFOCUS MODE',
                           onInfo: () => _showInfo(
                             'Autofocus',
-                            'Continuous refocuses in real time. Auto triggers once on demand. Manual locks focus at the distance set by the Lens Position slider above.',
+                            'Continuous refocuses in real time. Auto triggers once on demand. Manual locks focus at the distance set by the Lens Position slider below.',
                           ),
                           options: const {
                             'continuous': 'Continuous',
@@ -403,6 +392,32 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                           },
                           value: _settings['af_mode'] as String? ?? 'continuous',
                           onChanged: _onAfModeChanged,
+                        ),
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeInOut,
+                          alignment: Alignment.topCenter,
+                          child: _settings['af_mode'] == 'manual'
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: _SliderRow(
+                                    label: 'LENS POSITION',
+                                    value: (_settings['lens_position'] as num)
+                                        .toDouble()
+                                        .clamp(0.0, 10.0),
+                                    min: 0.0,
+                                    max: 10.0,
+                                    divisions: 100,
+                                    labelFormatter: (v) => v.toStringAsFixed(1),
+                                    onChanged: (v) =>
+                                        _onFloatSliderChanged('lens_position', v),
+                                    onInfo: () => _showInfo(
+                                      'LENS POSITION',
+                                      'Manual focus distance. 0 = infinity (far focus), higher values = closer focus. Adjust until the vehicle area appears sharp.',
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
                         ),
                         const SizedBox(height: 20),
                         _DropdownRow(
@@ -580,6 +595,7 @@ class _SliderRow extends StatelessWidget {
   final int divisions;
   final ValueChanged<double> onChanged;
   final String Function(double)? labelFormatter;
+  final VoidCallback? onInfo;
 
   const _SliderRow({
     required this.label,
@@ -589,6 +605,7 @@ class _SliderRow extends StatelessWidget {
     required this.divisions,
     required this.onChanged,
     this.labelFormatter,
+    this.onInfo,
   });
 
   @override
@@ -599,14 +616,37 @@ class _SliderRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 11,
-                letterSpacing: 1.5,
-              ),
-            ),
+            child: onInfo != null
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 11,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: onInfo,
+                        child: const Icon(
+                          Icons.info_outline,
+                          size: 12,
+                          color: Colors.white24,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 11,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
           ),
           Expanded(
             child: SliderTheme(
