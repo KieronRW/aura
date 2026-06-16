@@ -47,15 +47,24 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
   }
 
   Future<void> _load() async {
-    final installation = await ref.read(currentInstallationProvider.future);
-    if (!mounted) return;
-    setState(() => _installation = installation);
-    if (installation != null) {
-      final id = installation['id'] as String;
-      await _loadData(id);
-      _subscribeToUnknownVehicles(id);
-    } else {
-      setState(() => _loading = false);
+    try {
+      debugPrint('VisitorsScreen: _load() start');
+      final installation = await ref
+          .read(currentInstallationProvider.future)
+          .timeout(const Duration(seconds: 10));
+      debugPrint('VisitorsScreen: installation resolved — ${installation?['id']}');
+      if (!mounted) return;
+      setState(() => _installation = installation);
+      if (installation != null) {
+        final id = installation['id'] as String;
+        await _loadData(id);
+        _subscribeToUnknownVehicles(id);
+      } else {
+        setState(() => _loading = false);
+      }
+    } catch (e) {
+      debugPrint('VisitorsScreen: _load() error: $e');
+      if (mounted) setState(() => _loading = false);
     }
   }
 

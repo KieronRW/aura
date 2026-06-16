@@ -18,7 +18,8 @@ class SupabaseService {
           .select('*')
           .eq('user_id', userId)
           .eq('is_active', true)
-          .order('name');
+          .order('name')
+          .timeout(const Duration(seconds: 10));
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       return [];
@@ -38,7 +39,8 @@ class SupabaseService {
           .from('properties')
           .select('id')
           .eq('user_id', userId)
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .timeout(const Duration(seconds: 10));
 
       debugPrint('getInstallation: properties = $properties');
 
@@ -55,7 +57,8 @@ class SupabaseService {
           .select('*')
           .inFilter('property_id', propertyIds)
           .eq('is_active', true)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
 
       debugPrint('getInstallation: installation = $response');
 
@@ -95,7 +98,8 @@ class SupabaseService {
           .from('device_status')
           .select('*')
           .eq('installation_id', installation['id'])
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
       return response;
     } catch (e) {
       debugPrint('getDeviceStatus error: $e');
@@ -111,7 +115,8 @@ class SupabaseService {
           .from('device_status')
           .select('*')
           .eq('installation_id', installationId)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
       return response;
     } catch (e) {
       return null;
@@ -132,7 +137,8 @@ class SupabaseService {
           .select('*')
           .eq('installation_id', installation['id'])
           .order('arrived_at', ascending: false)
-          .limit(limit);
+          .limit(limit)
+          .timeout(const Duration(seconds: 10));
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('getRecentEvents error: $e');
@@ -152,7 +158,8 @@ class SupabaseService {
           .not('detected_make', 'is', null)
           .neq('detected_make', '')
           .order('arrived_at', ascending: false)
-          .limit(limit);
+          .limit(limit)
+          .timeout(const Duration(seconds: 10));
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       return [];
@@ -185,7 +192,8 @@ class SupabaseService {
           .select('*, vehicles(*)')
           .eq('installation_id', installation['id'])
           .eq('is_active', true)
-          .order('display_name');
+          .order('display_name')
+          .timeout(const Duration(seconds: 10));
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('getProfiles error: $e');
@@ -204,7 +212,8 @@ class SupabaseService {
           .select('*')
           .eq('profile_id', profileId)
           .eq('is_active', true)
-          .order('make');
+          .order('make')
+          .timeout(const Duration(seconds: 10));
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('getVehiclesForProfile error: $e');
@@ -282,7 +291,8 @@ class SupabaseService {
           .eq('installation_id', installationId)
           .order('arrived_at', ascending: false)
           .limit(1)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
       return response;
     } catch (e) {
       debugPrint('getLastEventWithOwner error: $e');
@@ -306,14 +316,16 @@ class SupabaseService {
             .eq('installation_id', installationId)
             .eq('severity', severity)
             .order('created_at', ascending: false)
-            .limit(limit);
+            .limit(limit)
+            .timeout(const Duration(seconds: 10));
       } else {
         response = await _client
             .from('diagnostics_logs')
             .select('*')
             .eq('installation_id', installationId)
             .order('created_at', ascending: false)
-            .limit(limit);
+            .limit(limit)
+            .timeout(const Duration(seconds: 10));
       }
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -337,7 +349,8 @@ class SupabaseService {
       final statusRows = await _client
           .from('device_status')
           .select('*')
-          .inFilter('installation_id', ids);
+          .inFilter('installation_id', ids)
+          .timeout(const Duration(seconds: 10));
       final statusMap = {
         for (final row in List<Map<String, dynamic>>.from(statusRows))
           row['installation_id'] as String: row,
@@ -351,7 +364,8 @@ class SupabaseService {
           .select('installation_id')
           .inFilter('installation_id', ids)
           .inFilter('severity', ['error', 'critical'])
-          .gte('created_at', since);
+          .gte('created_at', since)
+          .timeout(const Duration(seconds: 10));
       final errorCounts = <String, int>{};
       for (final row in List<Map<String, dynamic>>.from(errorRows)) {
         final id = row['installation_id'] as String;

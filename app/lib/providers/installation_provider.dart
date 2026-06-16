@@ -1,11 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/installation.dart';
 import '../models/device_status.dart';
 import '../services/supabase_service.dart';
 import 'auth_provider.dart';
 
 final currentInstallationProvider = FutureProvider<Map<String, dynamic>?>((ref) {
-  ref.watch(authProvider);
+  // Invalidate when auth identity changes (login/logout/token refresh),
+  // but don't block on the stream — read the current user synchronously.
+  ref.listen(authProvider, (prev, next) {
+    if (prev?.value?.id != next.value?.id) {
+      ref.invalidateSelf();
+    }
+  });
+  final user = Supabase.instance.client.auth.currentUser;
+  if (user == null) return Future.value(null);
   return SupabaseService.getInstallation();
 });
 
