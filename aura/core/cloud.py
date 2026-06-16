@@ -588,10 +588,10 @@ def add_auto_learn_embedding(vehicle_id, fp_json: str) -> bool:
             "angle": "auto",
         }).execute()
 
-        log.debug("add_auto_learn_embedding: stored embedding for vehicle %s", vehicle_id)
+        log.info("add_auto_learn_embedding: stored embedding for vehicle %s", vehicle_id)
         return True
     except Exception as exc:
-        log.warning("add_auto_learn_embedding failed for vehicle %s: %s", vehicle_id, exc)
+        log.exception("add_auto_learn_embedding failed for vehicle %s: %s", vehicle_id, exc)
         return False
 
 

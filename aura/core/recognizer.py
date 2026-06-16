@@ -300,12 +300,15 @@ class Recognizer:
         """Store the live embedding as a new reference (fire-and-forget, daemon thread)."""
         from aura.core import cloud as _cloud
 
+        logger.info("Auto-learn: starting for vehicle %s", vehicle.get("id"))
+
         def _run():
             try:
                 fp_json = fingerprint_to_json(query_fp)
                 _cloud.add_auto_learn_embedding(vehicle["id"], fp_json)
-            except Exception as exc:
-                logger.debug("Auto-learn embedding storage failed: %s", exc)
+                logger.info("Auto-learn: embedding stored for vehicle %s", vehicle.get("id"))
+            except Exception as e:
+                logger.exception("Auto-learn failed for vehicle %s: %s", vehicle.get("id"), e)
 
         threading.Thread(target=_run, daemon=True, name="fp-autolearn").start()
 

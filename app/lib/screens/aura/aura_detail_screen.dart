@@ -141,9 +141,10 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
 
     final make = event['detected_make'] as String?;
     final model = event['detected_model'] as String?;
-    final vehiclePart = [make, model]
-        .where((s) => s != null && s.isNotEmpty)
-        .join(' ');
+    final vehiclePart = [
+      make,
+      model,
+    ].where((s) => s != null && s.isNotEmpty).join(' ');
 
     final arrivedDt = DateTime.parse(arrivedAt).toLocal();
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -163,9 +164,11 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
       timeLabel = 'Arrived $arrivedLabel';
     }
 
-    final parts = [ownerName, vehiclePart, timeLabel]
-        .where((s) => s.isNotEmpty)
-        .toList();
+    final parts = [
+      ownerName,
+      vehiclePart,
+      timeLabel,
+    ].where((s) => s.isNotEmpty).toList();
     return parts.join(' · ');
   }
 
@@ -317,219 +320,232 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
             onRefresh: _loadData,
             color: Colors.white,
             backgroundColor: const Color(0xFF111111),
-              child: ListView(
+            child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
-              // ── Update available banner ──────────────────────────────────
-              if (_deviceStatus?['update_available'] == true && !_updateDismissed)
+                // ── Update available banner ──────────────────────────────────
+                if (_deviceStatus?['update_available'] == true &&
+                    !_updateDismissed)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1500),
+                      border: Border.all(
+                        color: Colors.amberAccent.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.system_update_outlined,
+                          color: Colors.amberAccent,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Update available',
+                            style: TextStyle(
+                              color: Colors.amberAccent,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _sendUpdateCommand,
+                          child: const Text(
+                            'UPDATE NOW',
+                            style: TextStyle(
+                              color: Colors.amberAccent,
+                              fontSize: 10,
+                              letterSpacing: 1.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        GestureDetector(
+                          onTap: () => setState(() => _updateDismissed = true),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white24,
+                            size: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // ── Status card ───────────────────────────────────────────────
                 Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A1500),
-                    border: Border.all(color: Colors.amberAccent.withOpacity(0.4)),
+                    color: const Color(0xFF111111),
+                    border: Border.all(color: Colors.white12),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.system_update_outlined,
-                          color: Colors.amberAccent, size: 16),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Update available',
-                          style: TextStyle(
-                            color: Colors.amberAccent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w300,
-                          ),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: isOnline
+                              ? Colors.greenAccent
+                              : Colors.redAccent,
+                          shape: BoxShape.circle,
                         ),
                       ),
-                      GestureDetector(
-                        onTap: _sendUpdateCommand,
-                        child: const Text(
-                          'UPDATE NOW',
-                          style: TextStyle(
-                            color: Colors.amberAccent,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isOnline ? 'Online' : 'Offline',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isOnline)
+                        Text(
+                          (_deviceStatus?['current_state'] ?? '')
+                              .toString()
+                              .toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white38,
                             fontSize: 10,
-                            letterSpacing: 1.5,
-                            fontWeight: FontWeight.w600,
+                            letterSpacing: 2,
                           ),
                         ),
+                    ],
+                  ),
+                ),
+
+                // ─────────────────────────────────────────────────────────────
+                const SizedBox(height: 32),
+
+                const Text(
+                  'LAST SEEN',
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 3,
+                    color: Colors.white24,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Last seen row
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111111),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.history,
+                        color: Colors.white38,
+                        size: 16,
                       ),
-                      const SizedBox(width: 16),
-                      GestureDetector(
-                        onTap: () => setState(() => _updateDismissed = true),
-                        child: const Icon(Icons.close,
-                            color: Colors.white24, size: 16),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _loading
+                              ? '...'
+                              : _formatLastSeen(
+                                  _recentEvents.isNotEmpty
+                                      ? _recentEvents.first
+                                      : null,
+                                ),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                            height: 1.5,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
 
-              // ── Status card ───────────────────────────────────────────────
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111111),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: isOnline ? Colors.greenAccent : Colors.redAccent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isOnline ? 'Online' : 'Offline',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isOnline)
-                      Text(
-                        (_deviceStatus?['current_state'] ?? '')
-                            .toString()
-                            .toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              // ─────────────────────────────────────────────────────────────
+                const SizedBox(height: 32),
 
-              const SizedBox(height: 32),
-
-              const Text(
-                'LAST SEEN',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 3,
-                  color: Colors.white24,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Last seen row
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111111),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.history,
-                      color: Colors.white38,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _loading
-                            ? '...'
-                            : _formatLastSeen(
-                                _recentEvents.isNotEmpty
-                                    ? _recentEvents.first
-                                    : null,
-                              ),
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              const Text(
-                'RECENT ACTIVITY',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 3,
-                  color: Colors.white24,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Search bar
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111111),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: TextField(
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                  decoration: const InputDecoration(
-                    hintText: 'Search by name, vehicle, day or time...',
-                    hintStyle: TextStyle(color: Colors.white24, fontSize: 13),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      color: Colors.white24,
-                      size: 18,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 12,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              if (_loading)
-                const Center(
-                  child: CircularProgressIndicator(
+                const Text(
+                  'RECENT ACTIVITY',
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 3,
                     color: Colors.white24,
-                    strokeWidth: 1,
                   ),
-                )
-              else if (_filteredEvents.isEmpty)
-                Text(
-                  _searchQuery.isNotEmpty
-                      ? 'No results for "$_searchQuery"'
-                      : 'No recent activity',
-                  style: const TextStyle(color: Colors.white24, fontSize: 13),
-                )
-              else
-                ..._filteredEvents
-                    .take(10)
-                    .map(
-                      (event) => _EventRow(
-                        make: event['detected_make'] ?? 'Unknown',
-                        model: event['detected_model'],
-                        method: event['method'],
-                        confidence: event['confidence'] as double?,
-                        time: _formatTime(event['arrived_at']),
-                        date: _formatDate(event['arrived_at']),
-                        imagePath: event['image_path'],
+                ),
+                const SizedBox(height: 12),
+
+                // Search bar
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111111),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: TextField(
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                    decoration: const InputDecoration(
+                      hintText: 'Search by name, vehicle, day or time...',
+                      hintStyle: TextStyle(color: Colors.white24, fontSize: 13),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: Colors.white24,
+                        size: 18,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 12,
                       ),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 12),
 
-            ],
+                if (_loading)
+                  const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white24,
+                      strokeWidth: 1,
+                    ),
+                  )
+                else if (_filteredEvents.isEmpty)
+                  Text(
+                    _searchQuery.isNotEmpty
+                        ? 'No results for "$_searchQuery"'
+                        : 'No recent activity',
+                    style: const TextStyle(color: Colors.white24, fontSize: 13),
+                  )
+                else
+                  ..._filteredEvents
+                      .take(10)
+                      .map(
+                        (event) => _EventRow(
+                          make: event['detected_make'] ?? 'Unknown',
+                          model: event['detected_model'],
+                          method: event['method'],
+                          confidence: event['confidence'] as double?,
+                          time: _formatTime(event['arrived_at']),
+                          date: _formatDate(event['arrived_at']),
+                          imagePath: event['image_path'],
+                        ),
+                      ),
+              ],
             ),
           ),
         ),
