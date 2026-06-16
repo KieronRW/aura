@@ -12,6 +12,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import psutil
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -73,6 +75,7 @@ from aura.core.commands import start_command_listener
 from aura.core.discovery import DiscoveryService
 from aura.core.camera import Camera, MotionState
 from aura.core.cloud import (
+    get_cpu_temp,
     get_expected_visitors,
     get_installation_uuid,
     get_property_location,
@@ -91,6 +94,7 @@ from aura.core.cloud import (
 from aura.core import display_settings as _display_settings_mod
 from aura.core import weather as _weather_mod
 from aura.core.display_server import DisplayServer
+from aura.core.diagnostics import log_info, log_warning, log_error, log_critical, log_event_sync
 from aura.core.enroller import ReferenceImageEnroller
 from aura.core.recognizer import Recognizer
 
@@ -104,6 +108,7 @@ _HEARTBEAT_INTERVAL    = 30      # push device_status heartbeat every 30 seconds
 _PRE_ARRIVAL_INTERVAL  = 10      # seconds between cycling pre-arrival visitor messages
 _PROPERTY_SYNC_INTERVAL         = 3600   # refresh property location + user prefs every 1 hour
 _WEATHER_SYNC_INTERVAL          = 1800   # refresh weather every 30 minutes
+_HEALTH_SNAPSHOT_INTERVAL       = 1800   # remote diagnostics health snapshot every 30 minutes
 _STATUS_BAR_BROADCAST_INTERVAL  = 10     # push status_bar WS message every 10 seconds
 _DISPLAY_SETTINGS_CACHE_TTL     = 30     # re-read display settings from Supabase every 30 seconds
 _BADGES_DIR = Path(__file__).parent / "assets" / "badges"
@@ -461,8 +466,9 @@ def main() -> None:
     try:
         camera.start()
         logger.info("Camera service started")
-    except Exception:
+    except Exception as e:
         logger.exception("Failed to start camera — aborting")
+        log_critical('camera', 'Camera failed to initialise', {'error': str(e)})
         sys.exit(1)
 
     _state["camera_ok"] = True
@@ -479,6 +485,13 @@ def main() -> None:
     )
     _state["supabase_ok"] = is_connected()
     _state["synced_vehicles"] = _synced_vehicles
+
+    log_info('startup', 'Aura service started', {
+        'software_version': _VERSION,
+        'installation_id': _installation_uuid,
+    })
+    if not _state["supabase_ok"]:
+        log_error('network', 'Supabase not connected at startup', {'installation_id': _installation_key})
 
     # Realtime subscription: instant visitor refresh on any UPDATE from the app
     _visitors_stale = threading.Event()
@@ -562,8 +575,10 @@ def main() -> None:
     # (time.monotonic() starts from boot, so 0.0 would require > 1-hour uptime before firing.)
     last_property_sync_at: float = -_PROPERTY_SYNC_INTERVAL
     last_weather_sync_at: float = -_WEATHER_SYNC_INTERVAL
+    last_health_snapshot_at: float = -_HEALTH_SNAPSHOT_INTERVAL
     last_display_settings_at: float = 0.0
     last_status_bar_at: float = 0.0
+    _cached_system_stats: dict = {'cpu_percent': 0.0, 'memory_percent': 0.0, 'disk_percent': 0.0, 'cpu_temp_c': None}
     _cached_lat: float | None = None
     _cached_lon: float | None = None
     _cached_user_id: str | None = None
@@ -675,12 +690,29 @@ def main() -> None:
             # ── Heartbeat (every 30 s) ────────────────────────────────────────
             if now_mono - last_heartbeat_at >= _HEARTBEAT_INTERVAL:
                 last_heartbeat_at = now_mono
+                _cached_system_stats['cpu_percent'] = psutil.cpu_percent(interval=None)
+                _cached_system_stats['memory_percent'] = psutil.virtual_memory().percent
+                _cached_system_stats['disk_percent'] = psutil.disk_usage('/').percent
+                _cached_system_stats['cpu_temp_c'] = get_cpu_temp()
                 push_heartbeat(
                     camera_ok=_state["camera_ok"],
                     display_clients=_state["display_clients"],
                     current_state=_state["current_state"],
                     software_version=_VERSION,
                 )
+
+            # ── Health snapshot (every 30 min) ────────────────────────────────
+            if now_mono - last_health_snapshot_at >= _HEALTH_SNAPSHOT_INTERVAL:
+                last_health_snapshot_at = now_mono
+                log_info('health_snapshot', 'Periodic health check', {
+                    'cpu_percent': _cached_system_stats['cpu_percent'],
+                    'memory_percent': _cached_system_stats['memory_percent'],
+                    'disk_percent': _cached_system_stats['disk_percent'],
+                    'cpu_temp_c': _cached_system_stats['cpu_temp_c'],
+                    'uptime_seconds': int(now_mono - _start_time),
+                    'display_clients': _state['display_clients'],
+                    'camera_ok': _state['camera_ok'],
+                })
 
             # ── Property location + user prefs (every 1 hour) ────────────────
             if now_mono - last_property_sync_at >= _PROPERTY_SYNC_INTERVAL:
@@ -719,8 +751,10 @@ def main() -> None:
                             logger.info("Weather updated: %.1f°C code=%d", w["temp_c"], w["weather_code"])
                         else:
                             logger.warning("Weather sync: get_weather returned None")
-                    except Exception:
+                            log_warning('general', 'Weather fetch failed', {'lat': _cached_lat, 'lon': _cached_lon})
+                    except Exception as e:
                         logger.exception("Weather sync failed unexpectedly")
+                        log_warning('general', 'Weather fetch failed', {'lat': _cached_lat, 'lon': _cached_lon, 'error': str(e)})
                 else:
                     logger.debug("Weather sync skipped: no location cached yet (lat=%s lon=%s)", _cached_lat, _cached_lon)
 
@@ -897,6 +931,12 @@ def main() -> None:
                             needs_review=needs_review,
                         )
                         last_event_id = event["id"] if event else None
+                        log_info('recognition', f'Vehicle recognised: {result.make} {result.model}', {
+                            'make': result.make,
+                            'model': result.model,
+                            'confidence': result.confidence,
+                            'method': result.method_used,
+                        })
                         if visitor:
                             send_push_notification(
                                 f"{name} has arrived",
@@ -945,8 +985,9 @@ def main() -> None:
             logger.info("Running recognition pipeline")
             try:
                 result = recognizer.recognize(frame, _synced_vehicles, settings=_synced_settings)
-            except Exception:
+            except Exception as e:
                 logger.exception("Recognition pipeline error")
+                log_warning('recognition', 'Recognition failed or low confidence', {'error': str(e)})
                 time.sleep(0.25)
                 continue
 
@@ -1009,6 +1050,12 @@ def main() -> None:
                         needs_review=needs_review,
                     )
                     last_event_id = event["id"] if event else None
+                    log_info('recognition', f'Vehicle recognised: {result.make} {result.model}', {
+                        'make': result.make,
+                        'model': result.model,
+                        'confidence': result.confidence,
+                        'method': result.method_used,
+                    })
                     if visitor:
                         send_push_notification(
                             f"{name} has arrived",
@@ -1069,6 +1116,7 @@ def main() -> None:
                 }] + _state["recent_events"])[:20]
 
     finally:
+        log_event_sync('info', 'shutdown', 'Aura service stopping')
         _discovery.stop()
         if enroller is not None:
             enroller.stop()

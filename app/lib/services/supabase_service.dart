@@ -286,4 +286,36 @@ class SupabaseService {
       return null;
     }
   }
+
+  // ── Diagnostics Logs ──────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getRecentDiagnosticLogs(
+    String installationId, {
+    int limit = 50,
+    String? severity,
+  }) async {
+    try {
+      final List response;
+      if (severity != null) {
+        response = await _client
+            .from('diagnostics_logs')
+            .select('*')
+            .eq('installation_id', installationId)
+            .eq('severity', severity)
+            .order('created_at', ascending: false)
+            .limit(limit);
+      } else {
+        response = await _client
+            .from('diagnostics_logs')
+            .select('*')
+            .eq('installation_id', installationId)
+            .order('created_at', ascending: false)
+            .limit(limit);
+      }
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('getRecentDiagnosticLogs error: $e');
+      return [];
+    }
+  }
 }

@@ -36,6 +36,9 @@ def _mark(command_id, status: str, result: dict | None = None) -> None:
 
 def _do_update_software(command_id) -> None:
     """Run git pull, write sentinel file, and restart the service."""
+    from aura.core.diagnostics import log_info, log_error
+    log_info('update', 'OTA update started', {'command_id': str(command_id)})
+
     # 1. Capture current hash
     try:
         prev_hash = subprocess.run(
@@ -69,6 +72,7 @@ def _do_update_software(command_id) -> None:
             "output": combined_output[:2000],
             "previous_hash": prev_hash,
         })
+        log_error('update', 'OTA update failed', {'command_id': str(command_id), 'previous_hash': prev_hash, 'error': 'git pull failed'})
         return
 
     # 4. Check if anything changed
@@ -88,9 +92,11 @@ def _do_update_software(command_id) -> None:
     if new_hash == prev_hash:
         log.info("commands: update_software: already up to date (%s)", new_hash)
         _mark(command_id, "executed", {"message": "already up to date", "hash": new_hash})
+        log_info('update', 'OTA update skipped — already up to date', {'hash': new_hash})
         return
 
     log.info("commands: update_software: pulled %s → %s", prev_hash, new_hash[:8])
+    log_info('update', 'OTA update pulled — restarting service', {'previous_hash': prev_hash, 'new_hash': new_hash})
 
     # 5. Write sentinel file — health check on next boot will confirm or roll back
     try:

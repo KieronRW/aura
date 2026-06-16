@@ -621,6 +621,11 @@ def _get_cpu_temp() -> float | None:
         return None
 
 
+def get_cpu_temp() -> float | None:
+    """Return the Pi CPU temperature in °C, or None if unavailable."""
+    return _get_cpu_temp()
+
+
 def push_heartbeat(
     camera_ok: bool,
     display_clients: int,

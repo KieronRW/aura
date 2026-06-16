@@ -1,9 +1,12 @@
-// Diagnostics screen — live device status, CPU, memory, disk
+// Diagnostics screen — live device status, CPU, memory, disk, and remote log viewer
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/installation_provider.dart';
+import '../../services/supabase_service.dart';
 
 class DiagnosticsScreen extends ConsumerStatefulWidget {
   const DiagnosticsScreen({super.key});
@@ -17,16 +20,27 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   bool _loading = true;
   RealtimeChannel? _statusChannel;
 
+  List<Map<String, dynamic>> _logs = [];
+  bool _logsLoading = true;
+  String? _selectedSeverity; // null = ALL
+  String? _installationId;
+  Timer? _logsTimer;
+
   @override
   void initState() {
     super.initState();
     _loadData();
     _subscribeToRealtime();
+    _logsTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _loadLogs(),
+    );
   }
 
   @override
   void dispose() {
     _statusChannel?.unsubscribe();
+    _logsTimer?.cancel();
     super.dispose();
   }
 
@@ -50,6 +64,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    _installationId = installation['id'] as String?;
     ref.invalidate(deviceStatusProvider(installation['id']));
     final status = await ref.read(
       deviceStatusProvider(installation['id']).future,
@@ -58,6 +73,23 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       setState(() {
         _deviceStatus = status;
         _loading = false;
+      });
+    }
+    _loadLogs();
+  }
+
+  Future<void> _loadLogs() async {
+    final id = _installationId;
+    if (id == null) return;
+    final logs = await SupabaseService.getRecentDiagnosticLogs(
+      id,
+      limit: 50,
+      severity: _selectedSeverity,
+    );
+    if (mounted) {
+      setState(() {
+        _logs = logs;
+        _logsLoading = false;
       });
     }
   }
@@ -79,6 +111,35 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     final lastSeenDt = DateTime.parse(lastSeen.toString());
     return DateTime.now().toUtc().difference(lastSeenDt).inSeconds < 45;
   }
+
+  String _relativeTime(String? iso) {
+    if (iso == null) return '';
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '';
+    final diff = DateTime.now().toUtc().difference(dt.toUtc());
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24) return '${diff.inHours} hr ago';
+    return '${diff.inDays}d ago';
+  }
+
+  Color _severityColor(String? severity) {
+    switch (severity) {
+      case 'critical':
+        return Colors.redAccent;
+      case 'error':
+        return Colors.redAccent;
+      case 'warning':
+        return Colors.amberAccent;
+      case 'info':
+        return Colors.white;
+      default:
+        return Colors.white38;
+    }
+  }
+
+  bool _severityBold(String? severity) =>
+      severity == 'critical' || severity == 'error';
 
   @override
   Widget build(BuildContext context) {
@@ -221,8 +282,221 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 32),
+
+                // Recent logs header
+                const Text(
+                  'RECENT LOGS',
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 3,
+                    color: Colors.white24,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Severity filter chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _FilterChip(
+                        label: 'ALL',
+                        selected: _selectedSeverity == null,
+                        onTap: () {
+                          setState(() {
+                            _selectedSeverity = null;
+                            _logsLoading = true;
+                          });
+                          _loadLogs();
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'INFO',
+                        selected: _selectedSeverity == 'info',
+                        onTap: () {
+                          setState(() {
+                            _selectedSeverity = 'info';
+                            _logsLoading = true;
+                          });
+                          _loadLogs();
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'WARNING',
+                        selected: _selectedSeverity == 'warning',
+                        onTap: () {
+                          setState(() {
+                            _selectedSeverity = 'warning';
+                            _logsLoading = true;
+                          });
+                          _loadLogs();
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'ERROR',
+                        selected: _selectedSeverity == 'error',
+                        onTap: () {
+                          setState(() {
+                            _selectedSeverity = 'error';
+                            _logsLoading = true;
+                          });
+                          _loadLogs();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Log list
+                if (_logsLoading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(
+                        color: Colors.white24,
+                        strokeWidth: 1,
+                      ),
+                    ),
+                  )
+                else if (_logs.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Text(
+                        'No logs found',
+                        style: TextStyle(color: Colors.white24, fontSize: 13),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111111),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Column(
+                      children: _logs.asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final log = entry.value;
+                        final severity = log['severity'] as String?;
+                        final category = (log['category'] as String? ?? '').toUpperCase();
+                        final message = log['message'] as String? ?? '';
+                        final ts = _relativeTime(log['created_at'] as String?);
+                        return Column(
+                          children: [
+                            if (i > 0)
+                              const Divider(height: 1, color: Colors.white12),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Severity badge
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    margin: const EdgeInsets.only(top: 4, right: 10),
+                                    decoration: BoxDecoration(
+                                      color: _severityColor(severity),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              category,
+                                              style: const TextStyle(
+                                                fontSize: 9,
+                                                letterSpacing: 1.5,
+                                                color: Colors.white24,
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            Text(
+                                              ts,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.white24,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          message,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: _severityColor(severity),
+                                            fontWeight: _severityBold(severity)
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                const SizedBox(height: 24),
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          border: Border.all(
+            color: selected ? Colors.white : Colors.white24,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            letterSpacing: 1.5,
+            color: selected ? Colors.black : Colors.white38,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
