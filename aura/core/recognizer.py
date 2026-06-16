@@ -2,20 +2,21 @@ import hashlib
 import logging
 import os
 import socket
+import threading
 import time
 from dataclasses import dataclass
 
 import numpy as np
 
 from aura.config.settings import (
-    FINGERPRINT_MATCH_THRESHOLD,
     GOOGLE_CREDENTIALS_PATH,
     GOOGLE_VISION_ENABLED,
 )
 from aura.core.detector import detect
 from aura.core.fingerprint import (
-    compare_fingerprints,
+    build_prototype,
     extract_fingerprint,
+    fingerprint_to_json,
     json_to_fingerprint,
 )
 from aura.core.quality import check_quality
@@ -25,14 +26,17 @@ logger = logging.getLogger(__name__)
 # Vision results are cached against a stable image hash for this many seconds
 _VISION_CACHE_TTL = 300  # 5 minutes
 
-# Fingerprint threshold used when there is no internet connection.
-# Loaded from recognition_settings (cached, 60s TTL) so it can be tuned via the app.
-def _offline_fp_threshold() -> float:
+# Auto-learn: once per vehicle per hour to avoid spamming similar frames
+_AUTO_LEARN_COOLDOWN = 3600.0  # seconds
+
+
+def _load_fp_settings() -> dict:
+    """Return recognition settings with safe fallbacks (cached at 60s TTL by recognition_settings)."""
     try:
         from aura.core.recognition_settings import get_settings_cached
-        return get_settings_cached()["offline_fp_threshold"]
+        return get_settings_cached()
     except Exception:
-        return 0.60  # safe fallback if settings unavailable
+        return {"fp_match_floor": 0.55, "fp_match_margin": 0.08, "offline_fp_threshold": 0.60}
 
 
 @dataclass
@@ -59,7 +63,12 @@ class Recognizer:
     def __init__(self):
         self._vision_client = None
         self._vision_cache: dict[str, _VisionCacheEntry] = {}
-        self._last_fp_score: float = 0.0  # best fingerprint score from most recent recognize() call  # md5 hex → entry
+        self._last_fp_score: float = 0.0  # best fingerprint score from most recent recognize() call
+        # Prototype cache: {vehicle_id: {"prototype": np.ndarray, "count": int}}
+        # Invalidated automatically when reference_fingerprint count changes.
+        self._prototype_cache: dict = {}
+        # Cooldown tracker for auto-learn (vehicle_id → monotonic time of last trigger)
+        self._auto_learn_cooldown: dict = {}
 
     # ------------------------------------------------------------------
     # Public
@@ -91,17 +100,18 @@ class Recognizer:
                 logger.debug("Quality check failed (score=%.2f) — skipping recognition", score)
                 return None
 
-        # Step 2 — fingerprint matching against synced vehicles
+        # Step 2 — prototype + k-NN fingerprint matching
         online = self._is_online()
-        if not online:
-            logger.info(
-                "Offline mode: using reduced fingerprint threshold (%.2f)",
-                _offline_fp_threshold(),
-            )
-        fp_threshold = FINGERPRINT_MATCH_THRESHOLD if online else _offline_fp_threshold()
+        _rs = _load_fp_settings()
+        if online:
+            fp_floor  = _rs.get("fp_match_floor", 0.55)
+        else:
+            fp_floor = _rs.get("offline_fp_threshold", 0.60)
+            logger.info("Offline mode: using fingerprint floor=%.2f (offline_fp_threshold)", fp_floor)
+        fp_margin = _rs.get("fp_match_margin", 0.08)
 
         self._last_fp_score = 0.0
-        result = self._match_fingerprint(cropped, detection, vehicles or [], threshold=fp_threshold)
+        result = self._match_fingerprint(cropped, detection, vehicles or [], floor=fp_floor, margin=fp_margin)
         if result:
             return result
 
@@ -137,63 +147,167 @@ class Recognizer:
         detection,
         vehicles: list[dict],
         *,
-        threshold: float = FINGERPRINT_MATCH_THRESHOLD,
+        floor: float = 0.55,
+        margin: float = 0.08,
     ) -> RecognitionResult | None:
+        """
+        Prototype + margin classifier.
+
+        For each enrolled vehicle, a single prototype vector is built by averaging
+        all its reference embeddings (L2-normalised). The live frame embedding is
+        then compared to every prototype via cosine similarity.
+
+        A match is declared only when BOTH conditions hold:
+          1. best_score >= floor   (absolute quality floor)
+          2. best_score - second_best >= margin   (relative confidence gap)
+
+        Condition 2 is skipped when only one vehicle is enrolled (no competition).
+        This "margin" criterion is the key improvement over single-threshold matching:
+        it rejects ambiguous frames where two vehicles score similarly, while accepting
+        clear winners even at moderate absolute scores.
+        """
         if not vehicles:
             logger.debug("No registered vehicles available")
             return None
 
         query_fp = extract_fingerprint(cropped)
 
-        best_score = 0.0
-        best_vehicle = None
-
+        # Score live embedding against each vehicle's prototype
+        scores: list[tuple[float, dict]] = []
         for vehicle in vehicles:
-            ref_fps = vehicle.get("reference_fingerprints") or []
-            if not ref_fps:
+            proto = self._get_prototype(vehicle)
+            if proto is None:
                 continue
-
-            vehicle_best = 0.0
-            for raw in ref_fps:
-                try:
-                    stored_fp = json_to_fingerprint(raw if isinstance(raw, str) else str(raw))
-                    score = compare_fingerprints(query_fp, stored_fp)
-                    if score > vehicle_best:
-                        vehicle_best = score
-                except Exception:
-                    logger.warning(
-                        "Could not deserialise reference fingerprint for vehicle id=%s",
-                        vehicle["id"],
-                    )
-
+            if query_fp.embedding.shape != proto.shape:
+                logger.warning(
+                    "Embedding dimension mismatch for vehicle %s (%d vs %d) — skipping",
+                    vehicle["id"], len(query_fp.embedding), len(proto),
+                )
+                continue
+            score = float(np.dot(query_fp.embedding, proto))
+            score = max(0.0, min(1.0, score))
+            scores.append((score, vehicle))
             logger.debug(
-                "Fingerprint best score vs '%s' (%d refs): %.4f",
-                vehicle["owner_name"], len(ref_fps), vehicle_best,
+                "Prototype score vs '%s': %.4f",
+                vehicle.get("make", vehicle["id"]), score,
             )
-            if vehicle_best > best_score:
-                best_score = vehicle_best
-                best_vehicle = vehicle
 
-        if best_vehicle and best_score >= threshold:
+        if not scores:
+            logger.info("No vehicle prototypes available — fingerprint skipped")
+            return None
+
+        scores.sort(key=lambda x: x[0], reverse=True)
+        best_score, best_vehicle = scores[0]
+
+        if len(scores) >= 2:
+            second_score, second_vehicle = scores[1]
+            actual_margin = best_score - second_score
+            second_make = second_vehicle.get("make", "?")
+        else:
+            second_score = 0.0
+            second_vehicle = None
+            actual_margin = best_score   # single vehicle: treat full score as the gap
+            second_make = "—"
+
+        passes_floor  = best_score >= floor
+        passes_margin = len(scores) < 2 or actual_margin >= margin
+
+        if passes_floor and passes_margin:
+            # Calibrated confidence: blends absolute score (70%) and normalised margin (30%).
+            # A match that barely clears the floor with a tight margin scores lower than
+            # one that is far ahead of all alternatives.
+            if len(scores) >= 2:
+                margin_factor = min(1.0, actual_margin / max(margin, 1e-6))
+                confidence = round(min(1.0, 0.7 * best_score + 0.3 * margin_factor), 4)
+            else:
+                confidence = round(best_score, 4)
+
             logger.info(
-                "Fingerprint match: '%s' score=%.4f", best_vehicle["owner_name"], best_score
+                "Fingerprint match: %s (score=%.3f, margin=%.3f, 2nd=%s@%.3f)",
+                best_vehicle.get("make", "?"), best_score, actual_margin,
+                second_make, second_score,
             )
+
+            # Auto-learn: store live embedding so prototype improves over time.
+            # Rate-limited to once per vehicle per hour to avoid near-duplicate frames.
+            now = time.monotonic()
+            last_learn = self._auto_learn_cooldown.get(best_vehicle["id"], 0.0)
+            if self._is_online() and now - last_learn >= _AUTO_LEARN_COOLDOWN:
+                self._auto_learn_cooldown[best_vehicle["id"]] = now
+                self._trigger_auto_learn(best_vehicle, query_fp)
+
             return RecognitionResult(
                 matched_vehicle=best_vehicle,
-                make=best_vehicle["make"],
-                model=best_vehicle["model"],
-                confidence=best_score,
+                make=best_vehicle.get("make"),
+                model=best_vehicle.get("model"),
+                confidence=confidence,
                 method_used="fingerprint",
                 confidence_tier="high",
                 badge_path=best_vehicle.get("custom_badge_path"),
             )
 
-        logger.info(
-            "No fingerprint match (best=%.4f threshold=%.2f)",
-            best_score, threshold,
-        )
+        # Rejection — log the deciding factor
+        if not passes_floor:
+            logger.info(
+                "Fingerprint rejected: best=%s@%.3f margin=%.3f below floor %.2f",
+                best_vehicle.get("make", "?"), best_score, actual_margin, floor,
+            )
+        else:
+            logger.info(
+                "Fingerprint rejected: best=%s@%.3f margin=%.3f below required %.2f",
+                best_vehicle.get("make", "?"), best_score, actual_margin, margin,
+            )
+
         self._last_fp_score = best_score
         return None
+
+    def _get_prototype(self, vehicle: dict) -> np.ndarray | None:
+        """
+        Return the L2-normalised prototype for a vehicle, rebuilding from its
+        reference embeddings whenever the stored count changes.
+        """
+        vid = vehicle["id"]
+        ref_fps = vehicle.get("reference_fingerprints") or []
+        count = len(ref_fps)
+
+        cached = self._prototype_cache.get(vid)
+        if cached is not None and cached["count"] == count:
+            return cached["prototype"]
+
+        embeddings = []
+        for raw in ref_fps:
+            try:
+                fp = json_to_fingerprint(raw if isinstance(raw, str) else str(raw))
+                embeddings.append(fp.embedding)
+            except Exception:
+                logger.warning(
+                    "Could not deserialise reference fingerprint for vehicle id=%s", vid
+                )
+
+        if not embeddings:
+            self._prototype_cache.pop(vid, None)
+            return None
+
+        proto = build_prototype(embeddings)
+        self._prototype_cache[vid] = {"prototype": proto, "count": count}
+        logger.debug(
+            "Built prototype for vehicle %s from %d embeddings (dim=%d)",
+            vid, len(embeddings), len(proto),
+        )
+        return proto
+
+    def _trigger_auto_learn(self, vehicle: dict, query_fp) -> None:
+        """Store the live embedding as a new reference (fire-and-forget, daemon thread)."""
+        from aura.core import cloud as _cloud
+
+        def _run():
+            try:
+                fp_json = fingerprint_to_json(query_fp)
+                _cloud.add_auto_learn_embedding(vehicle["id"], fp_json)
+            except Exception as exc:
+                logger.debug("Auto-learn embedding storage failed: %s", exc)
+
+        threading.Thread(target=_run, daemon=True, name="fp-autolearn").start()
 
     # ------------------------------------------------------------------
     # Step 3 — Google Vision

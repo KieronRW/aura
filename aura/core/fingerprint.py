@@ -119,6 +119,17 @@ def _l2_normalize(v: np.ndarray) -> np.ndarray:
     return (v / norm).astype(np.float32) if norm > 0 else v.astype(np.float32)
 
 
+def build_prototype(embeddings: list[np.ndarray]) -> np.ndarray:
+    """
+    Average a list of L2-normalised embeddings into a single prototype vector,
+    then re-normalise. The result supports cosine similarity via plain np.dot().
+    All embeddings must have the same dimension.
+    """
+    stacked = np.stack(embeddings, axis=0)   # (N, D)
+    mean = stacked.mean(axis=0)              # (D,)
+    return _l2_normalize(mean)
+
+
 # ─── Comparison ──────────────────────────────────────────────────────────────
 
 def compare_fingerprints(fp1: Fingerprint, fp2: Fingerprint) -> float:

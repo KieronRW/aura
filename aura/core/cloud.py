@@ -549,6 +549,52 @@ def log_unknown_vehicle(
     return row
 
 
+_AUTO_LEARN_EMBED_MAX = 30  # max auto-learned embedding rows per vehicle
+
+
+def add_auto_learn_embedding(vehicle_id, fp_json: str) -> bool:
+    """
+    Persist an auto-learned fingerprint embedding directly to vehicle_reference_images
+    (no image upload — embedding only). Evicts the oldest auto-learned row when the
+    per-vehicle cap is reached; user-uploaded rows (angle != 'auto') are never touched.
+    """
+    client = _get_client()
+    if client is None:
+        return False
+    try:
+        # Fetch existing auto-learned rows oldest-first for potential eviction
+        resp = (
+            client.table("vehicle_reference_images")
+            .select("id, created_at")
+            .eq("vehicle_id", vehicle_id)
+            .eq("angle", "auto")
+            .order("created_at", ascending=True)
+            .execute()
+        )
+        existing = resp.data or []
+
+        if len(existing) >= _AUTO_LEARN_EMBED_MAX:
+            oldest_id = existing[0]["id"]
+            client.table("vehicle_reference_images").delete().eq("id", oldest_id).execute()
+            log.debug(
+                "add_auto_learn_embedding: evicted oldest row id=%s for vehicle %s",
+                oldest_id, vehicle_id,
+            )
+
+        client.table("vehicle_reference_images").insert({
+            "vehicle_id": vehicle_id,
+            "fingerprint_data": fp_json,
+            "is_active": True,
+            "angle": "auto",
+        }).execute()
+
+        log.debug("add_auto_learn_embedding: stored embedding for vehicle %s", vehicle_id)
+        return True
+    except Exception as exc:
+        log.warning("add_auto_learn_embedding failed for vehicle %s: %s", vehicle_id, exc)
+        return False
+
+
 def save_autolearn_image(vehicle_id: int, frame) -> bool:
     """
     Upload frame to reference-images storage and insert a vehicle_reference_images row.

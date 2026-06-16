@@ -469,6 +469,8 @@ class RecognitionSettingsPayload(BaseModel):
     auto_learn_min: Optional[float] = None
     auto_learn_max: Optional[float] = None
     offline_fp_threshold: Optional[float] = None
+    fp_match_floor: Optional[float] = None
+    fp_match_margin: Optional[float] = None
 
 
 @app.get("/recognition/settings")

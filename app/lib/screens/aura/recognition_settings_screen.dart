@@ -28,6 +28,8 @@ class _RecognitionSettingsScreenState
     'auto_learn_min': 60,
     'auto_learn_max': 72,
     'offline_fp_threshold': 60,
+    'fp_match_floor': 55,
+    'fp_match_margin': 8,
   };
   bool _loading = true;
   bool _saving = false;
@@ -197,6 +199,29 @@ class _RecognitionSettingsScreenState
                           ),
                         ],
                         const SizedBox(height: 28),
+                        _sectionLabel('FINGERPRINT CLASSIFIER'),
+                        const SizedBox(height: 12),
+                        _SliderRow(
+                          label: 'SENSITIVITY',
+                          value: (_settings['fp_match_floor'] as int).toDouble(),
+                          onChanged: (v) =>
+                              _onSliderChanged('fp_match_floor', v),
+                        ),
+                        _description(
+                          'Minimum similarity score for a prototype match to be considered. Lower values accept weaker matches — increase if you see false positives.',
+                        ),
+                        const SizedBox(height: 8),
+                        _SliderRow(
+                          label: 'DISTINCTIVENESS',
+                          value:
+                              (_settings['fp_match_margin'] as int).toDouble(),
+                          onChanged: (v) =>
+                              _onSliderChanged('fp_match_margin', v),
+                        ),
+                        _description(
+                          'Required gap between the best and second-best vehicle score. Higher values demand a clearer winner, reducing ambiguous matches between similar vehicles.',
+                        ),
+                        const SizedBox(height: 28),
                         _sectionLabel('OFFLINE MODE'),
                         const SizedBox(height: 12),
                         _SliderRow(
@@ -207,7 +232,7 @@ class _RecognitionSettingsScreenState
                               _onSliderChanged('offline_fp_threshold', v),
                         ),
                         _description(
-                          'Fingerprint match threshold used when the device has no internet connection. Lower values are more permissive.',
+                          'Overrides the Sensitivity floor when the device has no internet connection. Lower values are more permissive.',
                         ),
                       ],
                     ),

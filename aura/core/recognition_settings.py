@@ -18,7 +18,9 @@ DEFAULTS: dict[str, Any] = {
     "vision_confidence_gate": 0.75,   # min Vision confidence to trust result
     "auto_learn_min": 0.60,           # auto-learn fingerprint score range min
     "auto_learn_max": 0.72,           # auto-learn fingerprint score range max
-    "offline_fp_threshold": 0.60,     # fingerprint threshold when offline
+    "offline_fp_threshold": 0.60,     # fingerprint floor when offline (overrides fp_match_floor)
+    "fp_match_floor": 0.55,           # minimum prototype similarity to consider a match
+    "fp_match_margin": 0.08,          # required gap between best and second-best vehicle
 }
 
 _client = None
