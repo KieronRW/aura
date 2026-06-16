@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../widgets/skeleton.dart';
 
 class NetworkSettingsScreen extends StatefulWidget {
   final Map<String, dynamic> installation;
@@ -295,11 +296,19 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
         child: Stack(
         children: [
           if (_loading)
-            const Center(
-              child: CircularProgressIndicator(
-                color: Colors.white24,
-                strokeWidth: 1,
-              ),
+            ListView(
+              padding: const EdgeInsets.all(24),
+              children: const [
+                SkeletonSettingsRow(),
+                SizedBox(height: 20),
+                SkeletonSettingsRow(),
+                SizedBox(height: 4),
+                SkeletonSettingsRow(),
+                SizedBox(height: 20),
+                SkeletonSettingsRow(),
+                SizedBox(height: 4),
+                SkeletonSettingsRow(),
+              ],
             )
           else
             ListView(

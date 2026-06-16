@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../widgets/skeleton.dart';
 import '../../providers/installation_provider.dart';
 import '../../providers/recognition_provider.dart';
 import '../../services/supabase_service.dart';
@@ -518,10 +519,24 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                 const SizedBox(height: 12),
 
                 if (_loading)
-                  const Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white24,
-                      strokeWidth: 1,
+                  SkeletonList(
+                    itemCount: 5,
+                    itemBuilder: (ctx, i) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Row(
+                        children: [
+                          const SkeletonBox(width: 56, height: 56, borderRadius: 0),
+                          const SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              SkeletonBox(width: 120, height: 13, borderRadius: 4),
+                              SizedBox(height: 6),
+                              SkeletonBox(width: 80, height: 11, borderRadius: 4),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   )
                 else if (_filteredEvents.isEmpty)

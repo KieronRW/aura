@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../../widgets/skeleton.dart';
 
 class CameraSettingsScreen extends StatefulWidget {
   final Map<String, dynamic> installation;
@@ -256,11 +257,31 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white24,
-                  strokeWidth: 1,
-                ),
+            ? ListView(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: _MjpegView(url: '$_baseUrl/camera/stream'),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: const [
+                        SkeletonSettingsRow(),
+                        SizedBox(height: 20),
+                        SkeletonSettingsRow(),
+                        SizedBox(height: 4),
+                        SkeletonSettingsRow(),
+                        SizedBox(height: 20),
+                        SkeletonSettingsRow(),
+                        SizedBox(height: 4),
+                        SkeletonSettingsRow(),
+                        SizedBox(height: 4),
+                        SkeletonSettingsRow(),
+                      ],
+                    ),
+                  ),
+                ],
               )
             : ListView(
                 children: [

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/installation_provider.dart';
 import '../../services/supabase_service.dart';
+import '../../widgets/skeleton.dart';
 
 class DiagnosticsScreen extends ConsumerStatefulWidget {
   final String installationId;
@@ -18,6 +19,9 @@ class DiagnosticsScreen extends ConsumerStatefulWidget {
 }
 
 class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
+  static final _statusSwr = <String, Map<String, dynamic>?>{};
+  static final _logsSwr = <String, List<Map<String, dynamic>>>{};
+
   Map<String, dynamic>? _deviceStatus;
   bool _loading = true;
   RealtimeChannel? _statusChannel;
@@ -30,6 +34,14 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   @override
   void initState() {
     super.initState();
+    // SWR: pre-populate from static cache so skeleton isn't shown on revisit
+    final id = widget.installationId;
+    if (_statusSwr.containsKey(id)) {
+      _deviceStatus = _statusSwr[id];
+      _logs = _logsSwr[id] ?? [];
+      _loading = false;
+      _logsLoading = false;
+    }
     _loadData();
     _subscribeToRealtime();
     _logsTimer = Timer.periodic(
@@ -69,6 +81,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
         _deviceStatus = status;
         _loading = false;
       });
+      _statusSwr[widget.installationId] = status;
     }
     _loadLogs();
   }
@@ -84,6 +97,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
         _logs = logs;
         _logsLoading = false;
       });
+      _logsSwr[widget.installationId] = logs;
     }
   }
 
@@ -162,10 +176,26 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
             padding: const EdgeInsets.all(24),
             children: [
               if (_loading)
-                const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.white24,
-                    strokeWidth: 1,
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111111),
+                    border: Border.all(color: const Color(0xFF222222)),
+                  ),
+                  child: Column(
+                    children: const [
+                      SkeletonSettingsRow(),
+                      SizedBox(height: 8),
+                      SkeletonSettingsRow(),
+                      SizedBox(height: 8),
+                      SkeletonSettingsRow(),
+                      SizedBox(height: 8),
+                      SkeletonSettingsRow(),
+                      SizedBox(height: 8),
+                      SkeletonSettingsRow(),
+                      SizedBox(height: 8),
+                      SkeletonSettingsRow(),
+                    ],
                   ),
                 )
               else ...[
@@ -348,12 +378,32 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
 
                 // Log list
                 if (_logsLoading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(
-                        color: Colors.white24,
-                        strokeWidth: 1,
+                  Column(
+                    children: List.generate(
+                      4,
+                      (i) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: i > 0
+                            ? const BoxDecoration(
+                                border: Border(top: BorderSide(color: Color(0xFF1C1C1C))),
+                              )
+                            : null,
+                        child: Row(
+                          children: const [
+                            SkeletonBox(width: 7, height: 7, borderRadius: 4),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SkeletonBox(width: 60, height: 9, borderRadius: 3),
+                                  SizedBox(height: 4),
+                                  SkeletonBox(width: 200, height: 12, borderRadius: 4),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   )

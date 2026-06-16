@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../widgets/skeleton.dart';
 
 const _kAppVersion = '1.0.0';
 const _kSupportEmail = 'support@vivosmartlife.co.za';
@@ -456,11 +457,40 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             color: Colors.white,
             backgroundColor: const Color(0xFF111111),
             child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white24,
-                      strokeWidth: 1,
-                    ),
+                ? ListView(
+                    padding: const EdgeInsets.all(24),
+                    children: [
+                      const SkeletonBox(width: 100, height: 10, borderRadius: 3),
+                      const SizedBox(height: 16),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF111111),
+                          border: Border.all(color: const Color(0xFF222222)),
+                        ),
+                        child: Column(
+                          children: List.generate(
+                            3,
+                            (i) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              decoration: i > 0
+                                  ? const BoxDecoration(
+                                      border: Border(top: BorderSide(color: Color(0xFF1C1C1C))),
+                                    )
+                                  : null,
+                              child: Row(
+                                children: const [
+                                  SkeletonBox(width: 8, height: 8, borderRadius: 4),
+                                  SizedBox(width: 12),
+                                  Expanded(child: SkeletonBox(width: double.infinity, height: 13, borderRadius: 4)),
+                                  SizedBox(width: 40),
+                                  SkeletonBox(width: 50, height: 12, borderRadius: 4),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   )
                 : ListView(
                     padding: const EdgeInsets.all(24),

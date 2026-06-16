@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/installation_provider.dart';
 import '../../providers/visitor_provider.dart';
+import '../../widgets/skeleton.dart';
 
 // In-memory signed URL cache shared across all _UnknownRow instances
 final Map<String, String> _signedUrlCache = {};
@@ -27,6 +28,8 @@ class VisitorsScreen extends ConsumerStatefulWidget {
 }
 
 class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
+  static final _swrCache = <String, Map<String, List<Map<String, dynamic>>>>{};
+
   Map<String, dynamic>? _installation;
   List<Map<String, dynamic>> _visitors = [];
   List<Map<String, dynamic>> _unknownVehicles = [];
@@ -89,6 +92,16 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
   }
 
   Future<void> _loadData(String installationId) async {
+    // SWR: populate from cache immediately so skeleton isn't shown on revisit
+    final cached = _swrCache[installationId];
+    if (cached != null && mounted) {
+      setState(() {
+        _visitors = cached['visitors'] ?? [];
+        _unknownVehicles = cached['unknownVehicles'] ?? [];
+        _visitorHistory = cached['history'] ?? [];
+        _loading = false;
+      });
+    }
     try {
       final data = await ref.read(visitorDataProvider(installationId).future);
       if (mounted) {
@@ -98,6 +111,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
           _visitorHistory = data['history'] ?? [];
           _loading = false;
         });
+        _swrCache[installationId] = data;
       }
     } catch (e) {
       debugPrint('VisitorsScreen load error: $e');
@@ -274,12 +288,52 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const SafeArea(
-        child: Center(
-          child: CircularProgressIndicator(
-            color: Colors.white24,
-            strokeWidth: 1,
-          ),
+      return SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const SkeletonBox(width: 140, height: 10, borderRadius: 3),
+            const SizedBox(height: 16),
+            SkeletonList(
+              itemCount: 2,
+              itemBuilder: (ctx, i) => Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFF1C1C1C))),
+                ),
+                child: Row(
+                  children: const [
+                    Expanded(child: SkeletonBox(width: double.infinity, height: 13, borderRadius: 4)),
+                    SizedBox(width: 40),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 36),
+            const SkeletonBox(width: 140, height: 10, borderRadius: 3),
+            const SizedBox(height: 16),
+            const SkeletonCard(height: 72),
+            const SizedBox(height: 36),
+            const SkeletonBox(width: 120, height: 10, borderRadius: 3),
+            const SizedBox(height: 16),
+            SkeletonList(
+              itemCount: 3,
+              itemBuilder: (ctx, i) => Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFF1C1C1C))),
+                ),
+                child: Row(
+                  children: const [
+                    SkeletonBox(width: 16, height: 16, borderRadius: 8),
+                    SizedBox(width: 12),
+                    Expanded(child: SkeletonBox(width: double.infinity, height: 13, borderRadius: 4)),
+                    SizedBox(width: 60),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }

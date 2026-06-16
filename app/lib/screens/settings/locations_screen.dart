@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/property_provider.dart';
 import 'location_detail_screen.dart';
+import '../../widgets/skeleton.dart';
 
 class LocationsScreen extends ConsumerStatefulWidget {
   const LocationsScreen({super.key});
@@ -90,11 +91,34 @@ class _LocationsScreenState extends ConsumerState<LocationsScreen> {
         onTap: () => FocusScope.of(context).unfocus(),
         child: SafeArea(
           child: loading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white24,
-                  strokeWidth: 1,
-                ),
+            ? ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  SkeletonList(
+                    itemCount: 2,
+                    itemBuilder: (ctx, i) => Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111111),
+                        border: Border.all(color: const Color(0xFF222222)),
+                      ),
+                      child: Row(
+                        children: const [
+                          SkeletonBox(width: 20, height: 20, borderRadius: 10),
+                          SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SkeletonBox(width: 140, height: 14, borderRadius: 4),
+                              SizedBox(height: 6),
+                              SkeletonBox(width: 100, height: 12, borderRadius: 4),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               )
             : properties.isEmpty
             ? const Center(

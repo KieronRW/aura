@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/profile_avatar.dart';
+import '../../widgets/skeleton.dart';
 import '../../providers/profile_provider.dart';
 import '../../services/supabase_service.dart';
 import 'add_profile_screen.dart';
@@ -103,10 +104,28 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                   ),
                   const SizedBox(height: 24),
                   if (loading)
-                    const Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.white24,
-                        strokeWidth: 1,
+                    SkeletonList(
+                      itemCount: 3,
+                      itemBuilder: (ctx, i) => Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF111111),
+                          border: Border.all(color: const Color(0xFF222222)),
+                        ),
+                        child: Row(
+                          children: const [
+                            SkeletonAvatar(size: 44),
+                            SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SkeletonBox(width: 120, height: 14, borderRadius: 4),
+                                SizedBox(height: 8),
+                                SkeletonBox(width: 80, height: 12, borderRadius: 4),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   else if (profiles == null || profiles.isEmpty)

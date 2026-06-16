@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../../widgets/skeleton.dart';
 
 class RecognitionSettingsScreen extends StatefulWidget {
   final Map<String, dynamic> installation;
@@ -138,11 +139,21 @@ class _RecognitionSettingsScreenState
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white24,
-                  strokeWidth: 1,
-                ),
+            ? ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const SkeletonSettingsRow(),
+                  const SizedBox(height: 20),
+                  const SkeletonSettingsRow(),
+                  const SizedBox(height: 4),
+                  const SkeletonSettingsRow(),
+                  const SizedBox(height: 20),
+                  const SkeletonSettingsRow(),
+                  const SizedBox(height: 4),
+                  const SkeletonSettingsRow(),
+                  const SizedBox(height: 20),
+                  const SkeletonSettingsRow(),
+                ],
               )
             : ListView(
                 children: [

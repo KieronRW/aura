@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../widgets/skeleton.dart';
 import '../../providers/property_provider.dart';
 import '../../providers/installation_provider.dart';
 import '../../services/supabase_service.dart';
@@ -100,6 +101,9 @@ class _DashboardTab extends ConsumerStatefulWidget {
 }
 
 class _DashboardTabState extends ConsumerState<_DashboardTab> {
+  static List<Map<String, dynamic>>? _cachedProperties;
+  static Map<String, List<Map<String, dynamic>>> _cachedInstallations = {};
+
   List<Map<String, dynamic>> _properties = [];
   final Map<String, List<Map<String, dynamic>>> _propertyInstallations = {};
   final Map<String, Map<String, dynamic>> _statusCache = {};
@@ -127,6 +131,12 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
   @override
   void initState() {
     super.initState();
+    // SWR: pre-populate from static cache so skeleton isn't shown on revisit
+    if (_cachedProperties != null) {
+      _properties = List.from(_cachedProperties!);
+      _propertyInstallations.addAll(_cachedInstallations);
+      _loading = false;
+    }
     _loadData();
     _subscribeToRealtime();
     _statusTimer = Timer.periodic(
@@ -259,6 +269,8 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
         _properties = properties;
         _loading = false;
       });
+      _cachedProperties = List.from(properties);
+      _cachedInstallations = Map.from(_propertyInstallations);
     }
 
     for (final property in properties) {
@@ -323,11 +335,15 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
           color: Colors.white,
           backgroundColor: const Color(0xFF111111),
           child: _loading
-              ? const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.white24,
-                    strokeWidth: 1,
-                  ),
+              ? ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: const [
+                    SkeletonBox(width: 160, height: 20, borderRadius: 4),
+                    SizedBox(height: 16),
+                    SkeletonCard(height: 80),
+                    SizedBox(height: 12),
+                    SkeletonCard(height: 80),
+                  ],
                 )
               : _properties.isEmpty
               ? ListView(
