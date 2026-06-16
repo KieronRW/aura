@@ -234,7 +234,7 @@ class Recognizer:
             last_learn = self._auto_learn_cooldown.get(best_vehicle["id"], 0.0)
             if self._is_online() and now - last_learn >= _AUTO_LEARN_COOLDOWN:
                 self._auto_learn_cooldown[best_vehicle["id"]] = now
-                self._trigger_auto_learn(best_vehicle, query_fp)
+                self._trigger_auto_learn(best_vehicle, query_fp, cropped)
 
             return RecognitionResult(
                 matched_vehicle=best_vehicle,
@@ -296,8 +296,8 @@ class Recognizer:
         )
         return proto
 
-    def _trigger_auto_learn(self, vehicle: dict, query_fp) -> None:
-        """Store the live embedding as a new reference (fire-and-forget, daemon thread)."""
+    def _trigger_auto_learn(self, vehicle: dict, query_fp, cropped: np.ndarray) -> None:
+        """Store the live embedding + cropped frame as a new reference (fire-and-forget)."""
         from aura.core import cloud as _cloud
 
         logger.info("Auto-learn: starting for vehicle %s", vehicle.get("id"))
@@ -305,8 +305,9 @@ class Recognizer:
         def _run():
             try:
                 fp_json = fingerprint_to_json(query_fp)
-                _cloud.add_auto_learn_embedding(vehicle["id"], fp_json)
-                logger.info("Auto-learn: embedding stored for vehicle %s", vehicle.get("id"))
+                ok = _cloud.add_auto_learn_embedding(vehicle["id"], fp_json, cropped)
+                if ok:
+                    logger.info("Auto-learn: embedding stored for vehicle %s", vehicle.get("id"))
             except Exception as e:
                 logger.exception("Auto-learn failed for vehicle %s: %s", vehicle.get("id"), e)
 

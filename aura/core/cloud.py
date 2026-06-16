@@ -572,20 +572,33 @@ def log_unknown_vehicle(
 _AUTO_LEARN_EMBED_MAX = 30  # max auto-learned embedding rows per vehicle
 
 
-def add_auto_learn_embedding(vehicle_id, fp_json: str) -> bool:
+def add_auto_learn_embedding(vehicle_id, fp_json: str, frame) -> bool:
     """
-    Persist an auto-learned fingerprint embedding directly to vehicle_reference_images
-    (no image upload — embedding only). Evicts the oldest auto-learned row when the
-    per-vehicle cap is reached; user-uploaded rows (angle != 'auto') are never touched.
+    Upload a cropped vehicle frame to reference-images storage, then insert a
+    vehicle_reference_images row with storage_path + fingerprint_data.
+
+    Evicts the oldest auto-learned row (DB + storage) when the per-vehicle cap is
+    reached; user-uploaded rows (angle != 'auto') are never touched.
     """
+    import cv2
+    import time as _time
+
     client = _get_client()
     if client is None:
         return False
     try:
-        # Fetch existing auto-learned rows oldest-first for potential eviction
+        # Encode frame as JPEG at quality 85
+        ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        if not ok:
+            log.warning("add_auto_learn_embedding: imencode failed for vehicle %s", vehicle_id)
+            return False
+
+        storage_path = f"{vehicle_id}/auto_{int(_time.time())}.jpg"
+
+        # Fetch existing auto-learned rows oldest-first (include storage_path for cleanup)
         resp = (
             client.table("vehicle_reference_images")
-            .select("id, created_at")
+            .select("id, created_at, storage_path")
             .eq("vehicle_id", vehicle_id)
             .eq("angle", "auto")
             .order("created_at", desc=False)
@@ -594,21 +607,48 @@ def add_auto_learn_embedding(vehicle_id, fp_json: str) -> bool:
         existing = resp.data or []
 
         if len(existing) >= _AUTO_LEARN_EMBED_MAX:
-            oldest_id = existing[0]["id"]
+            oldest = existing[0]
+            oldest_id = oldest["id"]
+            oldest_path = oldest.get("storage_path")
+
+            # Best-effort storage cleanup before removing the DB row
+            if oldest_path:
+                try:
+                    client.storage.from_("reference-images").remove([oldest_path])
+                    log.debug(
+                        "add_auto_learn_embedding: deleted storage file %s for vehicle %s",
+                        oldest_path, vehicle_id,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "add_auto_learn_embedding: storage delete failed for %s (continuing): %s",
+                        oldest_path, exc,
+                    )
+
             client.table("vehicle_reference_images").delete().eq("id", oldest_id).execute()
             log.debug(
                 "add_auto_learn_embedding: evicted oldest row id=%s for vehicle %s",
                 oldest_id, vehicle_id,
             )
 
+        # Upload image to storage
+        client.storage.from_("reference-images").upload(
+            storage_path, buf.tobytes(), {"content-type": "image/jpeg"}
+        )
+
+        # Insert DB row with storage_path (satisfies NOT NULL constraint) + embedding
         client.table("vehicle_reference_images").insert({
             "vehicle_id": vehicle_id,
+            "storage_path": storage_path,
             "fingerprint_data": fp_json,
             "is_active": True,
             "angle": "auto",
         }).execute()
 
-        log.info("add_auto_learn_embedding: stored embedding for vehicle %s", vehicle_id)
+        log.info(
+            "add_auto_learn_embedding: stored embedding + image for vehicle %s at %s",
+            vehicle_id, storage_path,
+        )
         return True
     except Exception as exc:
         log.exception("add_auto_learn_embedding failed for vehicle %s: %s", vehicle_id, exc)
