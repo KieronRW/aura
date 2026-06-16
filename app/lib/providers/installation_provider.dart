@@ -6,10 +6,14 @@ import '../services/supabase_service.dart';
 import 'auth_provider.dart';
 
 final currentInstallationProvider = FutureProvider<Map<String, dynamic>?>((ref) {
-  // Invalidate when auth identity changes (login/logout/token refresh),
-  // but don't block on the stream — read the current user synchronously.
-  ref.listen(authProvider, (prev, next) {
-    if (prev?.value?.id != next.value?.id) {
+  // Invalidate on real auth identity changes (logout / account switch).
+  // Guard: skip when prev is null or AsyncLoading — that's the INITIAL_SESSION
+  // event Supabase emits on stream subscription, not a real change. Without this
+  // guard, invalidateSelf() fires immediately and abandons the in-flight future,
+  // causing a silent hang until the screen's timeout fires.
+  ref.listen<AsyncValue<User?>>(authProvider, (prev, next) {
+    if (prev == null || prev is AsyncLoading) return;
+    if (prev.valueOrNull?.id != next.valueOrNull?.id) {
       ref.invalidateSelf();
     }
   });
