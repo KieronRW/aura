@@ -25,6 +25,7 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
     'show_weather': false,
     'status_bar_scale': 100,
     'auto_update': true,
+    'dev_mode': false,
   };
   bool _loading = true;
   bool _saving = false;
@@ -72,6 +73,11 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
   void _onAutoUpdateChanged(bool value) {
     setState(() => _settings['auto_update'] = value);
     _postSetting('auto_update', value);
+  }
+
+  void _onDevModeChanged(bool value) {
+    setState(() => _settings['dev_mode'] = value);
+    _postSetting('dev_mode', value);
   }
 
   Future<void> _postSetting(String key, dynamic value) async {
@@ -195,6 +201,23 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
                           subtitle: 'Mirror updates automatically between 2–4 AM',
                           value: _settings['auto_update'] as bool? ?? true,
                           onChanged: _onAutoUpdateChanged,
+                          disabled: _settings['dev_mode'] as bool? ?? false,
+                          disabledReason: 'Disabled in Developer Mode',
+                        ),
+                        const SizedBox(height: 32),
+                        _sectionLabel('DEVELOPER'),
+                        const SizedBox(height: 4),
+                        Container(
+                          color: (_settings['dev_mode'] as bool? ?? false)
+                              ? Colors.amber.withValues(alpha: 0.05)
+                              : Colors.transparent,
+                          child: _ToggleRow(
+                            title: 'Developer Mode',
+                            subtitle:
+                                'Suppresses update notifications and disables auto-updates. For development units only.',
+                            value: _settings['dev_mode'] as bool? ?? false,
+                            onChanged: _onDevModeChanged,
+                          ),
                         ),
                       ],
                     ),
@@ -224,16 +247,33 @@ class _ToggleRow extends StatelessWidget {
   final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final bool disabled;
+  final String? disabledReason;
 
   const _ToggleRow({
     required this.title,
     required this.subtitle,
     required this.value,
     required this.onChanged,
+    this.disabled = false,
+    this.disabledReason,
   });
 
   @override
   Widget build(BuildContext context) {
+    Widget sw = Switch(
+      value: value,
+      onChanged: disabled ? null : onChanged,
+      activeThumbColor: Colors.white,
+      activeTrackColor: Colors.white38,
+      inactiveThumbColor: Colors.white38,
+      inactiveTrackColor: Colors.white12,
+    );
+
+    if (disabled && disabledReason != null) {
+      sw = Tooltip(message: disabledReason!, child: sw);
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: const BoxDecoration(
@@ -247,27 +287,23 @@ class _ToggleRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: disabled ? Colors.white24 : Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.w300,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  style: TextStyle(
+                    color: disabled ? Colors.white12 : Colors.white38,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: Colors.white,
-            activeTrackColor: Colors.white38,
-            inactiveThumbColor: Colors.white38,
-            inactiveTrackColor: Colors.white12,
-          ),
+          sw,
         ],
       ),
     );
