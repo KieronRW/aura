@@ -6,13 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/installation_provider.dart';
 import '../../providers/property_provider.dart';
+import '../../theme/aura_theme.dart';
 import 'aura_settings_screen.dart';
-
-const _kSectionStyle = TextStyle(
-  fontSize: 10,
-  letterSpacing: 3,
-  color: Colors.white24,
-);
 
 const _kPropertyTypes = [
   'Residential',
@@ -105,9 +100,9 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Property name is required'),
-          backgroundColor: Colors.redAccent,
+        SnackBar(
+          content: Text('Property name is required', style: kBody()),
+          backgroundColor: kError,
         ),
       );
       return;
@@ -173,9 +168,9 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
       debugPrint('Save location error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save location'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text('Failed to save location', style: kBody()),
+            backgroundColor: kError,
           ),
         );
       }
@@ -189,37 +184,29 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
           'DELETE LOCATION',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
         content: Text(
           "Delete '$propertyName'? All Auras at this location will be released.",
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 13,
-            height: 1.6,
-          ),
+          style: kBody(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
+            child: Text(
               'CANCEL',
-              style: TextStyle(color: Colors.white70, letterSpacing: 2),
+              style: kBody(),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
+            child: Text(
               'DELETE',
-              style: TextStyle(color: Colors.redAccent, letterSpacing: 2),
+              style: kBody(kErrorText),
             ),
           ),
         ],
@@ -248,9 +235,9 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
       debugPrint('Delete location error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete location'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text('Failed to delete location', style: kBody()),
+            backgroundColor: kError,
           ),
         );
       }
@@ -259,7 +246,7 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
 
   Widget _sectionHeader(String text) => Padding(
         padding: const EdgeInsets.only(bottom: 16),
-        child: Text(text, style: _kSectionStyle),
+        child: Text(text, style: kLabel()),
       );
 
   Widget _field(
@@ -270,23 +257,28 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: TextField(
-        controller: ctrl,
-        style: const TextStyle(color: Colors.white),
-        maxLines: maxLines,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Colors.white38),
-          hintText: hint,
-          hintStyle: const TextStyle(color: Colors.white24),
-          enabledBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: Colors.white24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0x0EFFFFFF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: kInputBorder),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: TextField(
+          controller: ctrl,
+          style: kBody(),
+          maxLines: maxLines,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: kBody(const Color(0x66FFFFFF)),
+            hintText: hint,
+            hintStyle: kBody(const Color(0x66FFFFFF)),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            isDense: true,
           ),
-          focusedBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: Colors.white),
-          ),
-          isDense: true,
         ),
       ),
     );
@@ -298,18 +290,14 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
     final installationsAsync = ref.watch(installationsProvider(propertyId));
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
           (_nameCtrl.text.isNotEmpty ? _nameCtrl.text : 'LOCATION').toUpperCase(),
-          style: const TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
         actions: [
           _saving
@@ -320,7 +308,7 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
-                        color: Colors.white38,
+                        color: kViolet,
                         strokeWidth: 1.5,
                       ),
                     ),
@@ -328,181 +316,178 @@ class _LocationDetailScreenState extends ConsumerState<LocationDetailScreen> {
                 )
               : TextButton(
                   onPressed: _save,
-                  child: const Text(
+                  child: Text(
                     'SAVE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      letterSpacing: 2,
-                      fontSize: 13,
-                    ),
+                    style: kBody(),
                   ),
                 ),
         ],
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              // ── PROPERTY DETAILS ────────────────────────────────────────
-              _sectionHeader('PROPERTY DETAILS'),
-              _field(_nameCtrl, 'Property Name *'),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: DropdownButtonFormField<String>(
-                  initialValue: _propertyType,
-                  dropdownColor: const Color(0xFF1A1A1A),
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                  decoration: const InputDecoration(
-                    labelText: 'Property Type',
-                    labelStyle: TextStyle(color: Colors.white38),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white24),
+        child: Container(
+          decoration: const BoxDecoration(gradient: kBgGradient),
+          child: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                // ── PROPERTY DETAILS ────────────────────────────────────────
+                _sectionHeader('PROPERTY DETAILS'),
+                _field(_nameCtrl, 'Property Name *'),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0x0EFFFFFF),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: kInputBorder),
                     ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white),
-                    ),
-                    isDense: true,
-                  ),
-                  hint: const Text(
-                    'Select type',
-                    style: TextStyle(color: Colors.white24),
-                  ),
-                  items: _kPropertyTypes
-                      .map((t) => DropdownMenuItem(
-                            value: t,
-                            child: Text(t),
-                          ))
-                      .toList(),
-                  onChanged: _onPropertyTypeChanged,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // ── ADDRESS ─────────────────────────────────────────────────
-              _sectionHeader('ADDRESS'),
-              _field(_countryCtrl, 'Country'),
-              _field(_provinceCtrl, 'Province / State'),
-              _field(_cityCtrl, 'City / Suburb'),
-              _field(_streetCtrl, 'Street Address'),
-              _field(_postalCtrl, 'Postal Code'),
-
-              const SizedBox(height: 8),
-
-              // ── DEFAULT BEHAVIOUR ────────────────────────────────────────
-              _sectionHeader('DEFAULT BEHAVIOUR'),
-              _field(_toneCtrl, 'Greeting Tone'),
-              _field(
-                _safetyCtrl,
-                'Safety Reminder',
-                hint: 'Optional message shown to visitors',
-                maxLines: 3,
-              ),
-
-              const SizedBox(height: 8),
-
-              // ── AURAS AT THIS LOCATION ───────────────────────────────────
-              _sectionHeader('AURAS AT THIS LOCATION'),
-              installationsAsync.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white24,
-                      strokeWidth: 1,
-                    ),
-                  ),
-                ),
-                error: (_, _) => const Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    'Failed to load Auras',
-                    style: TextStyle(color: Colors.white24, fontSize: 13),
-                  ),
-                ),
-                data: (installationModels) {
-                  if (installationModels.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        'No Auras at this location',
-                        style: TextStyle(color: Colors.white24, fontSize: 13),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _propertyType,
+                      dropdownColor: kCard,
+                      style: kBody(),
+                      decoration: InputDecoration(
+                        labelText: 'Property Type',
+                        labelStyle: kBody(const Color(0x66FFFFFF)),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        isDense: true,
                       ),
-                    );
-                  }
-                  return Column(
-                    children: installationModels.map((model) {
-                      final installation = model.toMap();
-                      return GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AuraSettingsScreen(
-                              installation: installation,
-                              propertyId: propertyId,
-                            ),
-                          ),
-                        ),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF111111),
-                            border: Border.all(color: Colors.white12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.sensors,
-                                color: Colors.white38,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Text(
-                                  installation['name'] as String? ?? 'Aura',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w300,
-                                  ),
-                                ),
-                              ),
-                              const Icon(
-                                Icons.chevron_right,
-                                color: Colors.white24,
-                                size: 18,
-                              ),
-                            ],
-                          ),
+                      hint: Text(
+                        'Select type',
+                        style: kBody(const Color(0x66FFFFFF)),
+                      ),
+                      items: _kPropertyTypes
+                          .map((t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(t),
+                              ))
+                          .toList(),
+                      onChanged: _onPropertyTypeChanged,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // ── ADDRESS ─────────────────────────────────────────────────
+                _sectionHeader('ADDRESS'),
+                _field(_countryCtrl, 'Country'),
+                _field(_provinceCtrl, 'Province / State'),
+                _field(_cityCtrl, 'City / Suburb'),
+                _field(_streetCtrl, 'Street Address'),
+                _field(_postalCtrl, 'Postal Code'),
+
+                const SizedBox(height: 8),
+
+                // ── DEFAULT BEHAVIOUR ────────────────────────────────────────
+                _sectionHeader('DEFAULT BEHAVIOUR'),
+                _field(_toneCtrl, 'Greeting Tone'),
+                _field(
+                  _safetyCtrl,
+                  'Safety Reminder',
+                  hint: 'Optional message shown to visitors',
+                  maxLines: 3,
+                ),
+
+                const SizedBox(height: 8),
+
+                // ── AURAS AT THIS LOCATION ───────────────────────────────────
+                _sectionHeader('AURAS AT THIS LOCATION'),
+                installationsAsync.when(
+                  loading: () => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: kViolet,
+                        strokeWidth: 1.5,
+                      ),
+                    ),
+                  ),
+                  error: (_, _) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      'Failed to load Auras',
+                      style: kCaption(),
+                    ),
+                  ),
+                  data: (installationModels) {
+                    if (installationModels.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          'No Auras at this location',
+                          style: kCaption(),
                         ),
                       );
-                    }).toList(),
-                  );
-                },
-              ),
+                    }
+                    return Column(
+                      children: installationModels.map((model) {
+                        final installation = model.toMap();
+                        return GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AuraSettingsScreen(
+                                installation: installation,
+                                propertyId: propertyId,
+                              ),
+                            ),
+                          ),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: kCard,
+                              border: Border.all(color: kCardBorder),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.sensors,
+                                  color: Color(0x66FFFFFF),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    installation['name'] as String? ?? 'Aura',
+                                    style: kBody(),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: Color(0x40FFFFFF),
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
 
-              const SizedBox(height: 32),
+                const SizedBox(height: 32),
 
-              // ── DANGER ZONE ──────────────────────────────────────────────
-              _sectionHeader('DANGER ZONE'),
-              Center(
-                child: TextButton(
-                  onPressed: _deleteLocation,
-                  child: const Text(
-                    'DELETE LOCATION',
-                    style: TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 12,
-                      letterSpacing: 2,
+                // ── DANGER ZONE ──────────────────────────────────────────────
+                _sectionHeader('DANGER ZONE'),
+                Center(
+                  child: TextButton(
+                    onPressed: _deleteLocation,
+                    child: Text(
+                      'DELETE LOCATION',
+                      style: kBody(kErrorText),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-            ],
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),

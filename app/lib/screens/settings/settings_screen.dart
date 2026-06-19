@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
-import '../auth/login_screen.dart';
+import '../../theme/aura_theme.dart';
+import '../auth/splash_screen.dart';
 import '../automations/automations_screen.dart';
 import 'account_details_screen.dart';
 import 'diagnostics_overview_screen.dart';
@@ -23,16 +24,14 @@ class SettingsScreen extends ConsumerWidget {
     final user = userAsync.value;
 
     return SafeArea(
-      child: ListView(
+      child: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
+        child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text(
+          Text(
             'SETTINGS',
-            style: TextStyle(
-              fontSize: 11,
-              letterSpacing: 4,
-              color: Colors.white38,
-            ),
+            style: kLabel(),
           ),
           const SizedBox(height: 32),
 
@@ -89,18 +88,14 @@ class SettingsScreen extends ConsumerWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => Scaffold(
-                  backgroundColor: Colors.black,
+                  backgroundColor: kVoid,
                   appBar: AppBar(
-                    backgroundColor: Colors.black,
+                    backgroundColor: kVoid,
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    title: const Text(
+                    title: Text(
                       'AUTOMATIONS',
-                      style: TextStyle(
-                        fontSize: 13,
-                        letterSpacing: 4,
-                        fontWeight: FontWeight.w300,
-                      ),
+                      style: kHeading(),
                     ),
                   ),
                   body: const AutomationsScreen(),
@@ -181,24 +176,25 @@ class SettingsScreen extends ConsumerWidget {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (_) => AlertDialog(
-                  backgroundColor: const Color(0xFF111111),
-                  title: const Text('SIGN OUT', style: TextStyle(color: Colors.white, fontSize: 14, letterSpacing: 3, fontWeight: FontWeight.w300)),
-                  content: const Text('Are you sure you want to sign out?', style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6)),
+                  backgroundColor: kCard,
+                  title: Text('SIGN OUT', style: kHeading()),
+                  content: Text('Are you sure you want to sign out?', style: kBody(const Color(0xB3FFFFFF))),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL', style: TextStyle(color: Colors.white70, letterSpacing: 2))),
-                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('SIGN OUT', style: TextStyle(color: Colors.redAccent, letterSpacing: 2))),
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: Text('CANCEL', style: kBody())),
+                    TextButton(onPressed: () => Navigator.pop(context, true), child: Text('SIGN OUT', style: kBody(kErrorText))),
                   ],
                 ),
               );
               if (confirmed == true) {
                 await Supabase.instance.client.auth.signOut();
                 if (context.mounted) {
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SplashScreen()));
                 }
               }
             },
           ),
         ],
+        ),
       ),
     );
   }
@@ -215,11 +211,7 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         title,
-        style: const TextStyle(
-          fontSize: 10,
-          letterSpacing: 3,
-          color: Colors.white24,
-        ),
+        style: kLabel(const Color(0x66FFFFFF)),
       ),
     );
   }
@@ -242,20 +234,18 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = destructive ? Colors.redAccent : Colors.white;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.white12)),
+          border: Border(bottom: BorderSide(color: kRowDivider)),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: destructive ? Colors.redAccent : Colors.white38,
+              color: destructive ? kErrorText : const Color(0x66FFFFFF),
               size: 20,
             ),
             const SizedBox(width: 16),
@@ -265,25 +255,18 @@ class _SettingsRow extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w300,
-                    ),
+                    style: destructive ? kBody(kErrorText) : kBody(),
                   ),
                   if (subtitle != null)
                     Text(
                       subtitle!,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 12,
-                      ),
+                      style: kCaption(),
                     ),
                 ],
               ),
             ),
             if (!destructive)
-              const Icon(Icons.chevron_right, color: Colors.white24, size: 18),
+              const Icon(Icons.chevron_right, color: Color(0x40FFFFFF), size: 18),
           ],
         ),
       ),

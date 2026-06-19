@@ -1,7 +1,9 @@
 // Registration screen — new user sign up with email/password
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../theme/aura_theme.dart';
 import 'verify_email_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -60,90 +62,99 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: SafeArea(
-          child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'CREATE ACCOUNT',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w200,
-                  letterSpacing: 8,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Join Aura Studio',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white38,
-                  letterSpacing: 1,
-                ),
-              ),
-              const SizedBox(height: 48),
-              _buildField(_nameController, 'Full Name', false),
-              const SizedBox(height: 16),
-              _buildField(
-                _emailController,
-                'Email',
-                false,
-                type: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              _buildField(_passwordController, 'Password', true),
-              const SizedBox(height: 16),
-              _buildField(_confirmPasswordController, 'Confirm Password', true),
-              const SizedBox(height: 32),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 13,
+      body: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(26, 8, 26, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Create account',
+                    style: kScreenTitle(),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Join Aura Studio',
+                    style: kCaption(),
+                  ),
+                  const SizedBox(height: 36),
+                  _buildField(_nameController, 'Full name', false),
+                  const SizedBox(height: 14),
+                  _buildField(
+                    _emailController,
+                    'Email address',
+                    false,
+                    type: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildField(_passwordController, 'Password', true),
+                  const SizedBox(height: 14),
+                  _buildField(_confirmPasswordController, 'Confirm password', true),
+                  const SizedBox(height: 28),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: kCaption(kErrorText),
+                      ),
+                    ),
+                  GestureDetector(
+                    onTap: _loading ? null : _register,
+                    child: Container(
+                      height: 55,
+                      decoration: BoxDecoration(
+                        gradient: _loading
+                            ? null
+                            : kPrimaryGradient,
+                        color: _loading ? const Color(0x33FFFFFF) : null,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: _loading
+                            ? null
+                            : const [
+                                BoxShadow(
+                                  color: Color(0x8C6366E8),
+                                  blurRadius: 22,
+                                  offset: Offset(0, 8),
+                                  spreadRadius: -12,
+                                ),
+                              ],
+                      ),
+                      alignment: Alignment.center,
+                      child: _loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              'Create account',
+                              style: GoogleFonts.manrope(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
-                ),
-              ElevatedButton(
-                onPressed: _loading ? null : _register,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.zero,
-                  ),
-                ),
-                child: _loading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.black,
-                        ),
-                      )
-                    : const Text(
-                        'CREATE ACCOUNT',
-                        style: TextStyle(letterSpacing: 4, fontSize: 13),
-                      ),
+                ],
               ),
-            ],
-          ),
+            ),
           ),
         ),
       ),
@@ -156,19 +167,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
     bool obscure, {
     TextInputType type = TextInputType.text,
   }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      keyboardType: type,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white38),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white24),
-        ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white),
+    return Container(
+      height: 54,
+      decoration: BoxDecoration(
+        color: const Color(0x0EFFFFFF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x1FFFFFFF)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Center(
+        child: TextField(
+          controller: controller,
+          obscureText: obscure,
+          keyboardType: type,
+          style: GoogleFonts.manrope(color: Colors.white, fontSize: 15),
+          decoration: InputDecoration(
+            hintText: label,
+            hintStyle: GoogleFonts.manrope(
+              color: const Color(0x66FFFFFF),
+              fontSize: 15,
+            ),
+            border: InputBorder.none,
+            isDense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
         ),
       ),
     );

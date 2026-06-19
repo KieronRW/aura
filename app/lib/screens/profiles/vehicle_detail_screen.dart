@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/profile_provider.dart';
+import '../../theme/aura_theme.dart';
 
 class VehicleDetailScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> vehicle;
@@ -110,9 +111,9 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
       debugPrint('Upload reference image error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to upload image. Please try again.'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text('Failed to upload image. Please try again.', style: kBody()),
+            backgroundColor: kError,
           ),
         );
       }
@@ -124,7 +125,7 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
   void _showImageSourceDialog() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF111111),
+      backgroundColor: kCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -137,7 +138,7 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: kCardBorder,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -145,11 +146,11 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
             ListTile(
               leading: const Icon(
                 Icons.camera_alt_outlined,
-                color: Colors.white38,
+                color: Color(0x80FFFFFF),
               ),
-              title: const Text(
+              title: Text(
                 'Take photo',
-                style: TextStyle(color: Colors.white),
+                style: kBody(),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -159,11 +160,11 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
             ListTile(
               leading: const Icon(
                 Icons.photo_library_outlined,
-                color: Colors.white38,
+                color: Color(0x80FFFFFF),
               ),
-              title: const Text(
+              title: Text(
                 'Choose from library',
-                style: TextStyle(color: Colors.white),
+                style: kBody(),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -210,28 +211,32 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: kCardBorder),
+        ),
+        title: Text(
           'Delete Vehicle',
-          style: TextStyle(color: Colors.white, fontSize: 15, letterSpacing: 1),
+          style: kHeading(),
         ),
         content: const Text(
           'This will permanently delete this vehicle and all its reference images. This cannot be undone.',
-          style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
+          style: TextStyle(color: Color(0xD9FFFFFF), fontSize: 13, height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
+            child: Text(
               'CANCEL',
-              style: TextStyle(color: Colors.white70, letterSpacing: 1),
+              style: kBody(kVioletText),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
+            child: Text(
               'DELETE',
-              style: TextStyle(color: Colors.redAccent, letterSpacing: 1),
+              style: kBody(kErrorText),
             ),
           ),
         ],
@@ -271,9 +276,9 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
       if (mounted) {
         setState(() => _deleting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete vehicle. Please try again.'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text('Failed to delete vehicle. Please try again.', style: kBody()),
+            backgroundColor: kError,
           ),
         );
       }
@@ -294,11 +299,11 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
   Color get _enrollmentColor {
     final score = (_vehicleData['fingerprint_score'] as num?)?.toDouble();
     if (_vehicleData['fingerprint_seeded'] == true) {
-      if (score != null && score >= 0.65) return Colors.greenAccent;
-      return Colors.orangeAccent;
+      if (score != null && score >= 0.65) return kOnlineText;
+      return kWarningText;
     }
-    if (_referenceImages.length >= 3) return Colors.orangeAccent;
-    return Colors.white24;
+    if (_referenceImages.length >= 3) return kWarningText;
+    return const Color(0x80FFFFFF);
   }
 
   @override
@@ -308,192 +313,164 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
         '${_vehicleData['make'] ?? ''} ${_vehicleData['model'] ?? ''}'.trim();
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
           vehicleName.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
       ),
       body: _deleting
           ? const Center(
               child: CircularProgressIndicator(
-                color: Colors.white24,
-                strokeWidth: 1,
+                color: kViolet,
+                strokeWidth: 1.5,
               ),
             )
-          : SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  const Text(
-                    'VEHICLE INFO',
-                    style: TextStyle(
-                      fontSize: 10,
-                      letterSpacing: 3,
-                      color: Colors.white24,
+          : Container(
+              decoration: const BoxDecoration(gradient: kBgGradient),
+              child: SafeArea(
+                child: ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    Text(
+                      'VEHICLE INFO',
+                      style: kLabel(),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _InfoRow('Make', _vehicleData['make'] ?? '—'),
-                  _InfoRow('Model', _vehicleData['model'] ?? '—'),
-                  _InfoRow('Colour', _vehicleData['colour'] ?? '—'),
-                  _InfoRow('Registration', _vehicleData['registration'] ?? '—'),
-                  _InfoRow('Greeting', _vehicleData['owner_greeting'] ?? '—'),
+                    const SizedBox(height: 12),
+                    _InfoRow('Make', _vehicleData['make'] ?? '—'),
+                    _InfoRow('Model', _vehicleData['model'] ?? '—'),
+                    _InfoRow('Colour', _vehicleData['colour'] ?? '—', mono: true),
+                    _InfoRow('Registration', _vehicleData['registration'] ?? '—', mono: true),
+                    _InfoRow('Greeting', _vehicleData['owner_greeting'] ?? '—'),
 
-                  const SizedBox(height: 32),
+                    const SizedBox(height: 32),
 
-                  const Text(
-                    'RECOGNITION',
-                    style: TextStyle(
-                      fontSize: 10,
-                      letterSpacing: 3,
-                      color: Colors.white24,
+                    Text(
+                      'RECOGNITION',
+                      style: kLabel(),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF111111),
-                      border: Border.all(color: Colors.white12),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _enrollmentColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _enrollmentStatus,
-                            style: TextStyle(
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: kCard,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: kCardBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
                               color: _enrollmentColor,
-                              fontSize: 12,
-                              letterSpacing: 1,
+                              shape: BoxShape.circle,
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _enrollmentStatus,
+                              style: kLabel(_enrollmentColor),
+                            ),
+                          ),
+                          if (_vehicleData['fingerprint_score'] != null)
+                            Text(
+                              '${((_vehicleData['fingerprint_score'] as num).toDouble() * 100).toStringAsFixed(0)}%',
+                              style: kCaption(const Color(0x40FFFFFF)),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'REFERENCE IMAGES',
+                          style: kLabel(),
                         ),
-                        if (_vehicleData['fingerprint_score'] != null)
-                          Text(
-                            '${((_vehicleData['fingerprint_score'] as num).toDouble() * 100).toStringAsFixed(0)}%',
-                            style: const TextStyle(
-                              color: Colors.white24,
-                              fontSize: 11,
-                              letterSpacing: 1,
+                        if (!_uploading)
+                          GestureDetector(
+                            onTap: _showImageSourceDialog,
+                            child: const Icon(
+                              Icons.add_a_photo_outlined,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          )
+                        else
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: kViolet,
                             ),
                           ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Minimum 3 images required from different angles for fingerprint recognition.',
+                      style: kCaption(),
+                    ),
+                    const SizedBox(height: 16),
 
-                  const SizedBox(height: 32),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'REFERENCE IMAGES',
-                        style: TextStyle(
-                          fontSize: 10,
-                          letterSpacing: 3,
-                          color: Colors.white24,
+                    if (_loading)
+                      const Center(
+                        child: CircularProgressIndicator(
+                          color: kViolet,
+                          strokeWidth: 1.5,
                         ),
+                      )
+                    else if (_referenceImages.isEmpty)
+                      Text(
+                        'No reference images yet. Add at least 3 to enable fingerprint recognition.',
+                        style: kCaption(),
+                      )
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 4,
+                              mainAxisSpacing: 4,
+                            ),
+                        itemCount: _referenceImages.length,
+                        itemBuilder: (context, index) {
+                          final image = _referenceImages[index];
+                          return _ReferenceImageTile(
+                            key: ValueKey(image['id']),
+                            storagePath: image['storage_path'],
+                            onDelete: () => _deleteImage(image),
+                          );
+                        },
                       ),
-                      if (!_uploading)
-                        GestureDetector(
-                          onTap: _showImageSourceDialog,
-                          child: const Icon(
-                            Icons.add_a_photo_outlined,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        )
-                      else
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1,
-                            color: Colors.white24,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Minimum 3 images required from different angles for fingerprint recognition.',
-                    style: TextStyle(
-                      color: Colors.white24,
-                      fontSize: 12,
-                      height: 1.6,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
 
-                  if (_loading)
-                    const Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.white24,
-                        strokeWidth: 1,
-                      ),
-                    )
-                  else if (_referenceImages.isEmpty)
-                    const Text(
-                      'No reference images yet. Add at least 3 to enable fingerprint recognition.',
-                      style: TextStyle(color: Colors.white24, fontSize: 13),
-                    )
-                  else
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 4,
-                            mainAxisSpacing: 4,
-                          ),
-                      itemCount: _referenceImages.length,
-                      itemBuilder: (context, index) {
-                        final image = _referenceImages[index];
-                        return _ReferenceImageTile(
-                          key: ValueKey(image['id']),
-                          storagePath: image['storage_path'],
-                          onDelete: () => _deleteImage(image),
-                        );
-                      },
-                    ),
+                    const SizedBox(height: 48),
+                    const Divider(color: kRowDivider),
+                    const SizedBox(height: 24),
 
-                  const SizedBox(height: 48),
-                  const Divider(color: Colors.white12),
-                  const SizedBox(height: 24),
-
-                  TextButton(
-                    onPressed: _deleteVehicle,
-                    child: const Text(
-                      'DELETE VEHICLE',
-                      style: TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 13,
-                        letterSpacing: 2,
+                    TextButton(
+                      onPressed: _deleteVehicle,
+                      child: Text(
+                        'DELETE VEHICLE',
+                        style: kBody(kErrorText),
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 24),
-                ],
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
     );
@@ -503,26 +480,27 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> {
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
+  final bool mono;
 
-  const _InfoRow(this.label, this.value);
+  const _InfoRow(this.label, this.value, {this.mono = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+        border: Border(bottom: BorderSide(color: kRowDivider)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white38, fontSize: 13),
+            style: kCaption(),
           ),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: mono ? kMono() : kBody(),
           ),
         ],
       ),
@@ -578,13 +556,13 @@ class _ReferenceImageTileState extends State<_ReferenceImageTile> {
       fit: StackFit.expand,
       children: [
         Container(
-          color: const Color(0xFF111111),
+          color: kCardDim,
           child: _url != null
               ? Image.network(_url!, fit: BoxFit.cover)
               : const Center(
                   child: CircularProgressIndicator(
-                    strokeWidth: 1,
-                    color: Colors.white24,
+                    strokeWidth: 1.5,
+                    color: kViolet,
                   ),
                 ),
         ),
@@ -600,7 +578,7 @@ class _ReferenceImageTileState extends State<_ReferenceImageTile> {
                 color: Colors.black54,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.close, color: Colors.redAccent, size: 14),
+              child: Icon(Icons.close, color: kErrorText, size: 14),
             ),
           ),
         ),

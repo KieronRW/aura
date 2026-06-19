@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
+import '../../theme/aura_theme.dart';
 import 'diagnostics_screen.dart';
 
 class DiagnosticsOverviewScreen extends StatefulWidget {
@@ -154,9 +155,9 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             'Could not load diagnostics',
-            style: TextStyle(color: Colors.white38, fontSize: 13),
+            style: kCaption(),
           ),
           const SizedBox(height: 20),
           GestureDetector(
@@ -165,15 +166,11 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
               padding:
                   const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.white24),
+                border: Border.all(color: kCardBorder),
               ),
-              child: const Text(
+              child: Text(
                 'RETRY',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 11,
-                  letterSpacing: 2.5,
-                ),
+                style: kLabel(),
               ),
             ),
           ),
@@ -195,7 +192,7 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
     return RefreshIndicator(
       onRefresh: () => _loadData(foreground: false),
       color: Colors.white,
-      backgroundColor: const Color(0xFF111111),
+      backgroundColor: kCard,
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -203,8 +200,9 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF111111),
-              border: Border.all(color: Colors.white12),
+              color: kCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: kCardBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,18 +215,14 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
                       margin: const EdgeInsets.only(right: 10),
                       decoration: BoxDecoration(
                         color: onlineCount > 0
-                            ? Colors.greenAccent
-                            : Colors.white24,
+                            ? kOnline
+                            : const Color(0x40FFFFFF),
                         shape: BoxShape.circle,
                       ),
                     ),
                     Text(
                       '$onlineCount of ${_summaries.length} Aura${_summaries.length == 1 ? '' : 's'} Online',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w300,
-                      ),
+                      style: kBody(),
                     ),
                   ],
                 ),
@@ -237,50 +231,38 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
                   Row(
                     children: [
                       const Icon(Icons.warning_amber_outlined,
-                          color: Colors.amberAccent, size: 14),
+                          color: kWarning, size: 14),
                       const SizedBox(width: 8),
                       Text(
                         '$totalErrors Error${totalErrors == 1 ? '' : 's'} in last 12h',
-                        style: const TextStyle(
-                          color: Colors.amberAccent,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w300,
-                        ),
+                        style: kCaption(kWarningText),
                       ),
                     ],
                   ),
                 ] else ...[
                   const SizedBox(height: 8),
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.check_circle_outline,
-                          color: Colors.greenAccent, size: 14),
-                      SizedBox(width: 8),
+                      const Icon(Icons.check_circle_outline,
+                          color: kOnline, size: 14),
+                      const SizedBox(width: 8),
                       Text(
                         'No Errors',
-                        style: TextStyle(
-                          color: Colors.greenAccent,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w300,
-                        ),
+                        style: kCaption(kOnlineText),
                       ),
                     ],
                   ),
                 ],
                 if (anyUpdates) ...[
                   const SizedBox(height: 8),
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.system_update_outlined,
-                          color: Colors.amberAccent, size: 14),
-                      SizedBox(width: 8),
+                      const Icon(Icons.system_update_outlined,
+                          color: kWarning, size: 14),
+                      const SizedBox(width: 8),
                       Text(
                         'Updates Available',
-                        style: TextStyle(
-                          color: Colors.amberAccent,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w300,
-                        ),
+                        style: kCaption(kWarningText),
                       ),
                     ],
                   ),
@@ -292,20 +274,16 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
           const SizedBox(height: 24),
 
           if (_summaries.isEmpty)
-            const Center(
+            Center(
               child: Text(
                 'No Auras found for this property',
-                style: TextStyle(color: Colors.white24, fontSize: 13),
+                style: kCaption(),
               ),
             )
           else ...[
-            const Text(
+            Text(
               'AURAS',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 3,
-                color: Colors.white24,
-              ),
+              style: kLabel(),
             ),
             const SizedBox(height: 12),
             ..._summaries.map((summary) {
@@ -330,8 +308,9 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111111),
-                    border: Border.all(color: Colors.white12),
+                    color: kCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: kCardBorder),
                   ),
                   child: Row(
                     children: [
@@ -342,7 +321,7 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
                         margin: const EdgeInsets.only(right: 12),
                         decoration: BoxDecoration(
                           color:
-                              online ? Colors.greenAccent : Colors.white24,
+                              online ? kOnline : const Color(0x40FFFFFF),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -356,11 +335,7 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
                               children: [
                                 Text(
                                   inst['name'] ?? 'Aura',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w300,
-                                  ),
+                                  style: kBody(),
                                 ),
                                 if (hasErrors) ...[
                                   const SizedBox(width: 8),
@@ -369,7 +344,7 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
                                         '$errorCount error${errorCount == 1 ? '' : 's'} in last 12h',
                                     child: const Icon(
                                       Icons.warning_amber_outlined,
-                                      color: Colors.amberAccent,
+                                      color: kWarning,
                                       size: 14,
                                     ),
                                   ),
@@ -380,7 +355,7 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
                                     message: 'Update available',
                                     child: Icon(
                                       Icons.system_update_outlined,
-                                      color: Colors.amberAccent,
+                                      color: kWarning,
                                       size: 14,
                                     ),
                                   ),
@@ -395,17 +370,14 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
                                 if (status?['uptime_seconds'] != null)
                                   _formatUptime(status!['uptime_seconds']),
                               ].join(' · '),
-                              style: const TextStyle(
-                                color: Colors.white38,
-                                fontSize: 11,
-                              ),
+                              style: kMono(const Color(0x80FFFFFF)),
                             ),
                           ],
                         ),
                       ),
 
                       const Icon(Icons.chevron_right,
-                          color: Colors.white24, size: 18),
+                          color: Color(0x40FFFFFF), size: 18),
                     ],
                   ),
                 ),
@@ -420,26 +392,25 @@ class _DiagnosticsOverviewScreenState extends State<DiagnosticsOverviewScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'DIAGNOSTICS',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
       ),
       body: SafeArea(
-        child: _loading
-            ? _buildSkeleton()
-            : _error
-                ? _buildError()
-                : _buildContent(),
+        child: Container(
+          decoration: const BoxDecoration(gradient: kBgGradient),
+          child: _loading
+              ? _buildSkeleton()
+              : _error
+                  ? _buildError()
+                  : _buildContent(),
+        ),
       ),
     );
   }

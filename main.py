@@ -766,24 +766,20 @@ def main() -> None:
             if now_mono - last_update_check_at >= _UPDATE_CHECK_INTERVAL:
                 last_update_check_at = now_mono
 
-                if _cached_display_settings.get("dev_mode", False):
-                    _state["update_available"] = False
-                    log_info('update', 'Dev mode enabled — skipping update check')
-                else:
-                    def _run_update_check(s=_state):
-                        from aura.core import update_check as _uc
-                        try:
-                            available = _uc.is_update_available()
-                            if available and not s["update_available"]:
-                                remote_ver = _uc.get_remote_version()
-                                log_info('update', 'Update available', {'remote_version': remote_ver})
-                            s["update_available"] = available
-                        except Exception as exc:
-                            logger.warning("Update check failed: %s", exc)
+                def _run_update_check(s=_state):
+                    from aura.core import update_check as _uc
+                    try:
+                        available = _uc.is_update_available()
+                        if available and not s["update_available"]:
+                            remote_ver = _uc.get_remote_version()
+                            log_info('update', 'Update available', {'remote_version': remote_ver})
+                        s["update_available"] = available
+                    except Exception as exc:
+                        logger.warning("Update check failed: %s", exc)
 
-                    threading.Thread(
-                        target=_run_update_check, daemon=True, name="update-check"
-                    ).start()
+                threading.Thread(
+                    target=_run_update_check, daemon=True, name="update-check"
+                ).start()
 
             # ── Auto-update trigger (2–4 AM, once per available cycle) ────────
             if _state["update_available"] and not _auto_update_triggered:
@@ -791,8 +787,7 @@ def main() -> None:
                 _auto_enabled = str(_synced_settings.get("auto_update", "true")).lower() in (
                     "true", "1", "yes"
                 )
-                _dev_mode = _cached_display_settings.get("dev_mode", False)
-                if _auto_enabled and not _dev_mode and 2 <= _now_local.hour < 4:
+                if _auto_enabled and 2 <= _now_local.hour < 4:
                     trigger_auto_update()
                     log_info('update', 'Auto-update triggered', {'hour': _now_local.hour})
                     _auto_update_triggered = True

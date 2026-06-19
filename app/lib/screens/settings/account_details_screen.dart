@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
+import '../../theme/aura_theme.dart';
 import '../auth/login_screen.dart';
 
 class AccountDetailsScreen extends ConsumerStatefulWidget {
@@ -40,8 +41,8 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error, style: const TextStyle(color: Colors.white)),
-          backgroundColor: Colors.redAccent,
+          content: Text(error, style: kBody()),
+          backgroundColor: kError,
         ),
       );
       return;
@@ -55,12 +56,12 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
         _newPasswordCtrl.clear();
         _confirmPasswordCtrl.clear();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
               'Password updated',
-              style: TextStyle(color: Colors.white),
+              style: kBody(),
             ),
-            backgroundColor: Color(0xFF222222),
+            backgroundColor: kOnline,
           ),
         );
       }
@@ -70,9 +71,9 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
           SnackBar(
             content: Text(
               'Failed to update password: $e',
-              style: const TextStyle(color: Colors.white),
+              style: kBody(),
             ),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: kError,
           ),
         );
       }
@@ -84,33 +85,32 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
-          'SIGN OUT',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
-          ),
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: kCardBorder),
         ),
-        content: const Text(
+        title: Text(
+          'Sign Out',
+          style: kHeading(),
+        ),
+        content: Text(
           'Are you sure you want to sign out?',
-          style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
+          style: kCaption(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'CANCEL',
-              style: TextStyle(color: Colors.white70, letterSpacing: 2),
+            child: Text(
+              'Cancel',
+              style: kBody(),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'SIGN OUT',
-              style: TextStyle(color: Colors.redAccent, letterSpacing: 2),
+            child: Text(
+              'Sign Out',
+              style: kBody(kErrorText),
             ),
           ),
         ],
@@ -132,18 +132,14 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
     final email = ref.watch(authProvider).value?.email ?? '';
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'ACCOUNT DETAILS',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+        title: Text(
+          'Account Details',
+          style: kHeading(),
         ),
         actions: [
           AnimatedOpacity(
@@ -156,7 +152,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
                   width: 14,
                   height: 14,
                   child: CircularProgressIndicator(
-                    color: Colors.white38,
+                    color: kViolet,
                     strokeWidth: 1.5,
                   ),
                 ),
@@ -167,109 +163,117 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: Stack(
-          children: [
-            ListView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
-              children: [
-                // ── EMAIL ──────────────────────────────────────────────────
-                _sectionLabel('EMAIL'),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Colors.white12)),
-                  ),
-                  child: Text(
-                    email.isNotEmpty ? email : '—',
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // ── CHANGE PASSWORD ────────────────────────────────────────
-                _sectionLabel('CHANGE PASSWORD'),
-                const SizedBox(height: 16),
-                _PasswordField(
-                  label: 'NEW PASSWORD',
-                  controller: _newPasswordCtrl,
-                  obscure: _obscureNew,
-                  onToggle: () => setState(() => _obscureNew = !_obscureNew),
-                ),
-                const SizedBox(height: 20),
-                _PasswordField(
-                  label: 'CONFIRM PASSWORD',
-                  controller: _confirmPasswordCtrl,
-                  obscure: _obscureConfirm,
-                  onToggle: () =>
-                      setState(() => _obscureConfirm = !_obscureConfirm),
-                ),
-
-                const SizedBox(height: 32),
-
-                // ── SIGN OUT ───────────────────────────────────────────────
-                _sectionLabel('ACCOUNT'),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: _signOut,
-                  child: Container(
+        child: Container(
+          decoration: const BoxDecoration(gradient: kBgGradient),
+          child: Stack(
+            children: [
+              ListView(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+                children: [
+                  // ── EMAIL ──────────────────────────────────────────────────
+                  _sectionLabel('EMAIL'),
+                  const SizedBox(height: 12),
+                  Container(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: const BoxDecoration(
-                      border:
-                          Border(bottom: BorderSide(color: Colors.white12)),
+                      border: Border(bottom: BorderSide(color: kRowDivider)),
                     ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.logout, color: Colors.redAccent, size: 20),
-                        SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            'Sign Out',
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      email.isNotEmpty ? email : '—',
+                      style: kBody(),
                     ),
                   ),
-                ),
-              ],
-            ),
 
-            // ── SAVE button ────────────────────────────────────────────────
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: SafeArea(
-                child: Container(
-                  color: Colors.black,
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-                  child: GestureDetector(
-                    onTap: _saving ? null : _onSave,
+                  const SizedBox(height: 32),
+
+                  // ── CHANGE PASSWORD ────────────────────────────────────────
+                  _sectionLabel('CHANGE PASSWORD'),
+                  const SizedBox(height: 16),
+                  _PasswordField(
+                    label: 'NEW PASSWORD',
+                    controller: _newPasswordCtrl,
+                    obscure: _obscureNew,
+                    onToggle: () => setState(() => _obscureNew = !_obscureNew),
+                  ),
+                  const SizedBox(height: 20),
+                  _PasswordField(
+                    label: 'CONFIRM PASSWORD',
+                    controller: _confirmPasswordCtrl,
+                    obscure: _obscureConfirm,
+                    onToggle: () =>
+                        setState(() => _obscureConfirm = !_obscureConfirm),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // ── SIGN OUT ───────────────────────────────────────────────
+                  _sectionLabel('ACCOUNT'),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: _signOut,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      color: _saving ? Colors.white24 : Colors.white,
-                      child: const Text(
-                        'SAVE',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 11,
-                          letterSpacing: 4,
-                          fontWeight: FontWeight.w500,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: const BoxDecoration(
+                        border:
+                            Border(bottom: BorderSide(color: kRowDivider)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.logout, color: kErrorText, size: 20),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              'Sign Out',
+                              style: kBody(kErrorText),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // ── SAVE button ────────────────────────────────────────────────
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(
+                  child: Container(
+                    color: kVoid,
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                    child: GestureDetector(
+                      onTap: _saving ? null : _onSave,
+                      child: Container(
+                        height: 55,
+                        decoration: BoxDecoration(
+                          gradient: _saving ? null : kPrimaryGradient,
+                          color: _saving ? const Color(0x1FFFFFFF) : null,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: _saving
+                              ? null
+                              : const [
+                                  BoxShadow(
+                                    color: Color(0x8C6366E8),
+                                    blurRadius: 22,
+                                    offset: Offset(0, 8),
+                                    spreadRadius: -12,
+                                  ),
+                                ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Save',
+                          style: kBody(),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -277,11 +281,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
 
   Widget _sectionLabel(String text) => Text(
         text,
-        style: const TextStyle(
-          fontSize: 10,
-          letterSpacing: 3,
-          color: Colors.white24,
-        ),
+        style: kLabel(),
       );
 }
 
@@ -305,36 +305,45 @@ class _PasswordField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white38,
-            fontSize: 10,
-            letterSpacing: 2,
-          ),
+          style: kLabel(),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          obscureText: obscure,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          decoration: InputDecoration(
-            hintText: '••••••••',
-            hintStyle: const TextStyle(color: Colors.white12),
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
-            ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
-            ),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 8),
-            suffixIcon: GestureDetector(
-              onTap: onToggle,
-              child: Icon(
-                obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                color: Colors.white24,
-                size: 18,
+        Container(
+          height: 54,
+          decoration: BoxDecoration(
+            color: const Color(0x0EFFFFFF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: kInputBorder),
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  obscureText: obscure,
+                  style: kBody(),
+                  decoration: InputDecoration(
+                    hintText: '••••••••',
+                    hintStyle: kBody(const Color(0x66FFFFFF)),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
               ),
-            ),
+              GestureDetector(
+                onTap: onToggle,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Icon(
+                    obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    color: const Color(0x66FFFFFF),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],

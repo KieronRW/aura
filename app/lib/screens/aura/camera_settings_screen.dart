@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../widgets/skeleton.dart';
+import '../../theme/aura_theme.dart';
 
 class CameraSettingsScreen extends StatefulWidget {
   final Map<String, dynamic> installation;
@@ -158,32 +159,25 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        shape: const RoundedRectangleBorder(),
+        backgroundColor: kCard,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
         contentPadding: const EdgeInsets.all(20),
         title: Text(
           title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            letterSpacing: 2,
-            fontWeight: FontWeight.w400,
-          ),
+          style: kHeading(),
         ),
         content: Text(
           body,
-          style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.6),
+          style: kBody(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'CLOSE',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                letterSpacing: 2,
-              ),
+              style: kBody(kVioletText),
             ),
           ),
         ],
@@ -193,27 +187,19 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
 
   Widget _sectionLabel(String text) => Text(
         text,
-        style: const TextStyle(
-          fontSize: 10,
-          letterSpacing: 3,
-          color: Colors.white24,
-        ),
+        style: kLabel(),
       );
 
   Widget _sectionLabelWithInfo(String label, String info) => Row(
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 10,
-              letterSpacing: 3,
-              color: Colors.white24,
-            ),
+            style: kLabel(),
           ),
           const SizedBox(width: 8),
           GestureDetector(
             onTap: () => _showInfo(label, info),
-            child: const Icon(Icons.info_outline, size: 12, color: Colors.white24),
+            child: const Icon(Icons.info_outline, size: 12, color: kCardBorder),
           ),
         ],
       );
@@ -221,18 +207,14 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'CAMERA',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
         actions: [
           AnimatedOpacity(
@@ -245,7 +227,7 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
                   width: 14,
                   height: 14,
                   child: CircularProgressIndicator(
-                    color: Colors.white38,
+                    color: kViolet,
                     strokeWidth: 1.5,
                   ),
                 ),
@@ -254,228 +236,231 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
           ),
         ],
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: _loading
-            ? ListView(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: _MjpegView(url: '$_baseUrl/camera/stream'),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: const [
-                        SkeletonSettingsRow(),
-                        SizedBox(height: 20),
-                        SkeletonSettingsRow(),
-                        SizedBox(height: 4),
-                        SkeletonSettingsRow(),
-                        SizedBox(height: 20),
-                        SkeletonSettingsRow(),
-                        SizedBox(height: 4),
-                        SkeletonSettingsRow(),
-                        SizedBox(height: 4),
-                        SkeletonSettingsRow(),
-                      ],
+      body: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: _loading
+              ? ListView(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: _MjpegView(url: '$_baseUrl/camera/stream'),
                     ),
-                  ),
-                ],
-              )
-            : ListView(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: _MjpegView(url: '$_baseUrl/camera/stream'),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: const [
+                          SkeletonSettingsRow(),
+                          SizedBox(height: 20),
+                          SkeletonSettingsRow(),
+                          SizedBox(height: 4),
+                          SkeletonSettingsRow(),
+                          SizedBox(height: 20),
+                          SkeletonSettingsRow(),
+                          SizedBox(height: 4),
+                          SkeletonSettingsRow(),
+                          SizedBox(height: 4),
+                          SkeletonSettingsRow(),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : ListView(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: _MjpegView(url: '$_baseUrl/camera/stream'),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
 
-                        // ── 1. ORIENTATION ──────────────────────────────
-                        _sectionLabel('ORIENTATION'),
-                        const SizedBox(height: 16),
-                        _ToggleRow(
-                          label: 'HORIZONTAL FLIP',
-                          value: _settings['horizontal_flip'] as bool? ?? false,
-                          onChanged: (v) => _onToggleChanged('horizontal_flip', v),
-                        ),
-                        _ToggleRow(
-                          label: 'VERTICAL FLIP',
-                          value: _settings['vertical_flip'] as bool? ?? false,
-                          onChanged: (v) => _onToggleChanged('vertical_flip', v),
-                        ),
-                        const SizedBox(height: 20),
-                        _RotationSelector(
-                          value: _settings['rotation'] as int? ?? 0,
-                          onChanged: _onRotationChanged,
-                        ),
+                          // ── 1. ORIENTATION ──────────────────────────────
+                          _sectionLabel('ORIENTATION'),
+                          const SizedBox(height: 16),
+                          _ToggleRow(
+                            label: 'HORIZONTAL FLIP',
+                            value: _settings['horizontal_flip'] as bool? ?? false,
+                            onChanged: (v) => _onToggleChanged('horizontal_flip', v),
+                          ),
+                          _ToggleRow(
+                            label: 'VERTICAL FLIP',
+                            value: _settings['vertical_flip'] as bool? ?? false,
+                            onChanged: (v) => _onToggleChanged('vertical_flip', v),
+                          ),
+                          const SizedBox(height: 20),
+                          _RotationSelector(
+                            value: _settings['rotation'] as int? ?? 0,
+                            onChanged: _onRotationChanged,
+                          ),
 
-                        // ── 2. SLIDERS ───────────────────────────────────
-                        const SizedBox(height: 28),
-                        _sectionLabelWithInfo(
-                          'SLIDERS',
-                          'Sharpness adjusts edge detail from smooth (0) to maximum (100).',
-                        ),
-                        const SizedBox(height: 12),
-                        _SliderRow(
-                          label: 'BRIGHTNESS',
-                          value: (_settings['brightness'] as num).toDouble(),
-                          min: 0,
-                          max: 100,
-                          divisions: 100,
-                          onChanged: (v) => _onSliderChanged('brightness', v),
-                        ),
-                        _SliderRow(
-                          label: 'CONTRAST',
-                          value: (_settings['contrast'] as num).toDouble(),
-                          min: 0,
-                          max: 100,
-                          divisions: 100,
-                          onChanged: (v) => _onSliderChanged('contrast', v),
-                        ),
-                        _SliderRow(
-                          label: 'EXPOSURE',
-                          value: (_settings['exposure'] as num).toDouble(),
-                          min: -50,
-                          max: 50,
-                          divisions: 100,
-                          onChanged: (v) => _onSliderChanged('exposure', v),
-                        ),
-                        _SliderRow(
-                          label: 'SHARPNESS',
-                          value: (_settings['sharpness'] as num).toDouble(),
-                          min: 0,
-                          max: 100,
-                          divisions: 100,
-                          onChanged: (v) => _onSliderChanged('sharpness', v),
-                        ),
-                        _SliderRow(
-                          label: 'SENSITIVITY',
-                          value: (_settings['motion_sensitivity'] as num).toDouble(),
-                          min: 0,
-                          max: 100,
-                          divisions: 100,
-                          onChanged: (v) => _onSliderChanged('motion_sensitivity', v),
-                        ),
+                          // ── 2. SLIDERS ───────────────────────────────────
+                          const SizedBox(height: 28),
+                          _sectionLabelWithInfo(
+                            'SLIDERS',
+                            'Sharpness adjusts edge detail from smooth (0) to maximum (100).',
+                          ),
+                          const SizedBox(height: 12),
+                          _SliderRow(
+                            label: 'BRIGHTNESS',
+                            value: (_settings['brightness'] as num).toDouble(),
+                            min: 0,
+                            max: 100,
+                            divisions: 100,
+                            onChanged: (v) => _onSliderChanged('brightness', v),
+                          ),
+                          _SliderRow(
+                            label: 'CONTRAST',
+                            value: (_settings['contrast'] as num).toDouble(),
+                            min: 0,
+                            max: 100,
+                            divisions: 100,
+                            onChanged: (v) => _onSliderChanged('contrast', v),
+                          ),
+                          _SliderRow(
+                            label: 'EXPOSURE',
+                            value: (_settings['exposure'] as num).toDouble(),
+                            min: -50,
+                            max: 50,
+                            divisions: 100,
+                            onChanged: (v) => _onSliderChanged('exposure', v),
+                          ),
+                          _SliderRow(
+                            label: 'SHARPNESS',
+                            value: (_settings['sharpness'] as num).toDouble(),
+                            min: 0,
+                            max: 100,
+                            divisions: 100,
+                            onChanged: (v) => _onSliderChanged('sharpness', v),
+                          ),
+                          _SliderRow(
+                            label: 'SENSITIVITY',
+                            value: (_settings['motion_sensitivity'] as num).toDouble(),
+                            min: 0,
+                            max: 100,
+                            divisions: 100,
+                            onChanged: (v) => _onSliderChanged('motion_sensitivity', v),
+                          ),
 
-                        // ── 3. MODES ─────────────────────────────────────
-                        const SizedBox(height: 28),
-                        _sectionLabel('MODES'),
-                        const SizedBox(height: 12),
-                        _DropdownRow(
-                          label: 'HDR MODE',
-                          onInfo: () => _showInfo(
-                            'HDR',
-                            'High Dynamic Range blends multiple exposures to retain detail in highlights and shadows simultaneously.',
+                          // ── 3. MODES ─────────────────────────────────────
+                          const SizedBox(height: 28),
+                          _sectionLabel('MODES'),
+                          const SizedBox(height: 12),
+                          _DropdownRow(
+                            label: 'HDR MODE',
+                            onInfo: () => _showInfo(
+                              'HDR',
+                              'High Dynamic Range blends multiple exposures to retain detail in highlights and shadows simultaneously.',
+                            ),
+                            options: const {
+                              'off': 'Off',
+                              'single': 'Single',
+                              'multi': 'Multi',
+                              'night': 'Night',
+                            },
+                            value: _settings['hdr_mode'] as String? ?? 'off',
+                            onChanged: (v) => _onStringChanged('hdr_mode', v),
                           ),
-                          options: const {
-                            'off': 'Off',
-                            'single': 'Single',
-                            'multi': 'Multi',
-                            'night': 'Night',
-                          },
-                          value: _settings['hdr_mode'] as String? ?? 'off',
-                          onChanged: (v) => _onStringChanged('hdr_mode', v),
-                        ),
-                        const SizedBox(height: 20),
-                        _DropdownRow(
-                          label: 'FLICKER CORRECTION',
-                          onInfo: () => _showInfo(
-                            'Flicker Correction',
-                            'Matches the camera shutter to your mains frequency to eliminate banding under fluorescent or LED lighting.',
+                          const SizedBox(height: 20),
+                          _DropdownRow(
+                            label: 'FLICKER CORRECTION',
+                            onInfo: () => _showInfo(
+                              'Flicker Correction',
+                              'Matches the camera shutter to your mains frequency to eliminate banding under fluorescent or LED lighting.',
+                            ),
+                            options: const {
+                              '0': 'Off',
+                              '20000': '50 Hz',
+                              '16667': '60 Hz',
+                            },
+                            value: (_settings['flicker_period_us'] as int? ?? 0).toString(),
+                            onChanged: (v) => _onIntChoiceChanged(
+                              'flicker_period_us',
+                              int.parse(v),
+                            ),
                           ),
-                          options: const {
-                            '0': 'Off',
-                            '20000': '50 Hz',
-                            '16667': '60 Hz',
-                          },
-                          value: (_settings['flicker_period_us'] as int? ?? 0).toString(),
-                          onChanged: (v) => _onIntChoiceChanged(
-                            'flicker_period_us',
-                            int.parse(v),
+                          const SizedBox(height: 20),
+                          _DropdownRow(
+                            label: 'AUTOFOCUS MODE',
+                            onInfo: () => _showInfo(
+                              'Autofocus',
+                              'Continuous refocuses in real time. Auto triggers once on demand. Manual locks focus at the distance set by the Lens Position slider below.',
+                            ),
+                            options: const {
+                              'continuous': 'Continuous',
+                              'auto': 'Auto',
+                              'manual': 'Manual',
+                            },
+                            value: _settings['af_mode'] as String? ?? 'continuous',
+                            onChanged: _onAfModeChanged,
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        _DropdownRow(
-                          label: 'AUTOFOCUS MODE',
-                          onInfo: () => _showInfo(
-                            'Autofocus',
-                            'Continuous refocuses in real time. Auto triggers once on demand. Manual locks focus at the distance set by the Lens Position slider below.',
-                          ),
-                          options: const {
-                            'continuous': 'Continuous',
-                            'auto': 'Auto',
-                            'manual': 'Manual',
-                          },
-                          value: _settings['af_mode'] as String? ?? 'continuous',
-                          onChanged: _onAfModeChanged,
-                        ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeInOut,
-                          alignment: Alignment.topCenter,
-                          child: _settings['af_mode'] == 'manual'
-                              ? Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: _SliderRow(
-                                    label: 'LENS POSITION',
-                                    value: (_settings['lens_position'] as num)
-                                        .toDouble()
-                                        .clamp(0.0, 10.0),
-                                    min: 0.0,
-                                    max: 10.0,
-                                    divisions: 100,
-                                    labelFormatter: (v) => v.toStringAsFixed(1),
-                                    onChanged: (v) =>
-                                        _onFloatSliderChanged('lens_position', v),
-                                    onInfo: () => _showInfo(
-                                      'LENS POSITION',
-                                      'Manual focus distance. 0 = infinity (far focus), higher values = closer focus. Adjust until the vehicle area appears sharp.',
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            alignment: Alignment.topCenter,
+                            child: _settings['af_mode'] == 'manual'
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 12),
+                                    child: _SliderRow(
+                                      label: 'LENS POSITION',
+                                      value: (_settings['lens_position'] as num)
+                                          .toDouble()
+                                          .clamp(0.0, 10.0),
+                                      min: 0.0,
+                                      max: 10.0,
+                                      divisions: 100,
+                                      labelFormatter: (v) => v.toStringAsFixed(1),
+                                      onChanged: (v) =>
+                                          _onFloatSliderChanged('lens_position', v),
+                                      onInfo: () => _showInfo(
+                                        'LENS POSITION',
+                                        'Manual focus distance. 0 = infinity (far focus), higher values = closer focus. Adjust until the vehicle area appears sharp.',
+                                      ),
                                     ),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                        const SizedBox(height: 20),
-                        _DropdownRow(
-                          label: 'DENOISE',
-                          options: const {
-                            'off': 'Off',
-                            'fast': 'Fast',
-                            'high_quality': 'High Quality',
-                          },
-                          value: _settings['denoise_mode'] as String? ?? 'fast',
-                          onChanged: (v) => _onStringChanged('denoise_mode', v),
-                        ),
-                        const SizedBox(height: 20),
-                        _DropdownRow(
-                          label: 'WHITE BALANCE',
-                          onInfo: () => _showInfo(
-                            'White Balance',
-                            'Corrects colour cast caused by the ambient light source. Auto adjusts continuously.',
+                                  )
+                                : const SizedBox.shrink(),
                           ),
-                          options: const {
-                            'auto': 'Auto',
-                            'daylight': 'Daylight',
-                            'cloudy': 'Cloudy',
-                            'tungsten': 'Tungsten',
-                            'fluorescent': 'Fluorescent',
-                            'indoor': 'Indoor',
-                            'incandescent': 'Incandescent',
-                          },
-                          value: _settings['awb_mode'] as String? ?? 'auto',
-                          onChanged: (v) => _onStringChanged('awb_mode', v),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
+                          const SizedBox(height: 20),
+                          _DropdownRow(
+                            label: 'DENOISE',
+                            options: const {
+                              'off': 'Off',
+                              'fast': 'Fast',
+                              'high_quality': 'High Quality',
+                            },
+                            value: _settings['denoise_mode'] as String? ?? 'fast',
+                            onChanged: (v) => _onStringChanged('denoise_mode', v),
+                          ),
+                          const SizedBox(height: 20),
+                          _DropdownRow(
+                            label: 'WHITE BALANCE',
+                            onInfo: () => _showInfo(
+                              'White Balance',
+                              'Corrects colour cast caused by the ambient light source. Auto adjusts continuously.',
+                            ),
+                            options: const {
+                              'auto': 'Auto',
+                              'daylight': 'Daylight',
+                              'cloudy': 'Cloudy',
+                              'tungsten': 'Tungsten',
+                              'fluorescent': 'Fluorescent',
+                              'indoor': 'Indoor',
+                              'incandescent': 'Incandescent',
+                            },
+                            value: _settings['awb_mode'] as String? ?? 'auto',
+                            onChanged: (v) => _onStringChanged('awb_mode', v),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -581,11 +566,11 @@ class _MjpegViewState extends State<_MjpegView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.videocam_off_outlined, color: Colors.white24, size: 32),
+              Icon(Icons.videocam_off_outlined, color: Color(0x40FFFFFF), size: 32),
               SizedBox(height: 8),
               Text(
                 'Stream unavailable',
-                style: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 1),
+                style: TextStyle(color: Color(0x40FFFFFF), fontSize: 12, letterSpacing: 1),
               ),
             ],
           ),
@@ -596,7 +581,7 @@ class _MjpegViewState extends State<_MjpegView> {
       return Container(
         color: const Color(0xFF0A0A0A),
         child: const Center(
-          child: CircularProgressIndicator(color: Colors.white24, strokeWidth: 1),
+          child: CircularProgressIndicator(color: kViolet, strokeWidth: 1.5),
         ),
       );
     }
@@ -643,11 +628,7 @@ class _SliderRow extends StatelessWidget {
                       Expanded(
                         child: Text(
                           label,
-                          style: const TextStyle(
-                            color: Colors.white38,
-                            fontSize: 11,
-                            letterSpacing: 1.5,
-                          ),
+                          style: kCaption(),
                         ),
                       ),
                       GestureDetector(
@@ -655,25 +636,21 @@ class _SliderRow extends StatelessWidget {
                         child: const Icon(
                           Icons.info_outline,
                           size: 12,
-                          color: Colors.white24,
+                          color: Color(0x40FFFFFF),
                         ),
                       ),
                     ],
                   )
                 : Text(
                     label,
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 11,
-                      letterSpacing: 1.5,
-                    ),
+                    style: kCaption(),
                   ),
           ),
           Expanded(
             child: SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                activeTrackColor: Colors.white38,
-                inactiveTrackColor: Colors.white12,
+                activeTrackColor: kViolet,
+                inactiveTrackColor: const Color(0x1FFFFFFF),
                 thumbColor: Colors.white,
                 overlayColor: Colors.white.withAlpha(20),
                 trackHeight: 1,
@@ -696,7 +673,7 @@ class _SliderRow extends StatelessWidget {
                   ? labelFormatter!(value)
                   : value.round().toString(),
               textAlign: TextAlign.end,
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
+              style: kCaption(),
             ),
           ),
         ],
@@ -725,28 +702,23 @@ class _ToggleRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+        border: Border(bottom: BorderSide(color: kRowDivider)),
       ),
       child: Row(
         children: [
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w300,
-                letterSpacing: 0.5,
-              ),
+              style: kBody(),
             ),
           ),
           Switch(
             value: value,
             onChanged: onChanged,
             activeThumbColor: Colors.white,
-            activeTrackColor: Colors.white38,
+            activeTrackColor: kViolet,
             inactiveThumbColor: Colors.white38,
-            inactiveTrackColor: Colors.white12,
+            inactiveTrackColor: const Color(0x1FFFFFFF),
           ),
         ],
       ),
@@ -769,13 +741,9 @@ class _RotationSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'ROTATION',
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: 11,
-            letterSpacing: 1.5,
-          ),
+          style: kLabel(),
         ),
         const SizedBox(height: 12),
         Row(
@@ -791,14 +759,15 @@ class _RotationSelector extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: selected ? Colors.white : Colors.transparent,
                     border: Border.all(
-                      color: selected ? Colors.white : Colors.white24,
+                      color: selected ? Colors.white : kCardBorder,
                     ),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
                     '$deg°',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: selected ? Colors.black : Colors.white38,
+                      color: selected ? Colors.black : const Color(0x66FFFFFF),
                       fontSize: 12,
                       letterSpacing: 1,
                     ),
@@ -841,35 +810,31 @@ class _DropdownRow extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 11,
-                letterSpacing: 1.5,
-              ),
+              style: kLabel(),
             ),
             if (onInfo != null) ...[
               const SizedBox(width: 6),
               GestureDetector(
                 onTap: onInfo,
-                child: const Icon(Icons.info_outline, size: 12, color: Colors.white24),
+                child: const Icon(Icons.info_outline, size: 12, color: Color(0x40FFFFFF)),
               ),
             ],
           ],
         ),
         DropdownButtonFormField<String>(
           initialValue: value,
-          dropdownColor: const Color(0xFF111111),
-          style: const TextStyle(color: Colors.white, fontSize: 13),
-          iconEnabledColor: Colors.white38,
-          decoration: const InputDecoration(
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
+          dropdownColor: kCard,
+          style: kBody(),
+          iconEnabledColor: const Color(0x66FFFFFF),
+          decoration: InputDecoration(
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: kInputBorder),
             ),
             focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white38),
+              borderSide: BorderSide(color: kCardBorder),
             ),
             isDense: true,
-            contentPadding: EdgeInsets.symmetric(vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
           ),
           items: options.entries
               .map(
@@ -877,7 +842,7 @@ class _DropdownRow extends StatelessWidget {
                   value: e.key,
                   child: Text(
                     e.value,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: kBody(),
                   ),
                 ),
               )

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../widgets/skeleton.dart';
+import '../../theme/aura_theme.dart';
 
 class DisplaySettingsScreen extends StatefulWidget {
   final Map<String, dynamic> installation;
@@ -25,7 +26,6 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
     'show_weather': false,
     'status_bar_scale': 100,
     'auto_update': true,
-    'dev_mode': false,
   };
   bool _loading = true;
   bool _saving = false;
@@ -75,11 +75,6 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
     _postSetting('auto_update', value);
   }
 
-  void _onDevModeChanged(bool value) {
-    setState(() => _settings['dev_mode'] = value);
-    _postSetting('dev_mode', value);
-  }
-
   Future<void> _postSetting(String key, dynamic value) async {
     if (!mounted) return;
     setState(() => _saving = true);
@@ -98,18 +93,14 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'DISPLAY',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
         actions: [
           AnimatedOpacity(
@@ -122,7 +113,7 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
                   width: 14,
                   height: 14,
                   child: CircularProgressIndicator(
-                    color: Colors.white38,
+                    color: kViolet,
                     strokeWidth: 1.5,
                   ),
                 ),
@@ -131,110 +122,92 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
           ),
         ],
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: _loading
-            ? ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  const SkeletonSettingsRow(),
-                  const SizedBox(height: 20),
-                  const SkeletonSettingsRow(),
-                  const SizedBox(height: 4),
-                  const SkeletonSettingsRow(),
-                  const SizedBox(height: 20),
-                  const SkeletonSettingsRow(),
-                  const SizedBox(height: 4),
-                  const SkeletonSettingsRow(),
-                ],
-              )
-            : ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _sectionLabel('ORIENTATION'),
-                        const SizedBox(height: 16),
-                        _RotationSelector(
-                          value: _settings['display_rotation'] as int? ?? 0,
-                          onChanged: _onRotationChanged,
-                        ),
-                        const SizedBox(height: 32),
-                        _sectionLabel('STATUS BAR'),
-                        const SizedBox(height: 4),
-                        _ToggleRow(
-                          title: 'Show time',
-                          subtitle: 'Display clock in the bottom bar',
-                          value: _settings['show_time'] as bool? ?? false,
-                          onChanged: _onShowTimeChanged,
-                        ),
-                        _ToggleRow(
-                          title: 'Show weather',
-                          subtitle: 'Display temperature and conditions',
-                          value: _settings['show_weather'] as bool? ?? false,
-                          onChanged: _onShowWeatherChanged,
-                        ),
-                        const SizedBox(height: 24),
-                        _sectionLabel('STATUS BAR SIZE'),
-                        const SizedBox(height: 4),
-                        _SliderRow(
-                          title: 'Scale',
-                          subtitle: 'Resize the status bar and its content',
-                          value: (_settings['status_bar_scale'] as num? ?? 100).toDouble(),
-                          min: 50,
-                          max: 200,
-                          divisions: 15,
-                          label: '${(_settings['status_bar_scale'] as num? ?? 100).round()}%',
-                          onChanged: (v) => setState(
-                            () => _settings['status_bar_scale'] = v.round(),
+      body: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: _loading
+              ? ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    const SkeletonSettingsRow(),
+                    const SizedBox(height: 20),
+                    const SkeletonSettingsRow(),
+                    const SizedBox(height: 4),
+                    const SkeletonSettingsRow(),
+                    const SizedBox(height: 20),
+                    const SkeletonSettingsRow(),
+                    const SizedBox(height: 4),
+                    const SkeletonSettingsRow(),
+                  ],
+                )
+              : ListView(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _sectionLabel('ORIENTATION'),
+                          const SizedBox(height: 16),
+                          _RotationSelector(
+                            value: _settings['display_rotation'] as int? ?? 0,
+                            onChanged: _onRotationChanged,
                           ),
-                          onChangeEnd: (v) =>
-                              _postSetting('status_bar_scale', v.round()),
-                        ),
-                        const SizedBox(height: 32),
-                        _sectionLabel('UPDATES'),
-                        const SizedBox(height: 4),
-                        _ToggleRow(
-                          title: 'Automatic Updates',
-                          subtitle: 'Mirror updates automatically between 2–4 AM',
-                          value: _settings['auto_update'] as bool? ?? true,
-                          onChanged: _onAutoUpdateChanged,
-                          disabled: _settings['dev_mode'] as bool? ?? false,
-                          disabledReason: 'Disabled in Developer Mode',
-                        ),
-                        const SizedBox(height: 32),
-                        _sectionLabel('DEVELOPER'),
-                        const SizedBox(height: 4),
-                        Container(
-                          color: (_settings['dev_mode'] as bool? ?? false)
-                              ? Colors.amber.withValues(alpha: 0.05)
-                              : Colors.transparent,
-                          child: _ToggleRow(
-                            title: 'Developer Mode',
-                            subtitle:
-                                'Suppresses update notifications and disables auto-updates. For development units only.',
-                            value: _settings['dev_mode'] as bool? ?? false,
-                            onChanged: _onDevModeChanged,
+                          const SizedBox(height: 32),
+                          _sectionLabel('STATUS BAR'),
+                          const SizedBox(height: 4),
+                          _ToggleRow(
+                            title: 'Show time',
+                            subtitle: 'Display clock in the bottom bar',
+                            value: _settings['show_time'] as bool? ?? false,
+                            onChanged: _onShowTimeChanged,
                           ),
-                        ),
-                      ],
+                          _ToggleRow(
+                            title: 'Show weather',
+                            subtitle: 'Display temperature and conditions',
+                            value: _settings['show_weather'] as bool? ?? false,
+                            onChanged: _onShowWeatherChanged,
+                          ),
+                          const SizedBox(height: 24),
+                          _sectionLabel('STATUS BAR SIZE'),
+                          const SizedBox(height: 4),
+                          _SliderRow(
+                            title: 'Scale',
+                            subtitle: 'Resize the status bar and its content',
+                            value: (_settings['status_bar_scale'] as num? ?? 100).toDouble(),
+                            min: 50,
+                            max: 200,
+                            divisions: 15,
+                            label: '${(_settings['status_bar_scale'] as num? ?? 100).round()}%',
+                            onChanged: (v) => setState(
+                              () => _settings['status_bar_scale'] = v.round(),
+                            ),
+                            onChangeEnd: (v) =>
+                                _postSetting('status_bar_scale', v.round()),
+                          ),
+                          const SizedBox(height: 32),
+                          _sectionLabel('UPDATES'),
+                          const SizedBox(height: 4),
+                          _ToggleRow(
+                            title: 'Automatic Updates',
+                            subtitle: 'Mirror updates automatically between 2–4 AM',
+                            value: _settings['auto_update'] as bool? ?? true,
+                            onChanged: _onAutoUpdateChanged,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+        ),
       ),
     );
   }
 
   Widget _sectionLabel(String text) => Text(
         text,
-        style: const TextStyle(
-          fontSize: 10,
-          letterSpacing: 3,
-          color: Colors.white24,
-        ),
+        style: kLabel(),
       );
 }
 
@@ -247,37 +220,20 @@ class _ToggleRow extends StatelessWidget {
   final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
-  final bool disabled;
-  final String? disabledReason;
 
   const _ToggleRow({
     required this.title,
     required this.subtitle,
     required this.value,
     required this.onChanged,
-    this.disabled = false,
-    this.disabledReason,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget sw = Switch(
-      value: value,
-      onChanged: disabled ? null : onChanged,
-      activeThumbColor: Colors.white,
-      activeTrackColor: Colors.white38,
-      inactiveThumbColor: Colors.white38,
-      inactiveTrackColor: Colors.white12,
-    );
-
-    if (disabled && disabledReason != null) {
-      sw = Tooltip(message: disabledReason!, child: sw);
-    }
-
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+        border: Border(bottom: BorderSide(color: kRowDivider)),
       ),
       child: Row(
         children: [
@@ -287,23 +243,23 @@ class _ToggleRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    color: disabled ? Colors.white24 : Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w300,
-                  ),
+                  style: kBody(),
                 ),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    color: disabled ? Colors.white12 : Colors.white38,
-                    fontSize: 12,
-                  ),
+                  style: kCaption(),
                 ),
               ],
             ),
           ),
-          sw,
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: Colors.white,
+            activeTrackColor: kViolet,
+            inactiveThumbColor: Colors.white38,
+            inactiveTrackColor: const Color(0x1FFFFFFF),
+          ),
         ],
       ),
     );
@@ -342,7 +298,7 @@ class _SliderRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+        border: Border(bottom: BorderSide(color: kRowDivider)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,26 +311,17 @@ class _SliderRow extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w300,
-                    ),
+                    style: kBody(),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                    style: kCaption(),
                   ),
                 ],
               ),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 1,
-                ),
+                style: kBody(),
               ),
             ],
           ),
@@ -382,8 +329,8 @@ class _SliderRow extends StatelessWidget {
             data: SliderThemeData(
               trackHeight: 1.5,
               thumbColor: Colors.white,
-              activeTrackColor: Colors.white38,
-              inactiveTrackColor: Colors.white12,
+              activeTrackColor: kViolet,
+              inactiveTrackColor: const Color(0x1FFFFFFF),
               overlayColor: Colors.white10,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
@@ -418,13 +365,9 @@ class _RotationSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'ROTATION',
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: 11,
-            letterSpacing: 1.5,
-          ),
+          style: kLabel(),
         ),
         const SizedBox(height: 12),
         Row(
@@ -440,14 +383,15 @@ class _RotationSelector extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: selected ? Colors.white : Colors.transparent,
                     border: Border.all(
-                      color: selected ? Colors.white : Colors.white24,
+                      color: selected ? Colors.white : kCardBorder,
                     ),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
                     '$deg°',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: selected ? Colors.black : Colors.white38,
+                      color: selected ? Colors.black : const Color(0x66FFFFFF),
                       fontSize: 12,
                       letterSpacing: 1,
                     ),

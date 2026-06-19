@@ -6,14 +6,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/installation_provider.dart';
 import '../../providers/visitor_provider.dart';
 import '../../widgets/skeleton.dart';
+import '../../theme/aura_theme.dart';
 
 // In-memory signed URL cache shared across all _UnknownRow instances
 final Map<String, String> _signedUrlCache = {};
 
 const _kSectionStyle = TextStyle(
-  fontSize: 11,
-  letterSpacing: 4,
-  color: Colors.white38,
+  fontSize: 12,
+  fontWeight: FontWeight.w600,
+  letterSpacing: 2,
+  color: Color(0x73FFFFFF),
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,10 +201,10 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
 
     if (profiles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No active profiles found for this installation'),
-          backgroundColor: Color(0xFF111111),
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: Text('No active profiles found for this installation', style: kBody()),
+          backgroundColor: kCard,
+          duration: const Duration(seconds: 3),
         ),
       );
       return;
@@ -210,7 +212,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
 
     final profile = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
-      backgroundColor: const Color(0xFF111111),
+      backgroundColor: kCard,
       builder: (_) => _ProfilePickerSheet(profiles: profiles),
     );
     if (profile == null || !context.mounted) return;
@@ -246,9 +248,9 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
   }
 
   static Color _statusColor(String status) {
-    if (status == 'ACTIVE') return Colors.greenAccent;
-    if (status == 'UPCOMING') return Colors.orangeAccent;
-    return Colors.white24;
+    if (status == 'ACTIVE') return kOnlineText;
+    if (status == 'UPCOMING') return kWarningText;
+    return const Color(0x40FFFFFF);
   }
 
   static String _formatWindow(Map<String, dynamic> v) {
@@ -338,85 +340,88 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
       );
     }
 
-    return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: _refresh,
-        color: Colors.white,
-        backgroundColor: const Color(0xFF111111),
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            // ── Section 1: EXPECTED VISITORS ─────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('EXPECTED VISITORS', style: _kSectionStyle),
-                GestureDetector(
-                  onTap: () => _openAddEdit(context, null),
-                  child: const Icon(Icons.add, color: Colors.white, size: 20),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (_visitors.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'Add a visitor to personalise their arrival',
-                  style: TextStyle(color: Colors.white24, fontSize: 13),
-                ),
-              )
-            else
-              ..._visitors.map((v) {
-                final status = _visitorStatus(v);
-                return _VisitorRow(
-                  visitor: v,
-                  status: status,
-                  statusColor: _statusColor(status),
-                  window: _formatWindow(v),
-                  onTap: () => _openAddEdit(context, v),
-                );
-              }),
-
-            const SizedBox(height: 36),
-
-            // ── Section 2: UNKNOWN VISITORS ───────────────────────────────
-            const Text('UNKNOWN VISITORS', style: _kSectionStyle),
-            const SizedBox(height: 12),
-            if (_unknownVehicles.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'No unknown visitors',
-                  style: TextStyle(color: Colors.white24, fontSize: 13),
-                ),
-              )
-            else
-              ..._unknownVehicles.map(
-                (uv) => _UnknownRow(
-                  vehicle: uv,
-                  onIgnore: () => _ignoreUnknown(uv['id']),
-                  onAddAsVisitor: () =>
-                      _openAddEdit(context, null, prefill: uv),
-                  onAddToProfile: () => _addToProfile(context, uv),
-                ),
+    return Container(
+      decoration: const BoxDecoration(gradient: kBgGradient),
+      child: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          color: kCyan,
+          backgroundColor: kCard,
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              // ── Section 1: EXPECTED VISITORS ─────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('EXPECTED VISITORS', style: _kSectionStyle),
+                  GestureDetector(
+                    onTap: () => _openAddEdit(context, null),
+                    child: const Icon(Icons.add, color: Colors.white, size: 20),
+                  ),
+                ],
               ),
+              const SizedBox(height: 12),
+              if (_visitors.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Add a visitor to personalise their arrival',
+                    style: kCaption(),
+                  ),
+                )
+              else
+                ..._visitors.map((v) {
+                  final status = _visitorStatus(v);
+                  return _VisitorRow(
+                    visitor: v,
+                    status: status,
+                    statusColor: _statusColor(status),
+                    window: _formatWindow(v),
+                    onTap: () => _openAddEdit(context, v),
+                  );
+                }),
 
-            const SizedBox(height: 36),
+              const SizedBox(height: 36),
 
-            // ── Section 3: VISITOR HISTORY ────────────────────────────────
-            const Text('VISITOR HISTORY', style: _kSectionStyle),
-            const SizedBox(height: 12),
-            if (_visitorHistory.isEmpty)
-              const Text(
-                'No visitor history',
-                style: TextStyle(color: Colors.white24, fontSize: 13),
-              )
-            else
-              ..._visitorHistory.map((e) => _HistoryRow(event: e)),
+              // ── Section 2: UNKNOWN VISITORS ───────────────────────────────
+              const Text('UNKNOWN VISITORS', style: _kSectionStyle),
+              const SizedBox(height: 12),
+              if (_unknownVehicles.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'No unknown visitors',
+                    style: kCaption(),
+                  ),
+                )
+              else
+                ..._unknownVehicles.map(
+                  (uv) => _UnknownRow(
+                    vehicle: uv,
+                    onIgnore: () => _ignoreUnknown(uv['id']),
+                    onAddAsVisitor: () =>
+                        _openAddEdit(context, null, prefill: uv),
+                    onAddToProfile: () => _addToProfile(context, uv),
+                  ),
+                ),
 
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 36),
+
+              // ── Section 3: VISITOR HISTORY ────────────────────────────────
+              const Text('VISITOR HISTORY', style: _kSectionStyle),
+              const SizedBox(height: 12),
+              if (_visitorHistory.isEmpty)
+                Text(
+                  'No visitor history',
+                  style: kCaption(),
+                )
+              else
+                ..._visitorHistory.map((e) => _HistoryRow(event: e)),
+
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
@@ -480,13 +485,13 @@ class _VisitorRowState extends State<_VisitorRow> {
     final vehicleLabel =
         [make, model].where((s) => s != null && s.isNotEmpty).join(' ');
 
-    final nameColor = _isActive ? Colors.white : Colors.white38;
-    final subColor = _isActive ? Colors.white38 : Colors.white24;
+    final nameColor = _isActive ? const Color(0xD9FFFFFF) : const Color(0x66FFFFFF);
+    final subColor = _isActive ? const Color(0x80FFFFFF) : const Color(0x40FFFFFF);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+        border: Border(bottom: BorderSide(color: kRowDivider)),
       ),
       child: Row(
         children: [
@@ -502,27 +507,17 @@ class _VisitorRowState extends State<_VisitorRow> {
                       children: [
                         Text(
                           name,
-                          style: TextStyle(
-                            color: nameColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w300,
-                          ),
+                          style: kBody(nameColor),
                         ),
                         if (vehicleLabel.isNotEmpty)
                           Text(
                             vehicleLabel,
-                            style: TextStyle(
-                              color: subColor,
-                              fontSize: 12,
-                            ),
+                            style: kCaption(subColor),
                           ),
                         const SizedBox(height: 2),
                         Text(
                           widget.window,
-                          style: TextStyle(
-                            color: subColor,
-                            fontSize: 11,
-                          ),
+                          style: kCaption(subColor),
                         ),
                       ],
                     ),
@@ -532,7 +527,7 @@ class _VisitorRowState extends State<_VisitorRow> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white12),
+                        border: Border.all(color: kCardBorder),
                       ),
                       child: Text(
                         widget.status,
@@ -545,7 +540,7 @@ class _VisitorRowState extends State<_VisitorRow> {
                     ),
                   const SizedBox(width: 8),
                   const Icon(Icons.chevron_right,
-                      color: Colors.white24, size: 18),
+                      color: Color(0x40FFFFFF), size: 18),
                   const SizedBox(width: 4),
                 ],
               ),
@@ -555,9 +550,9 @@ class _VisitorRowState extends State<_VisitorRow> {
             value: _isActive,
             onChanged: (_) => _toggleActive(),
             activeThumbColor: Colors.white,
-            activeTrackColor: Colors.white24,
-            inactiveThumbColor: Colors.white38,
-            inactiveTrackColor: Colors.white12,
+            activeTrackColor: kViolet,
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: const Color(0x1FFFFFFF),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ],
@@ -641,8 +636,9 @@ class _UnknownRowState extends State<_UnknownRow> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
-        border: Border.all(color: Colors.white12),
+        color: kCard,
+        border: Border.all(color: kCardBorder),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,19 +648,25 @@ class _UnknownRowState extends State<_UnknownRow> {
               Container(
                 width: 64,
                 height: 48,
-                color: const Color(0xFF222222),
+                decoration: BoxDecoration(
+                  color: kCardDim,
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: _imageUrl != null
-                    ? Image.network(
-                        _imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Center(
-                          child: Icon(Icons.broken_image_outlined,
-                              color: Colors.white24, size: 20),
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          _imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const Center(
+                            child: Icon(Icons.broken_image_outlined,
+                                color: Color(0x66FFFFFF), size: 20),
+                          ),
                         ),
                       )
                     : const Center(
                         child: Icon(Icons.directions_car_outlined,
-                            color: Colors.white24, size: 20),
+                            color: Color(0x66FFFFFF), size: 20),
                       ),
               ),
               const SizedBox(width: 12),
@@ -676,29 +678,19 @@ class _UnknownRowState extends State<_UnknownRow> {
                       vehicleLabel.isNotEmpty
                           ? vehicleLabel
                           : 'Unknown vehicle',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w300,
-                      ),
+                      style: kBody(),
                     ),
                     const SizedBox(height: 3),
                     Row(
                       children: [
                         Text(
                           _formatTs(detectedAt),
-                          style: const TextStyle(
-                            color: Colors.white38,
-                            fontSize: 11,
-                          ),
+                          style: kCaption(),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '${(confidence * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                            color: Colors.white24,
-                            fontSize: 11,
-                          ),
+                          style: kCaption(const Color(0x40FFFFFF)),
                         ),
                       ],
                     ),
@@ -753,14 +745,15 @@ class _ActionButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 7),
           decoration: BoxDecoration(
             border: Border.all(
-              color: destructive ? Colors.redAccent.withValues(alpha: 0.4) : Colors.white12,
+              color: destructive ? kError.withValues(alpha: 0.4) : kCardBorder,
             ),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: destructive ? Colors.redAccent : Colors.white54,
+              color: destructive ? kErrorText : kVioletText,
               fontSize: 9,
               letterSpacing: 0.8,
             ),
@@ -804,11 +797,11 @@ class _HistoryRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+        border: Border(bottom: BorderSide(color: kRowDivider)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.person_outline, color: Colors.white24, size: 16),
+          const Icon(Icons.person_outline, color: Color(0x66FFFFFF), size: 16),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -816,22 +809,18 @@ class _HistoryRow extends StatelessWidget {
               children: [
                 Text(
                   visitorName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w300,
-                  ),
+                  style: kBody(),
                 ),
                 Text(
                   make,
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  style: kCaption(),
                 ),
               ],
             ),
           ),
           Text(
             _formatTs(arrivedAt),
-            style: const TextStyle(color: Colors.white24, fontSize: 11),
+            style: kCaption(const Color(0x40FFFFFF)),
           ),
         ],
       ),
@@ -1098,34 +1087,21 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
-          'DELETE VISITOR',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
-        content: const Text(
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text('DELETE VISITOR', style: kHeading()),
+        content: Text(
           'Delete this visitor? This cannot be undone.',
-          style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
+          style: kBody(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'CANCEL',
-              style: TextStyle(color: Colors.white70, letterSpacing: 1),
-            ),
+            child: Text('CANCEL', style: kBody(kVioletText).copyWith(letterSpacing: 1)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'DELETE',
-              style: TextStyle(color: Colors.redAccent, letterSpacing: 1),
-            ),
+            child: Text('DELETE', style: kBody(kErrorText).copyWith(letterSpacing: 1)),
           ),
         ],
       ),
@@ -1151,42 +1127,59 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
     int maxLines = 1,
     FocusNode? focusNode,
   }) {
-    return TextField(
-      controller: ctrl,
-      focusNode: focusNode,
-      style: const TextStyle(color: Colors.white),
-      maxLines: maxLines,
-      textCapitalization: TextCapitalization.sentences,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white38),
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white24),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white24),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: kCaption()),
+        const SizedBox(height: 8),
+        Container(
+          height: maxLines > 1 ? null : 54,
+          padding: maxLines > 1 ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12) : null,
+          decoration: BoxDecoration(
+            color: const Color(0x0EFFFFFF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: kInputBorder),
+          ),
+          child: Row(
+            children: [
+              if (maxLines <= 1) const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: ctrl,
+                  focusNode: focusNode,
+                  style: kBody(),
+                  maxLines: maxLines,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: kBody(const Color(0x66FFFFFF)),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: maxLines > 1
+                        ? EdgeInsets.zero
+                        : const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
+              if (maxLines <= 1) const SizedBox(width: 16),
+            ],
+          ),
         ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white),
-        ),
-      ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
           _isEditing ? 'EDIT VISITOR' : 'ADD VISITOR',
-          style: const TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
         actions: [
           if (_saving)
@@ -1196,8 +1189,8 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
-                  strokeWidth: 1,
-                  color: Colors.white24,
+                  strokeWidth: 1.5,
+                  color: kViolet,
                 ),
               ),
             )
@@ -1217,117 +1210,102 @@ class _AddEditVisitorScreenState extends ConsumerState<_AddEditVisitorScreen> {
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: _deleting
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white24,
-                  strokeWidth: 1,
-                ),
-              )
-            : SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  _buildField(
-                    _firstNameCtrl,
-                    'First Name *',
-                    'e.g. Simon',
-                    focusNode: _firstNameFocus,
+        child: Container(
+          decoration: const BoxDecoration(gradient: kBgGradient),
+          child: _deleting
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: kViolet,
+                    strokeWidth: 1.5,
                   ),
-                  const SizedBox(height: 16),
-                  _buildField(_lastNameCtrl, 'Last Name *', 'e.g. Andrews'),
-                  const SizedBox(height: 16),
-                  _buildField(_makeCtrl, 'Vehicle make', 'e.g. BMW'),
-                  const SizedBox(height: 16),
-                  _buildField(_modelCtrl, 'Vehicle model', 'e.g. 3 Series'),
-                  const SizedBox(height: 32),
-
-                  const Text(
-                    'ARRIVAL WINDOW',
-                    style: TextStyle(
-                      fontSize: 10,
-                      letterSpacing: 3,
-                      color: Colors.white24,
+                )
+              : SafeArea(
+                child: ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    _buildField(
+                      _firstNameCtrl,
+                      'First Name *',
+                      'e.g. Simon',
+                      focusNode: _firstNameFocus,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _DateTimeRow(
-                    label: 'From',
-                    value: _expectedFrom,
-                    onTap: () => _pickDateTime(true),
-                    onClear: () => setState(() => _expectedFrom = null),
-                  ),
-                  const SizedBox(height: 12),
-                  _DateTimeRow(
-                    label: 'Until',
-                    value: _expectedUntil,
-                    onTap: () => _pickDateTime(false),
-                    onClear: () => setState(() => _expectedUntil = null),
-                  ),
-
-                  const SizedBox(height: 32),
-                  const Text(
-                    'MESSAGES',
-                    style: TextStyle(
-                      fontSize: 10,
-                      letterSpacing: 3,
-                      color: Colors.white24,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildField(
-                    _preArrivalMsgCtrl,
-                    'Pre-arrival message',
-                    'Welcome Dr Andrews, please park here',
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildField(
-                    _arrivalMsgCtrl,
-                    'Arrival message',
-                    'Welcome Dr Andrews! Guest WiFi: 123456qwert',
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildField(
-                    _bayOccupiedMsgCtrl,
-                    'Bay occupied message',
-                    'Kindly use another bay, Dr Andrews is expected shortly',
-                    maxLines: 2,
-                  ),
-
-                  if (_error != null) ...[
                     const SizedBox(height: 16),
-                    Text(
-                      _error!,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
+                    _buildField(_lastNameCtrl, 'Last Name *', 'e.g. Andrews'),
+                    const SizedBox(height: 16),
+                    _buildField(_makeCtrl, 'Vehicle make', 'e.g. BMW'),
+                    const SizedBox(height: 16),
+                    _buildField(_modelCtrl, 'Vehicle model', 'e.g. 3 Series'),
+                    const SizedBox(height: 32),
 
-                  if (_isEditing) ...[
-                    const SizedBox(height: 48),
-                    Center(
-                      child: TextButton(
-                        onPressed: _delete,
-                        child: const Text(
-                          'DELETE VISITOR',
-                          style: TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 12,
-                            letterSpacing: 2,
+                    Text('ARRIVAL WINDOW', style: kCaption()),
+                    const SizedBox(height: 16),
+                    _DateTimeRow(
+                      label: 'From',
+                      value: _expectedFrom,
+                      onTap: () => _pickDateTime(true),
+                      onClear: () => setState(() => _expectedFrom = null),
+                    ),
+                    const SizedBox(height: 12),
+                    _DateTimeRow(
+                      label: 'Until',
+                      value: _expectedUntil,
+                      onTap: () => _pickDateTime(false),
+                      onClear: () => setState(() => _expectedUntil = null),
+                    ),
+
+                    const SizedBox(height: 32),
+                    Text('MESSAGES', style: kCaption()),
+                    const SizedBox(height: 16),
+                    _buildField(
+                      _preArrivalMsgCtrl,
+                      'Pre-arrival message',
+                      'Welcome Dr Andrews, please park here',
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildField(
+                      _arrivalMsgCtrl,
+                      'Arrival message',
+                      'Welcome Dr Andrews! Guest WiFi: 123456qwert',
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildField(
+                      _bayOccupiedMsgCtrl,
+                      'Bay occupied message',
+                      'Kindly use another bay, Dr Andrews is expected shortly',
+                      maxLines: 2,
+                    ),
+
+                    if (_error != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        _error!,
+                        style: kBody(kErrorText),
+                      ),
+                    ],
+
+                    if (_isEditing) ...[
+                      const SizedBox(height: 48),
+                      Center(
+                        child: TextButton(
+                          onPressed: _delete,
+                          child: Text(
+                            'DELETE VISITOR',
+                            style: kBody(kErrorText).copyWith(
+                              fontSize: 12,
+                              letterSpacing: 2,
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
+                    const SizedBox(height: 24),
                   ],
-                  const SizedBox(height: 24),
-                ],
+                ),
               ),
-            ),
         ),
+      ),
     );
   }
 }
@@ -1368,7 +1346,7 @@ class _DateTimeRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.white24)),
+          border: Border(bottom: BorderSide(color: kInputBorder)),
         ),
         child: Row(
           children: [
@@ -1376,17 +1354,14 @@ class _DateTimeRow extends StatelessWidget {
               width: 40,
               child: Text(
                 label,
-                style: const TextStyle(color: Colors.white38, fontSize: 14),
+                style: kCaption(),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 value != null ? _format(value!) : 'Tap to set',
-                style: TextStyle(
-                  color: value != null ? Colors.white : Colors.white24,
-                  fontSize: 14,
-                ),
+                style: value != null ? kBody() : kCaption(const Color(0x40FFFFFF)),
               ),
             ),
             if (value != null)
@@ -1394,7 +1369,7 @@ class _DateTimeRow extends StatelessWidget {
                 onTap: onClear,
                 child: const Padding(
                   padding: EdgeInsets.only(left: 8),
-                  child: Icon(Icons.clear, color: Colors.white24, size: 16),
+                  child: Icon(Icons.clear, color: Color(0x40FFFFFF), size: 16),
                 ),
               ),
           ],
@@ -1422,13 +1397,9 @@ class _ProfilePickerSheet extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: const Text(
+            child: Text(
               'SELECT PROFILE',
-              style: TextStyle(
-                fontSize: 11,
-                letterSpacing: 4,
-                color: Colors.white38,
-              ),
+              style: kCaption(),
             ),
           ),
           ...profiles.map(
@@ -1439,15 +1410,11 @@ class _ProfilePickerSheet extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.white12)),
+                  border: Border(bottom: BorderSide(color: kRowDivider)),
                 ),
                 child: Text(
                   p['display_name'] as String? ?? 'Unknown',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w300,
-                  ),
+                  style: kBody(),
                 ),
               ),
             ),
@@ -1568,43 +1535,57 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
     int maxLines = 1,
     FocusNode? focusNode,
   }) {
-    return TextField(
-      controller: ctrl,
-      focusNode: focusNode,
-      style: const TextStyle(color: Colors.white),
-      maxLines: maxLines,
-      textCapitalization: TextCapitalization.sentences,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white38),
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white24),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white24),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: kCaption()),
+        const SizedBox(height: 8),
+        Container(
+          height: maxLines > 1 ? null : 54,
+          padding: maxLines > 1 ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12) : null,
+          decoration: BoxDecoration(
+            color: const Color(0x0EFFFFFF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: kInputBorder),
+          ),
+          child: Row(
+            children: [
+              if (maxLines <= 1) const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: ctrl,
+                  focusNode: focusNode,
+                  style: kBody(),
+                  maxLines: maxLines,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: kBody(const Color(0x66FFFFFF)),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: maxLines > 1
+                        ? EdgeInsets.zero
+                        : const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
+              if (maxLines <= 1) const SizedBox(width: 16),
+            ],
+          ),
         ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white),
-        ),
-      ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'ADD VEHICLE',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
+        title: Text('ADD VEHICLE', style: kHeading()),
         actions: [
           if (_saving)
             const Padding(
@@ -1613,8 +1594,8 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
-                  strokeWidth: 1,
-                  color: Colors.white24,
+                  strokeWidth: 1.5,
+                  color: kViolet,
                 ),
               ),
             )
@@ -1634,36 +1615,38 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              Text(
-                'Profile: ${widget.profileName}',
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
+        child: Container(
+          decoration: const BoxDecoration(gradient: kBgGradient),
+          child: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                Text(
+                  'Profile: ${widget.profileName}',
+                  style: kCaption(),
+                ),
+                const SizedBox(height: 24),
+                _buildField(_makeCtrl, 'Make *', 'e.g. BMW'),
+                const SizedBox(height: 16),
+                _buildField(_modelCtrl, 'Model', 'e.g. 3 Series'),
+                const SizedBox(height: 16),
+                _buildField(_colourCtrl, 'Colour', 'e.g. White'),
+                const SizedBox(height: 16),
+                _buildField(_registrationCtrl, 'Registration', 'e.g. CA 123 456'),
+                const SizedBox(height: 16),
+                _buildField(_nicknameCtrl, 'Nickname', 'e.g. Dad\'s BMW'),
+                if (_error != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    _error!,
+                    style: kBody(kErrorText),
+                  ),
+                ],
+                const SizedBox(height: 24),
+              ],
             ),
-            const SizedBox(height: 24),
-            _buildField(_makeCtrl, 'Make *', 'e.g. BMW'),
-            const SizedBox(height: 16),
-            _buildField(_modelCtrl, 'Model', 'e.g. 3 Series'),
-            const SizedBox(height: 16),
-            _buildField(_colourCtrl, 'Colour', 'e.g. White'),
-            const SizedBox(height: 16),
-            _buildField(_registrationCtrl, 'Registration', 'e.g. CA 123 456'),
-            const SizedBox(height: 16),
-            _buildField(_nicknameCtrl, 'Nickname', 'e.g. Dad\'s BMW'),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                _error!,
-                style:
-                    const TextStyle(color: Colors.redAccent, fontSize: 13),
-              ),
-            ],
-            const SizedBox(height: 24),
-          ],
+          ),
         ),
-      ),
       ),
     );
   }

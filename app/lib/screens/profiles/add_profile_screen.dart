@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/profile_provider.dart';
+import '../../theme/aura_theme.dart';
 
 class AddProfileScreen extends ConsumerStatefulWidget {
   final String installationId;
@@ -60,7 +61,7 @@ class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
   void _showAvatarSourceDialog() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF111111),
+      backgroundColor: kCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -73,7 +74,7 @@ class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: kCardBorder,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -81,11 +82,11 @@ class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
             ListTile(
               leading: const Icon(
                 Icons.camera_alt_outlined,
-                color: Colors.white38,
+                color: Color(0x66FFFFFF),
               ),
-              title: const Text(
+              title: Text(
                 'Take photo',
-                style: TextStyle(color: Colors.white),
+                style: kBody(),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -95,11 +96,11 @@ class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
             ListTile(
               leading: const Icon(
                 Icons.photo_library_outlined,
-                color: Colors.white38,
+                color: Color(0x66FFFFFF),
               ),
-              title: const Text(
+              title: Text(
                 'Choose from library',
-                style: TextStyle(color: Colors.white),
+                style: kBody(),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -175,18 +176,14 @@ class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'ADD PROFILE',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
         actions: [
           TextButton(
@@ -194,7 +191,7 @@ class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
             child: Text(
               'SAVE',
               style: TextStyle(
-                color: _canSave ? Colors.white : Colors.white24,
+                color: _canSave ? Colors.white : const Color(0x40FFFFFF),
                 letterSpacing: 2,
                 fontSize: 13,
               ),
@@ -205,119 +202,126 @@ class _AddProfileScreenState extends ConsumerState<AddProfileScreen> {
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SafeArea(
-          child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            // Avatar picker
-            Center(
-              child: GestureDetector(
-                onTap: _showAvatarSourceDialog,
-                child: Stack(
-                  children: [
-                    Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white24),
-                        color: const Color(0xFF111111),
-                      ),
-                      child: ClipOval(
-                        child: _avatarFile != null
-                            ? Image.file(_avatarFile!, fit: BoxFit.cover)
-                            : const Center(
-                                child: Icon(
-                                  Icons.person_outline,
-                                  color: Colors.white38,
-                                  size: 36,
-                                ),
-                              ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 28,
-                        height: 28,
+          child: Container(
+            decoration: const BoxDecoration(gradient: kBgGradient),
+            child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              // Avatar picker
+              Center(
+                child: GestureDetector(
+                  onTap: _showAvatarSourceDialog,
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 88,
+                        height: 88,
                         decoration: BoxDecoration(
-                          color: Colors.white,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black, width: 2),
+                          border: Border.all(color: kCardBorder),
+                          color: kCardDim,
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.black,
-                          size: 14,
+                        child: ClipOval(
+                          child: _avatarFile != null
+                              ? Image.file(_avatarFile!, fit: BoxFit.cover)
+                              : const Center(
+                                  child: Icon(
+                                    Icons.person_outline,
+                                    color: Color(0x66FFFFFF),
+                                    size: 36,
+                                  ),
+                                ),
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.black, width: 2),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.black,
+                            size: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              'PROFILE DETAILS',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 3,
-                color: Colors.white24,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _firstNameController,
-              style: const TextStyle(color: Colors.white),
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'First Name *',
-                labelStyle: TextStyle(color: Colors.white38),
-                hintText: 'e.g. Kieron',
-                hintStyle: TextStyle(color: Colors.white24),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white24),
-                ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _lastNameController,
-              style: const TextStyle(color: Colors.white),
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Last Name *',
-                labelStyle: TextStyle(color: Colors.white38),
-                hintText: 'e.g. Smith',
-                hintStyle: TextStyle(color: Colors.white24),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white24),
-                ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white),
-                ),
-              ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 32),
               Text(
-                _error!,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                'PROFILE DETAILS',
+                style: kLabel(),
               ),
-            ],
-            if (_loading) ...[
-              const SizedBox(height: 24),
-              const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white24,
-                  strokeWidth: 1,
+              const SizedBox(height: 16),
+              Container(
+                height: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0x0EFFFFFF),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: kInputBorder),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _firstNameController,
+                  style: kBody(),
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    hintText: 'First Name *',
+                    hintStyle: kBody(const Color(0x66FFFFFF)),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
               ),
+              const SizedBox(height: 16),
+              Container(
+                height: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0x0EFFFFFF),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: kInputBorder),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _lastNameController,
+                  style: kBody(),
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    hintText: 'Last Name *',
+                    hintStyle: kBody(const Color(0x66FFFFFF)),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  _error!,
+                  style: kCaption(kErrorText),
+                ),
+              ],
+              if (_loading) ...[
+                const SizedBox(height: 24),
+                const Center(
+                  child: CircularProgressIndicator(
+                    color: kViolet,
+                    strokeWidth: 1.5,
+                  ),
+                ),
+              ],
             ],
-          ],
+            ),
           ),
         ),
       ),

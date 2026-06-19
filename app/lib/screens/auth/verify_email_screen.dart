@@ -1,8 +1,10 @@
 // Email verification screen — shown after registration
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'login_screen.dart';
+import '../../theme/aura_theme.dart';
+import 'splash_screen.dart';
 
 class VerifyEmailScreen extends StatelessWidget {
   final String email;
@@ -38,72 +40,88 @@ class VerifyEmailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(
-                Icons.mark_email_unread_outlined,
-                color: Colors.white38,
-                size: 64,
-              ),
-              const SizedBox(height: 32),
-              const Text(
-                'CHECK YOUR EMAIL',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w200,
-                  letterSpacing: 6,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'We sent a verification link to\n$email',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 13,
-                  height: 1.8,
-                ),
-              ),
-              const SizedBox(height: 48),
-              ElevatedButton(
-                onPressed: () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.zero,
+      backgroundColor: kVoid,
+      body: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 26),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0x14FFFFFF),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0x14FFFFFF)),
+                  ),
+                  child: const Icon(
+                    Icons.mark_email_unread_outlined,
+                    color: kViolet,
+                    size: 34,
                   ),
                 ),
-                child: const Text(
-                  'GO TO SIGN IN',
-                  style: TextStyle(letterSpacing: 4, fontSize: 13),
+                const SizedBox(height: 28),
+                Text(
+                  'Check your email',
+                  textAlign: TextAlign.center,
+                  style: kTitle(),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => _resendEmail(context),
-                child: const Text(
-                  'RESEND EMAIL',
-                  style: TextStyle(
-                    color: Colors.white38,
-                    letterSpacing: 3,
-                    fontSize: 12,
+                const SizedBox(height: 12),
+                Text(
+                  'We sent a verification link to\n$email',
+                  textAlign: TextAlign.center,
+                  style: kCaption(),
+                ),
+                const SizedBox(height: 40),
+                GestureDetector(
+                  onTap: () => Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SplashScreen()),
+                  ),
+                  child: Container(
+                    height: 55,
+                    decoration: BoxDecoration(
+                      gradient: kPrimaryGradient,
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x8C6366E8),
+                          blurRadius: 22,
+                          offset: Offset(0, 8),
+                          spreadRadius: -12,
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Go to sign in',
+                      style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => _resendEmail(context),
+                  child: Text(
+                    'Resend email',
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: kVioletText,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

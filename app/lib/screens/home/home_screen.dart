@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../theme/aura_theme.dart';
 import '../../widgets/skeleton.dart';
 import '../../providers/property_provider.dart';
 import '../../providers/installation_provider.dart';
@@ -47,7 +48,7 @@ class HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       body: IndexedStack(
         index: _currentIndex,
         children: const [
@@ -60,32 +61,32 @@ class HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
-        backgroundColor: const Color(0xFF111111),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white38,
-        selectedLabelStyle: const TextStyle(letterSpacing: 2, fontSize: 10),
-        unselectedLabelStyle: const TextStyle(letterSpacing: 2, fontSize: 10),
+        backgroundColor: kCard,
+        selectedItemColor: kVioletText,
+        unselectedItemColor: const Color(0x66FFFFFF),
+        selectedLabelStyle: kLabel(),
+        unselectedLabelStyle: kLabel(),
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
-            label: 'HOME',
+            label: 'Home',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),
-            label: 'PROFILES',
+            label: 'Profiles',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.people_outline),
             activeIcon: Icon(Icons.people),
-            label: 'VISITORS',
+            label: 'Visitors',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
             activeIcon: Icon(Icons.settings),
-            label: 'SETTINGS',
+            label: 'Settings',
           ),
         ],
       ),
@@ -328,12 +329,14 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
     });
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
+      backgroundColor: kVoid,
+      body: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
+        child: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadData,
-          color: Colors.white,
-          backgroundColor: const Color(0xFF111111),
+          color: kCyan,
+          backgroundColor: kCard,
           child: _loading
               ? ListView(
                   padding: const EdgeInsets.all(24),
@@ -348,24 +351,20 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
               : _properties.isEmpty
               ? ListView(
                   padding: const EdgeInsets.all(24),
-                  children: const [
-                    SizedBox(height: 48),
-                    Icon(Icons.sensors, color: Colors.white12, size: 64),
-                    SizedBox(height: 24),
+                  children: [
+                    const SizedBox(height: 48),
+                    const Icon(Icons.sensors, color: Color(0x1AFFFFFF), size: 64),
+                    const SizedBox(height: 24),
                     Text(
                       'No Aura found',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 15,
-                        letterSpacing: 1,
-                      ),
+                      style: kBody(const Color(0x66FFFFFF)),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
                       'Add your Aura from Settings → Manage Auras',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white24, fontSize: 13),
+                      style: kCaption(),
                     ),
                   ],
                 )
@@ -378,13 +377,8 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
                           [];
                       return [
                         Text(
-                          (property['name'] as String).toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w200,
-                            letterSpacing: 6,
-                            color: Colors.white,
-                          ),
+                          property['name'] as String,
+                          style: kScreenTitle(),
                         ),
                         const SizedBox(height: 16),
                         if (installations.isEmpty)
@@ -422,8 +416,9 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
                                 margin: const EdgeInsets.only(bottom: 12),
                                 padding: const EdgeInsets.all(20),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF111111),
-                                  border: Border.all(color: Colors.white12),
+                                  color: online ? kCard : kCardDim,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: kCardBorder),
                                 ),
                                 child: Column(
                                   children: [
@@ -437,8 +432,8 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
                                           height: 8,
                                           decoration: BoxDecoration(
                                             color: online
-                                                ? Colors.greenAccent
-                                                : Colors.redAccent,
+                                                ? kOnline
+                                                : kError,
                                             shape: BoxShape.circle,
                                           ),
                                         ),
@@ -446,11 +441,7 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
                                         Expanded(
                                           child: Text(
                                             installation['name'] ?? 'Aura',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              letterSpacing: 1,
-                                            ),
+                                            style: kBody(),
                                           ),
                                         ),
                                         AnimatedSwitcher(
@@ -460,18 +451,13 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
                                           child: Text(
                                             online ? 'Online' : 'Offline',
                                             key: ValueKey(online),
-                                            style: TextStyle(
-                                              color: online
-                                                  ? Colors.greenAccent
-                                                  : Colors.redAccent,
-                                              fontSize: 12,
-                                            ),
+                                            style: kCaption(online ? kOnlineText : kErrorText),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
                                         const Icon(
                                           Icons.chevron_right,
-                                          color: Colors.white24,
+                                          color: Color(0x40FFFFFF),
                                           size: 18,
                                         ),
                                       ],
@@ -480,21 +466,15 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
                                     Row(
                                       children: [
                                         const SizedBox(width: 20),
-                                        const Text(
+                                        Text(
                                           'Last Seen:',
-                                          style: TextStyle(
-                                            color: Colors.white38,
-                                            fontSize: 12,
-                                          ),
+                                          style: kCaption(),
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
                                             lastSeenText,
-                                            style: const TextStyle(
-                                              color: Colors.white54,
-                                              fontSize: 12,
-                                            ),
+                                            style: kCaption(const Color(0x80FFFFFF)),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
@@ -510,6 +490,7 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
                     }),
                   ],
                 ),
+        ),
         ),
       ),
     );

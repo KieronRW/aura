@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../widgets/skeleton.dart';
+import '../../theme/aura_theme.dart';
 
 class RecognitionSettingsScreen extends StatefulWidget {
   final Map<String, dynamic> installation;
@@ -103,19 +104,12 @@ class _RecognitionSettingsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'RECOGNITION',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
+        title: Text('RECOGNITION', style: kHeading()),
         actions: [
           AnimatedOpacity(
             opacity: _saving ? 1.0 : 0.0,
@@ -127,7 +121,7 @@ class _RecognitionSettingsScreenState
                   width: 14,
                   height: 14,
                   child: CircularProgressIndicator(
-                    color: Colors.white38,
+                    color: kViolet,
                     strokeWidth: 1.5,
                   ),
                 ),
@@ -138,6 +132,8 @@ class _RecognitionSettingsScreenState
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
+        child: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
         child: _loading
             ? ListView(
                 padding: const EdgeInsets.all(24),
@@ -200,13 +196,9 @@ class _RecognitionSettingsScreenState
                         ),
                         if (!_rangeValid) ...[
                           const SizedBox(height: 8),
-                          const Text(
+                          Text(
                             'Warning: min score exceeds max score — no frames will qualify for auto-learning.',
-                            style: TextStyle(
-                              color: Colors.orangeAccent,
-                              fontSize: 11,
-                              height: 1.5,
-                            ),
+                            style: kCaption(kWarningText),
                           ),
                         ],
                         const SizedBox(height: 28),
@@ -251,28 +243,15 @@ class _RecognitionSettingsScreenState
                 ],
               ),
       ),
+        ),
     );
   }
 
-  Widget _sectionLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 10,
-          letterSpacing: 3,
-          color: Colors.white24,
-        ),
-      );
+  Widget _sectionLabel(String text) => Text(text, style: kLabel());
 
   Widget _description(String text) => Padding(
         padding: const EdgeInsets.only(top: 6, bottom: 4),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white24,
-            fontSize: 11,
-            height: 1.5,
-          ),
-        ),
+        child: Text(text, style: kCaption()),
       );
 }
 
@@ -299,22 +278,15 @@ class _SliderRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 11,
-                letterSpacing: 1.5,
-              ),
-            ),
+            child: Text(label, style: kCaption()),
           ),
           Expanded(
             child: SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                activeTrackColor: Colors.white38,
-                inactiveTrackColor: Colors.white12,
+                activeTrackColor: kViolet,
+                inactiveTrackColor: const Color(0x1FFFFFFF),
                 thumbColor: Colors.white,
-                overlayColor: Colors.white.withAlpha(20),
+                overlayColor: kViolet.withAlpha(40),
                 trackHeight: 1,
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                 overlayShape:
@@ -334,7 +306,7 @@ class _SliderRow extends StatelessWidget {
             child: Text(
               '${value.round()}%',
               textAlign: TextAlign.end,
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
+              style: kBody(),
             ),
           ),
         ],

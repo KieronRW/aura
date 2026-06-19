@@ -10,6 +10,7 @@ import '../../widgets/skeleton.dart';
 import '../../providers/installation_provider.dart';
 import '../../providers/recognition_provider.dart';
 import '../../services/supabase_service.dart';
+import '../../theme/aura_theme.dart';
 
 // In-memory signed URL cache — shared across all _EventRow instances
 final Map<String, String> _signedUrlCache = {};
@@ -207,9 +208,9 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Update command sent'),
-            backgroundColor: Colors.white12,
+          SnackBar(
+            content: Text('Update command sent', style: kBody()),
+            backgroundColor: kCard,
           ),
         );
         setState(() => _updateDismissed = true);
@@ -217,9 +218,9 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to send update command'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text('Failed to send update command', style: kBody()),
+            backgroundColor: kError,
           ),
         );
       }
@@ -234,27 +235,26 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: kCardBorder),
+        ),
+        title: Text(
           'RENAME AURA',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: kBody(),
+          decoration: InputDecoration(
             hintText: 'e.g. Front Gate, Garage',
-            hintStyle: TextStyle(color: Colors.white24),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
+            hintStyle: kBody(const Color(0x40FFFFFF)),
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: kInputBorder),
             ),
-            focusedBorder: UnderlineInputBorder(
+            focusedBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.white),
             ),
           ),
@@ -262,9 +262,9 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => nav.pop(),
-            child: const Text(
+            child: Text(
               'CANCEL',
-              style: TextStyle(color: Colors.white38, letterSpacing: 2),
+              style: kBody(kVioletText),
             ),
           ),
           TextButton(
@@ -278,9 +278,9 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
               }
               nav.pop(name);
             },
-            child: const Text(
+            child: Text(
               'SAVE',
-              style: TextStyle(color: Colors.white, letterSpacing: 2),
+              style: kBody(kVioletText),
             ),
           ),
         ],
@@ -294,18 +294,14 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
     final auraName = widget.installation['name'] ?? 'Aura';
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
           auraName.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
         actions: [
           IconButton(
@@ -314,13 +310,15 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
           ),
         ],
       ),
-      body: GestureDetector(
+      body: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
+        child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SafeArea(
           child: RefreshIndicator(
             onRefresh: _loadData,
-            color: Colors.white,
-            backgroundColor: const Color(0xFF111111),
+            color: kViolet,
+            backgroundColor: kCard,
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
@@ -334,39 +332,31 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1A1500),
+                      color: kCardDim,
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.amberAccent.withValues(alpha: 0.4),
+                        color: kWarning.withValues(alpha: 0.4),
                       ),
                     ),
                     child: Row(
                       children: [
                         const Icon(
                           Icons.system_update_outlined,
-                          color: Colors.amberAccent,
+                          color: kWarning,
                           size: 16,
                         ),
                         const SizedBox(width: 10),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Update available',
-                            style: TextStyle(
-                              color: Colors.amberAccent,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w300,
-                            ),
+                            style: kCaption(kWarningText),
                           ),
                         ),
                         GestureDetector(
                           onTap: _sendUpdateCommand,
-                          child: const Text(
+                          child: Text(
                             'UPDATE NOW',
-                            style: TextStyle(
-                              color: Colors.amberAccent,
-                              fontSize: 10,
-                              letterSpacing: 1.5,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: kLabel(kWarningText),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -374,7 +364,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                           onTap: () => setState(() => _updateDismissed = true),
                           child: const Icon(
                             Icons.close,
-                            color: Colors.white24,
+                            color: Color(0x40FFFFFF),
                             size: 16,
                           ),
                         ),
@@ -386,8 +376,9 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111111),
-                    border: Border.all(color: Colors.white12),
+                    color: kCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: kCardBorder),
                   ),
                   child: Row(
                     children: [
@@ -395,9 +386,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: isOnline
-                              ? Colors.greenAccent
-                              : Colors.redAccent,
+                          color: isOnline ? kOnline : kError,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -408,10 +397,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                           children: [
                             Text(
                               isOnline ? 'Online' : 'Offline',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
+                              style: kBody(isOnline ? kOnlineText : kErrorText),
                             ),
                           ],
                         ),
@@ -421,11 +407,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                           (_deviceStatus?['current_state'] ?? '')
                               .toString()
                               .toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white38,
-                            fontSize: 10,
-                            letterSpacing: 2,
-                          ),
+                          style: kLabel(),
                         ),
                     ],
                   ),
@@ -434,13 +416,9 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                 // ─────────────────────────────────────────────────────────────
                 const SizedBox(height: 32),
 
-                const Text(
+                Text(
                   'LAST SEEN',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 3,
-                    color: Colors.white24,
-                  ),
+                  style: kLabel(),
                 ),
                 const SizedBox(height: 12),
 
@@ -448,14 +426,15 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111111),
-                    border: Border.all(color: Colors.white12),
+                    color: kCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: kCardBorder),
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.history,
-                        color: Colors.white38,
+                        color: Color(0x66FFFFFF),
                         size: 16,
                       ),
                       const SizedBox(width: 12),
@@ -468,11 +447,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                                       ? _recentEvents.first
                                       : null,
                                 ),
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                            height: 1.5,
-                          ),
+                          style: kCaption(),
                         ),
                       ),
                     ],
@@ -481,35 +456,32 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
 
                 const SizedBox(height: 32),
 
-                const Text(
+                Text(
                   'RECENT ACTIVITY',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 3,
-                    color: Colors.white24,
-                  ),
+                  style: kLabel(),
                 ),
                 const SizedBox(height: 12),
 
                 // Search bar
                 Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111111),
-                    border: Border.all(color: Colors.white12),
+                    color: kCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: kCardBorder),
                   ),
                   child: TextField(
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: kCaption(),
                     onChanged: (v) => setState(() => _searchQuery = v),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Search by name, vehicle, day or time...',
-                      hintStyle: TextStyle(color: Colors.white24, fontSize: 13),
-                      prefixIcon: Icon(
+                      hintStyle: kCaption(const Color(0x40FFFFFF)),
+                      prefixIcon: const Icon(
                         Icons.search,
-                        color: Colors.white24,
+                        color: Color(0x66FFFFFF),
                         size: 18,
                       ),
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
+                      contentPadding: const EdgeInsets.symmetric(
                         vertical: 12,
                         horizontal: 12,
                       ),
@@ -544,7 +516,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
                     _searchQuery.isNotEmpty
                         ? 'No results for "$_searchQuery"'
                         : 'No recent activity',
-                    style: const TextStyle(color: Colors.white24, fontSize: 13),
+                    style: kCaption(),
                   )
                 else
                   ..._filteredEvents
@@ -564,6 +536,7 @@ class _AuraDetailScreenState extends ConsumerState<AuraDetailScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -641,15 +614,15 @@ class _EventRowState extends State<_EventRow> {
   Color get _methodColor {
     switch (widget.method) {
       case 'fingerprint':
-        return Colors.greenAccent;
+        return kOnlineText;
       case 'vision':
-        return Colors.white38;
+        return kVioletText;
       case 'yolo':
-        return Colors.amber;
+        return kWarningText;
       case 'test':
-        return Colors.white24;
+        return const Color(0x40FFFFFF);
       default:
-        return Colors.white24;
+        return const Color(0x40FFFFFF);
     }
   }
 
@@ -673,7 +646,7 @@ class _EventRowState extends State<_EventRow> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+        border: Border(bottom: BorderSide(color: kRowDivider)),
       ),
       child: Row(
         children: [
@@ -681,8 +654,9 @@ class _EventRowState extends State<_EventRow> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFF111111),
-              border: Border.all(color: Colors.white12),
+              color: kCard,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: kCardBorder),
             ),
             child: _imageLoading
                 ? const Center(
@@ -690,13 +664,15 @@ class _EventRowState extends State<_EventRow> {
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
-                        strokeWidth: 1,
-                        color: Colors.white24,
+                        strokeWidth: 1.5,
+                        color: kViolet,
                       ),
                     ),
                   )
                 : _imageUrl != null
-                ? CachedNetworkImage(
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(7),
+                    child: CachedNetworkImage(
                     imageUrl: _imageUrl!,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => const Center(
@@ -704,20 +680,21 @@ class _EventRowState extends State<_EventRow> {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
-                          strokeWidth: 1,
-                          color: Colors.white24,
+                          strokeWidth: 1.5,
+                          color: kViolet,
                         ),
                       ),
                     ),
                     errorWidget: (context, url, error) => const Icon(
                       Icons.directions_car_outlined,
-                      color: Colors.white24,
+                      color: Color(0x40FFFFFF),
                       size: 24,
                     ),
+                  ),
                   )
                 : const Icon(
                     Icons.directions_car_outlined,
-                    color: Colors.white24,
+                    color: Color(0x40FFFFFF),
                     size: 24,
                   ),
           ),
@@ -732,16 +709,12 @@ class _EventRowState extends State<_EventRow> {
                   widget.model != null
                       ? '${widget.make} · ${widget.model}'
                       : widget.make,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    letterSpacing: 0.5,
-                  ),
+                  style: kBody(),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${widget.date} · ${widget.time}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  style: kCaption(),
                 ),
               ],
             ),
@@ -758,7 +731,7 @@ class _EventRowState extends State<_EventRow> {
                   const SizedBox(height: 2),
                   Text(
                     '${(widget.confidence! * 100).round()}%',
-                    style: const TextStyle(color: Colors.white24, fontSize: 9),
+                    style: kCaption(const Color(0x40FFFFFF)),
                   ),
                 ],
               ],

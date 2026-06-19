@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/installation_provider.dart';
 import '../../providers/property_provider.dart';
+import '../../theme/aura_theme.dart';
 import '../home/home_screen.dart';
 import 'add_mirror_screen.dart';
 
@@ -182,8 +183,8 @@ class _DiscoverMirrorScreenState extends ConsumerState<DiscoverMirrorScreen> {
     setState(() => _claiming = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        content: Text(message, style: kBody()),
+        backgroundColor: kError,
         duration: const Duration(seconds: 4),
       ),
     );
@@ -196,28 +197,29 @@ class _DiscoverMirrorScreenState extends ConsumerState<DiscoverMirrorScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
-          'NAME YOUR AURA',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text('Name your Aura', style: kHeading()),
+        content: Container(
+          height: 54,
+          decoration: BoxDecoration(
+            color: const Color(0x0EFFFFFF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: kInputBorder),
           ),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'e.g. Front Gate, Garage',
-            hintStyle: TextStyle(color: Colors.white24),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Center(
+            child: TextField(
+              controller: controller,
+              autofocus: true,
+              style: kBody(),
+              decoration: InputDecoration(
+                hintText: 'e.g. Front Gate, Garage',
+                hintStyle: kBody(const Color(0x66FFFFFF)),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
             ),
           ),
         ),
@@ -234,10 +236,7 @@ class _DiscoverMirrorScreenState extends ConsumerState<DiscoverMirrorScreen> {
                 HomeScreen.switchToTab(0);
               }
             },
-            child: const Text(
-              'DONE',
-              style: TextStyle(color: Colors.white, letterSpacing: 2),
-            ),
+            child: Text('Done', style: kBody(kVioletText)),
           ),
         ],
       ),
@@ -272,191 +271,148 @@ class _DiscoverMirrorScreenState extends ConsumerState<DiscoverMirrorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'ADD AURA',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
+        title: Text('Add Aura', style: kHeading()),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'NEARBY',
-                style: TextStyle(
-                  fontSize: 11,
-                  letterSpacing: 4,
-                  color: Colors.white38,
+      body: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Nearby', style: kLabel()),
+                const SizedBox(height: 8),
+                Text(
+                  'Make sure your phone is on the same WiFi network as your Aura.',
+                  style: kCaption(),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Make sure your phone is on the same\nWiFi network as your Aura.',
-                style: TextStyle(
-                  color: Colors.white24,
-                  fontSize: 13,
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 32),
+                const SizedBox(height: 32),
 
-              if (_scanning && _discovered.isEmpty)
-                const Center(
-                  child: Column(
-                    children: [
-                      CircularProgressIndicator(
-                        color: Colors.white24,
-                        strokeWidth: 1,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Scanning network...',
-                        style: TextStyle(color: Colors.white38, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                )
-              else if (_discovered.isEmpty)
-                Center(
-                  child: Column(
-                    children: [
-                      const Text(
-                        'No Aura found nearby',
-                        style: TextStyle(color: Colors.white38, fontSize: 14),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Make sure your Aura is powered on\nand connected to the same WiFi.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white24,
-                          fontSize: 13,
-                          height: 1.6,
+                if (_scanning && _discovered.isEmpty)
+                  Center(
+                    child: Column(
+                      children: [
+                        const CircularProgressIndicator(
+                          color: kViolet,
+                          strokeWidth: 1.5,
                         ),
-                      ),
-                      const SizedBox(height: 32),
-                      TextButton(
-                        onPressed: _rescan,
-                        child: const Text(
-                          'SCAN AGAIN',
-                          style: TextStyle(
-                            color: Colors.white38,
-                            letterSpacing: 3,
-                            fontSize: 12,
-                          ),
+                        const SizedBox(height: 16),
+                        Text('Scanning network…', style: kCaption()),
+                      ],
+                    ),
+                  )
+                else if (_discovered.isEmpty)
+                  Center(
+                    child: Column(
+                      children: [
+                        Text('No Aura found nearby', style: kBody()),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Make sure your Aura is powered on\nand connected to the same WiFi.',
+                          textAlign: TextAlign.center,
+                          style: kCaption(),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _discovered.length,
-                    itemBuilder: (context, index) {
-                      final device = _discovered[index];
-                      return GestureDetector(
-                        onTap: _claiming ? null : () => _claimDevice(device),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF111111),
-                            border: Border.all(color: Colors.white12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.sensors,
-                                color: Colors.white38,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      device['display_name'] ?? 'Aura',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w300,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      device['host'] ?? '',
-                                      style: const TextStyle(
-                                        color: Colors.white38,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (_claiming)
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1,
-                                    color: Colors.white38,
-                                  ),
-                                )
-                              else
+                        const SizedBox(height: 28),
+                        TextButton(
+                          onPressed: _rescan,
+                          child: Text('Scan again', style: kBody(kVioletText)),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _discovered.length,
+                      itemBuilder: (context, index) {
+                        final device = _discovered[index];
+                        return GestureDetector(
+                          onTap: _claiming ? null : () => _claimDevice(device),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: kCard,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: kCardBorder),
+                            ),
+                            child: Row(
+                              children: [
                                 const Icon(
-                                  Icons.chevron_right,
-                                  color: Colors.white24,
-                                  size: 20,
+                                  Icons.sensors,
+                                  color: kVioletText,
+                                  size: 22,
                                 ),
-                            ],
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        device['display_name'] ?? 'Aura',
+                                        style: kBody(),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        device['host'] ?? '',
+                                        style: kMono(const Color(0x80FFFFFF)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (_claiming)
+                                  const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: kViolet,
+                                    ),
+                                  )
+                                else
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    color: Color(0x40FFFFFF),
+                                    size: 20,
+                                  ),
+                              ],
+                            ),
                           ),
+                        );
+                      },
+                    ),
+                  ),
+
+                const Spacer(),
+
+                Center(
+                  child: TextButton(
+                    onPressed: () async {
+                      final nav = Navigator.of(context);
+                      final added = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AddMirrorScreen(),
                         ),
                       );
+                      if (added == true && mounted) {
+                        nav.pop(true);
+                      }
                     },
-                  ),
-                ),
-
-              const Spacer(),
-
-              Center(
-                child: TextButton(
-                  onPressed: () async {
-                    final nav = Navigator.of(context);
-                    final added = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AddMirrorScreen(),
-                      ),
-                    );
-                    if (added == true && mounted) {
-                      nav.pop(true);
-                    }
-                  },
-                  child: const Text(
-                    "Can't find your Aura? Scan QR code",
-                    style: TextStyle(
-                      color: Colors.white24,
-                      fontSize: 13,
-                      decoration: TextDecoration.underline,
-                      decorationColor: Colors.white24,
+                    child: Text(
+                      "Can't find your Aura? Scan QR code",
+                      style: kCaption(kVioletText),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/skeleton.dart';
+import '../../theme/aura_theme.dart';
 
 class NetworkSettingsScreen extends StatefulWidget {
   final Map<String, dynamic> installation;
@@ -115,8 +116,8 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error, style: const TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFF222222),
+          content: Text(error, style: kBody()),
+          backgroundColor: kError,
         ),
       );
       return;
@@ -179,13 +180,14 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
       } else {
         // IP hasn't changed yet — show a message and poll every 5s for up to 60s.
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
               'Aura is reconnecting with a new network configuration. '
               'This may take up to a minute.',
+              style: kBody(),
             ),
-            backgroundColor: Color(0xFF222222),
-            duration: Duration(seconds: 60),
+            backgroundColor: kOnline,
+            duration: const Duration(seconds: 60),
           ),
         );
 
@@ -214,16 +216,9 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
-          'APPLY CHANGES',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text('APPLY CHANGES', style: kHeading()),
         content: Text(
           _method == 'dhcp'
               ? 'Switching to DHCP will assign a new IP address automatically. '
@@ -232,22 +227,16 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
                 '(e.g. physical access or Tailscale).'
               : 'Changing network settings may temporarily disconnect your Aura. '
                 'The app will attempt to reconnect automatically.',
-          style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
+          style: kCaption(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'CANCEL',
-              style: TextStyle(color: Colors.white70, letterSpacing: 2),
-            ),
+            child: Text('CANCEL', style: kBody()),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'APPLY',
-              style: TextStyle(color: Colors.white, letterSpacing: 2),
-            ),
+            child: Text('APPLY', style: kBody(kVioletText)),
           ),
         ],
       ),
@@ -258,19 +247,12 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'NETWORK',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
+        title: Text('NETWORK', style: kHeading()),
         actions: [
           AnimatedOpacity(
             opacity: _saving ? 1.0 : 0.0,
@@ -282,7 +264,7 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
                   width: 14,
                   height: 14,
                   child: CircularProgressIndicator(
-                    color: Colors.white38,
+                    color: kViolet,
                     strokeWidth: 1.5,
                   ),
                 ),
@@ -293,6 +275,8 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
+        child: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
         child: Stack(
         children: [
           if (_loading)
@@ -386,22 +370,21 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
               bottom: 0,
               child: SafeArea(
                 child: Container(
-                  color: Colors.black,
+                  color: kVoid,
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
                   child: GestureDetector(
                     onTap: _saving || _reconnecting ? null : _onSaveTap,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      color: Colors.white,
-                      child: const Text(
+                      height: 55,
+                      decoration: BoxDecoration(
+                        gradient: kPrimaryGradient,
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
                         'SAVE',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 11,
-                          letterSpacing: 4,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: kHeading(),
                       ),
                     ),
                   ),
@@ -413,6 +396,7 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
           if (_reconnecting) _buildReconnectingOverlay(),
         ],
         ),
+        ),
       ),
     );
   }
@@ -420,56 +404,32 @@ class _NetworkSettingsScreenState extends State<NetworkSettingsScreen> {
   Widget _buildReconnectingOverlay() {
     return Container(
       color: Colors.black.withAlpha(217),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: Colors.white38, strokeWidth: 1),
-            SizedBox(height: 20),
-            Text(
-              'RECONNECTING',
-              style: TextStyle(
-                color: Colors.white38,
-                fontSize: 11,
-                letterSpacing: 3,
-              ),
-            ),
+            const CircularProgressIndicator(color: kViolet, strokeWidth: 1.5),
+            const SizedBox(height: 20),
+            Text('RECONNECTING', style: kLabel()),
           ],
         ),
       ),
     );
   }
 
-  Widget _sectionLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 10,
-          letterSpacing: 3,
-          color: Colors.white24,
-        ),
-      );
+  Widget _sectionLabel(String text) => Text(text, style: kLabel());
 
   Widget _infoRow(String label, String value) => Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.white12)),
+          border: Border(bottom: BorderSide(color: kRowDivider)),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 11,
-                  letterSpacing: 1.5,
-                ),
-              ),
+              child: Text(label, style: kCaption()),
             ),
-            Text(
-              value,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
+            Text(value, style: kMono()),
           ],
         ),
       );
@@ -498,19 +458,16 @@ class _ModeSelector extends StatelessWidget {
               margin: isLast ? EdgeInsets.zero : const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: selected ? Colors.white : Colors.transparent,
+                color: selected ? kViolet : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: selected ? Colors.white : Colors.white24,
+                  color: selected ? kViolet : kCardBorder,
                 ),
               ),
               child: Text(
                 mode.toUpperCase(),
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: selected ? Colors.black : Colors.white38,
-                  fontSize: 12,
-                  letterSpacing: 2,
-                ),
+                style: kBody(),
               ),
             ),
           ),
@@ -542,33 +499,32 @@ class _IpField extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 10,
-              letterSpacing: 2,
-            ),
-          ),
+          Text(label, style: kLabel()),
           const SizedBox(height: 8),
-          TextField(
-            controller: controller,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-            ],
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(color: Colors.white12),
-              enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24),
+          Container(
+            height: 54,
+            decoration: BoxDecoration(
+              color: const Color(0x0EFFFFFF),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: kInputBorder),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Center(
+              child: TextField(
+                controller: controller,
+                style: kMono(),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                ],
+                decoration: InputDecoration(
+                  hintText: hint,
+                  hintStyle: kMono(const Color(0x40FFFFFF)),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
               ),
-              focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white),
-              ),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
             ),
           ),
         ],

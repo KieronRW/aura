@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/property_provider.dart';
 import '../../providers/installation_provider.dart';
+import '../../theme/aura_theme.dart';
 import '../onboarding/discover_mirror_screen.dart';
 import 'aura_settings_screen.dart';
 
@@ -38,76 +39,72 @@ class _ManageAurasScreenState extends ConsumerState<ManageAurasScreen> {
     final propertiesAsync = ref.watch(propertiesProvider);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'MANAGE AURAS',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
       ),
-      body: SafeArea(
-        child: propertiesAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(
-              color: Colors.white24,
-              strokeWidth: 1,
+      body: Container(
+        decoration: const BoxDecoration(gradient: kBgGradient),
+        child: SafeArea(
+          child: propertiesAsync.when(
+            loading: () => Center(
+              child: CircularProgressIndicator(
+                color: kViolet,
+                strokeWidth: 1.5,
+              ),
             ),
-          ),
-          error: (_, _) => const Center(
-            child: Text(
-              'Failed to load properties',
-              style: TextStyle(color: Colors.white38),
+            error: (_, _) => Center(
+              child: Text(
+                'Failed to load properties',
+                style: kCaption(),
+              ),
             ),
-          ),
-          data: (propertyModels) {
-            if (propertyModels.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.all(24),
-                child: GestureDetector(
-                  onTap: () => _addAura(null, {}),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white24),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add, color: Colors.white54, size: 16),
-                        SizedBox(width: 8),
-                        Text(
-                          'ADD AURA',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 11,
-                            letterSpacing: 3,
+            data: (propertyModels) {
+              if (propertyModels.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: GestureDetector(
+                    onTap: () => _addAura(null, {}),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: kCardBorder),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.add, color: Color(0x66FFFFFF), size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'ADD AURA',
+                            style: kLabel(),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            }
-            return ListView.builder(
-              padding: const EdgeInsets.all(24),
-              itemCount: propertyModels.length,
-              itemBuilder: (context, index) {
-                final property = propertyModels[index].toMap();
-                return _PropertySection(
-                  property: property,
-                  onAddAura: (ownedKeys) => _addAura(property['id'] as String, ownedKeys),
                 );
-              },
-            );
-          },
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.all(24),
+                itemCount: propertyModels.length,
+                itemBuilder: (context, index) {
+                  final property = propertyModels[index].toMap();
+                  return _PropertySection(
+                    property: property,
+                    onAddAura: (ownedKeys) => _addAura(property['id'] as String, ownedKeys),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -137,11 +134,7 @@ class _PropertySection extends ConsumerWidget {
           children: [
             Text(
               (property['name'] as String).toUpperCase(),
-              style: const TextStyle(
-                fontSize: 11,
-                letterSpacing: 3,
-                color: Colors.white38,
-              ),
+              style: kLabel(),
             ),
             GestureDetector(
               onTap: () {
@@ -152,17 +145,13 @@ class _PropertySection extends ConsumerWidget {
                     .toSet();
                 onAddAura(ownedKeys);
               },
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.add, color: Colors.white54, size: 16),
-                  SizedBox(width: 4),
+                  const Icon(Icons.add, color: Color(0x66FFFFFF), size: 16),
+                  const SizedBox(width: 4),
                   Text(
                     'ADD',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      letterSpacing: 2,
-                    ),
+                    style: kLabel(),
                   ),
                 ],
               ),
@@ -175,25 +164,25 @@ class _PropertySection extends ConsumerWidget {
             padding: EdgeInsets.only(bottom: 16),
             child: Center(
               child: CircularProgressIndicator(
-                color: Colors.white24,
-                strokeWidth: 1,
+                color: kViolet,
+                strokeWidth: 1.5,
               ),
             ),
           ),
-          error: (_, _) => const Padding(
-            padding: EdgeInsets.only(bottom: 16),
+          error: (_, _) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
             child: Text(
               'Failed to load',
-              style: TextStyle(color: Colors.white24, fontSize: 13),
+              style: kCaption(),
             ),
           ),
           data: (installationModels) {
             if (installationModels.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.only(bottom: 24),
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 24),
                 child: Text(
                   'No Auras at this location',
-                  style: TextStyle(color: Colors.white24, fontSize: 13),
+                  style: kCaption(),
                 ),
               );
             }
@@ -201,6 +190,7 @@ class _PropertySection extends ConsumerWidget {
               children: [
                 ...installationModels.map((model) {
                   final installation = model.toMap();
+                  final isOnline = installation['status'] == 'online';
                   return GestureDetector(
                     onTap: () => Navigator.push(
                       context,
@@ -215,30 +205,41 @@ class _PropertySection extends ConsumerWidget {
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF111111),
-                        border: Border.all(color: Colors.white12),
+                        color: kCard,
+                        border: Border.all(color: kCardBorder),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         children: [
                           const Icon(
                             Icons.sensors,
-                            color: Colors.white38,
+                            color: Color(0x66FFFFFF),
                             size: 20,
                           ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Text(
                               installation['name'] as String? ?? 'Aura',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w300,
-                              ),
+                              style: kBody(),
                             ),
                           ),
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: isOnline ? kOnline : kError,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isOnline ? 'Online' : 'Offline',
+                            style: kCaption(isOnline ? kOnlineText : kErrorText),
+                          ),
+                          const SizedBox(width: 8),
                           const Icon(
                             Icons.chevron_right,
-                            color: Colors.white24,
+                            color: Color(0x40FFFFFF),
                             size: 18,
                           ),
                         ],

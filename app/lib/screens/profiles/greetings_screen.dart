@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/profile_provider.dart';
+import '../../theme/aura_theme.dart';
 
 class GreetingsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> profile;
@@ -56,9 +57,9 @@ class _GreetingsScreenState extends ConsumerState<GreetingsScreen> {
       ref.read(profilesProvider.notifier).refresh();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Greeting saved'),
-            backgroundColor: Color(0xFF222222),
+          SnackBar(
+            content: Text('Greeting saved', style: kBody()),
+            backgroundColor: kCard,
           ),
         );
       }
@@ -66,9 +67,9 @@ class _GreetingsScreenState extends ConsumerState<GreetingsScreen> {
       debugPrint('Save greetings error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save. Please try again.'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text('Failed to save. Please try again.', style: kBody()),
+            backgroundColor: kError,
           ),
         );
       }
@@ -82,35 +83,41 @@ class _GreetingsScreenState extends ConsumerState<GreetingsScreen> {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        const Text(
+        Text(
           'BASE MESSAGE',
-          style: TextStyle(fontSize: 10, letterSpacing: 3, color: Colors.white24),
+          style: kLabel(),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'Displayed on the mirror when this profile is recognised.',
-          style: TextStyle(color: Colors.white24, fontSize: 12, height: 1.5),
+          style: kCaption(),
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _greetingCtrl,
-          style: const TextStyle(color: Colors.white),
-          maxLines: 2,
-          decoration: const InputDecoration(
-            hintText: 'e.g. Welcome home',
-            hintStyle: TextStyle(color: Colors.white24),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
+        Container(
+          height: 54,
+          decoration: BoxDecoration(
+            color: const Color(0x0EFFFFFF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: kInputBorder),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            controller: _greetingCtrl,
+            style: kBody(),
+            maxLines: 2,
+            decoration: InputDecoration(
+              hintText: 'e.g. Welcome home',
+              hintStyle: kBody(const Color(0x66FFFFFF)),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
             ),
           ),
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           'OPTIONS',
-          style: TextStyle(fontSize: 10, letterSpacing: 3, color: Colors.white24),
+          style: kLabel(),
         ),
         const SizedBox(height: 4),
         _ToggleRow(
@@ -133,8 +140,20 @@ class _GreetingsScreenState extends ConsumerState<GreetingsScreen> {
         GestureDetector(
           onTap: _saving ? null : _save,
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            color: Colors.white,
+            height: 55,
+            decoration: BoxDecoration(
+              gradient: kPrimaryGradient,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x8C6366E8),
+                  blurRadius: 22,
+                  offset: Offset(0, 8),
+                  spreadRadius: -12,
+                ),
+              ],
+            ),
+            alignment: Alignment.center,
             child: _saving
                 ? const Center(
                     child: SizedBox(
@@ -142,19 +161,14 @@ class _GreetingsScreenState extends ConsumerState<GreetingsScreen> {
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 1.5,
-                        color: Colors.black,
+                        color: kViolet,
                       ),
                     ),
                   )
-                : const Text(
+                : Text(
                     'SAVE',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 11,
-                      letterSpacing: 4,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: kBody(),
                   ),
           ),
         ),
@@ -184,7 +198,7 @@ class _ToggleRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+        border: Border(bottom: BorderSide(color: kRowDivider)),
       ),
       child: Row(
         children: [
@@ -194,15 +208,11 @@ class _ToggleRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    color: enabled ? Colors.white : Colors.white38,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w300,
-                  ),
+                  style: enabled ? kBody() : kBody(const Color(0x66FFFFFF)),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  style: kCaption(),
                 ),
               ],
             ),
@@ -211,9 +221,9 @@ class _ToggleRow extends StatelessWidget {
             value: value,
             onChanged: enabled ? onChanged : null,
             activeThumbColor: Colors.white,
-            activeTrackColor: Colors.white38,
+            activeTrackColor: kViolet,
             inactiveThumbColor: Colors.white38,
-            inactiveTrackColor: Colors.white12,
+            inactiveTrackColor: const Color(0x1FFFFFFF),
           ),
         ],
       ),

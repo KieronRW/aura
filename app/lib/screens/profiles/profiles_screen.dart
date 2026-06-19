@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../theme/aura_theme.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/skeleton.dart';
 import '../../providers/profile_provider.dart';
@@ -28,9 +29,9 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
     if (installation == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No Aura found. Please add an Aura first.'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text('No Aura found. Please add an Aura first.', style: kBody()),
+            backgroundColor: kError,
           ),
         );
       }
@@ -77,7 +78,7 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
       child: RefreshIndicator(
         onRefresh: () => ref.read(profilesProvider.notifier).refresh(),
         color: Colors.white,
-        backgroundColor: const Color(0xFF111111),
+        backgroundColor: kCard,
         child: CustomScrollView(
           slivers: [
             SliverPadding(
@@ -87,13 +88,9 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'PROFILES',
-                        style: TextStyle(
-                          fontSize: 11,
-                          letterSpacing: 4,
-                          color: Colors.white38,
-                        ),
+                        style: kLabel(const Color(0x66FFFFFF)),
                       ),
                       IconButton(
                         onPressed: _addProfile,
@@ -109,8 +106,9 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                       itemBuilder: (ctx, i) => Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF111111),
-                          border: Border.all(color: const Color(0xFF222222)),
+                          color: kCard,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: kCardBorder),
                         ),
                         child: Row(
                           children: const [
@@ -129,10 +127,10 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                       ),
                     )
                   else if (profiles == null || profiles.isEmpty)
-                    const Center(
+                    Center(
                       child: Text(
                         'No profiles yet',
-                        style: TextStyle(color: Colors.white24, fontSize: 13),
+                        style: kCaption(),
                       ),
                     )
                   else
@@ -178,8 +176,9 @@ class _ProfileCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF111111),
-          border: Border.all(color: Colors.white12),
+          color: kCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kCardBorder),
         ),
         child: Row(
           children: [
@@ -197,12 +196,7 @@ class _ProfileCard extends StatelessWidget {
                 children: [
                   Text(
                     displayName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w300,
-                      letterSpacing: 0.5,
-                    ),
+                    style: kBody(),
                   ),
                   const SizedBox(height: 4),
                   FutureBuilder<List>(
@@ -220,17 +214,14 @@ class _ProfileCard extends StatelessWidget {
                           : '$count vehicle${count == 1 ? '' : 's'}';
                       return Text(
                         label,
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 12,
-                        ),
+                        style: kCaption(),
                       );
                     },
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white24, size: 20),
+            const Icon(Icons.chevron_right, color: Color(0x40FFFFFF), size: 20),
           ],
         ),
       ),
@@ -284,28 +275,29 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
           'Delete Profile',
-          style: TextStyle(color: Colors.white, fontSize: 15, letterSpacing: 1),
+          style: kHeading(),
         ),
-        content: const Text(
+        content: Text(
           'This will permanently delete this profile, all its vehicles, and all reference images. This cannot be undone.',
-          style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
+          style: kBody(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
+            child: Text(
               'CANCEL',
-              style: TextStyle(color: Colors.white70, letterSpacing: 1),
+              style: kBody(kVioletText),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
+            child: Text(
               'DELETE',
-              style: TextStyle(color: Colors.redAccent, letterSpacing: 1),
+              style: kBody(kErrorText),
             ),
           ),
         ],
@@ -366,9 +358,9 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen>
       if (mounted) {
         setState(() => _deleting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete profile. Please try again.'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text('Failed to delete profile. Please try again.', style: kBody()),
+            backgroundColor: kError,
           ),
         );
       }
@@ -392,18 +384,14 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
           _displayName.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
       ),
       body: Column(
@@ -412,8 +400,8 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen>
             child: _deleting
                 ? const Center(
                     child: CircularProgressIndicator(
-                      color: Colors.white24,
-                      strokeWidth: 1,
+                      color: kViolet,
+                      strokeWidth: 1.5,
                     ),
                   )
                 : TabBarView(
@@ -434,18 +422,18 @@ class _ProfileDetailScreenState extends ConsumerState<_ProfileDetailScreen>
           ),
           Container(
             decoration: const BoxDecoration(
-              color: Color(0xFF111111),
-              border: Border(top: BorderSide(color: Colors.white12)),
+              color: kCard,
+              border: Border(top: BorderSide(color: kRowDivider)),
             ),
             child: SafeArea(
               top: false,
               child: TabBar(
                 controller: _tabController,
-                indicatorColor: Colors.white,
+                indicatorColor: kViolet,
                 indicatorWeight: 1,
                 indicatorSize: TabBarIndicatorSize.label,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white38,
+                labelColor: kVioletText,
+                unselectedLabelColor: const Color(0x66FFFFFF),
                 labelStyle: const TextStyle(fontSize: 10, letterSpacing: 2),
                 unselectedLabelStyle: const TextStyle(
                   fontSize: 10,
@@ -503,7 +491,7 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
   void _showAvatarSourceDialog() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF111111),
+      backgroundColor: kCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -516,7 +504,7 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: const Color(0x40FFFFFF),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -524,11 +512,11 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
             ListTile(
               leading: const Icon(
                 Icons.camera_alt_outlined,
-                color: Colors.white38,
+                color: Color(0x66FFFFFF),
               ),
-              title: const Text(
+              title: Text(
                 'Take photo',
-                style: TextStyle(color: Colors.white),
+                style: kBody(),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -538,11 +526,11 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
             ListTile(
               leading: const Icon(
                 Icons.photo_library_outlined,
-                color: Colors.white38,
+                color: Color(0x66FFFFFF),
               ),
-              title: const Text(
+              title: Text(
                 'Choose from library',
-                style: TextStyle(color: Colors.white),
+                style: kBody(),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -654,24 +642,16 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
           Center(
             child: Text(
               widget.profile['greeting'] ?? '',
-              style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 13,
-                fontStyle: FontStyle.italic,
-              ),
+              style: kCaption().copyWith(fontStyle: FontStyle.italic),
             ),
           ),
           const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'VEHICLES',
-                style: TextStyle(
-                  fontSize: 11,
-                  letterSpacing: 4,
-                  color: Colors.white38,
-                ),
+                style: kLabel(const Color(0x66FFFFFF)),
               ),
               IconButton(
                 onPressed: () async {
@@ -692,9 +672,9 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
           ),
           const SizedBox(height: 12),
           if (widget.vehicles.isEmpty)
-            const Text(
+            Text(
               'No vehicles registered',
-              style: TextStyle(color: Colors.white24, fontSize: 13),
+              style: kCaption(),
             )
           else
             ...widget.vehicles.map(
@@ -717,13 +697,9 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
           Center(
             child: TextButton(
               onPressed: widget.onDeleteProfile,
-              child: const Text(
+              child: Text(
                 'DELETE PROFILE',
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontSize: 12,
-                  letterSpacing: 2,
-                ),
+                style: kBody(kErrorText),
               ),
             ),
           ),
@@ -743,10 +719,10 @@ class _AutomationRulesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Text(
         'Automation rules coming soon',
-        style: TextStyle(color: Colors.white38, fontSize: 13),
+        style: kCaption(),
       ),
     );
   }
@@ -769,13 +745,13 @@ class _VehicleRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.white12)),
+          border: Border(bottom: BorderSide(color: kRowDivider)),
         ),
         child: Row(
           children: [
             const Icon(
               Icons.directions_car_outlined,
-              color: Colors.white38,
+              color: Color(0x66FFFFFF),
               size: 20,
             ),
             const SizedBox(width: 16),
@@ -787,20 +763,13 @@ class _VehicleRow extends StatelessWidget {
                     vehicle['nickname'] ??
                         '${vehicle['make'] ?? ''} ${vehicle['model'] ?? ''}'
                             .trim(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w300,
-                    ),
+                    style: kBody(),
                   ),
                   if (vehicle['nickname'] != null)
                     Text(
                       '${vehicle['make'] ?? ''} ${vehicle['model'] ?? ''}'
                           .trim(),
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 12,
-                      ),
+                      style: kCaption(),
                     ),
                 ],
               ),
@@ -808,21 +777,21 @@ class _VehicleRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.white12),
+                border: Border.all(color: kCardBorder),
               ),
               child: Text(
                 vehicle['fingerprint_seeded'] == true ? 'ENROLLED' : 'PENDING',
                 style: TextStyle(
                   color: vehicle['fingerprint_seeded'] == true
-                      ? Colors.greenAccent
-                      : Colors.white24,
+                      ? kOnlineText
+                      : const Color(0x40FFFFFF),
                   fontSize: 9,
                   letterSpacing: 1,
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: Colors.white24, size: 18),
+            const Icon(Icons.chevron_right, color: Color(0x40FFFFFF), size: 18),
           ],
         ),
       ),
@@ -928,29 +897,21 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'ADD VEHICLE',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
         actions: [
           TextButton(
             onPressed: _loading ? null : _save,
-            child: const Text(
+            child: Text(
               'SAVE',
-              style: TextStyle(
-                color: Colors.white,
-                letterSpacing: 2,
-                fontSize: 13,
-              ),
+              style: kBody(kVioletText),
             ),
           ),
         ],
@@ -961,13 +922,9 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              const Text(
+              Text(
                 'VEHICLE DETAILS',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 3,
-                  color: Colors.white24,
-                ),
+                style: kLabel(const Color(0x66FFFFFF)),
               ),
               const SizedBox(height: 16),
               _buildField(_makeController, 'Make *', 'e.g. Volkswagen'),
@@ -991,35 +948,27 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
                 const SizedBox(height: 16),
                 Text(
                   _error!,
-                  style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                  style: kCaption(kErrorText),
                 ),
               ],
               if (_loading) ...[
                 const SizedBox(height: 24),
                 const Center(
                   child: CircularProgressIndicator(
-                    color: Colors.white24,
-                    strokeWidth: 1,
+                    color: kViolet,
+                    strokeWidth: 1.5,
                   ),
                 ),
               ],
               const SizedBox(height: 32),
-              const Text(
+              Text(
                 'REFERENCE IMAGES',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 3,
-                  color: Colors.white24,
-                ),
+                style: kLabel(const Color(0x66FFFFFF)),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'You can add reference images after saving the vehicle. A minimum of 3 images from different angles is required for fingerprint recognition.',
-                style: TextStyle(
-                  color: Colors.white24,
-                  fontSize: 12,
-                  height: 1.6,
-                ),
+                style: kCaption().copyWith(height: 1.6),
               ),
             ],
           ),
@@ -1033,22 +982,33 @@ class _AddVehicleScreenState extends State<_AddVehicleScreen> {
     String label,
     String hint,
   ) {
-    return TextField(
-      controller: controller,
-      style: const TextStyle(color: Colors.white),
-      textCapitalization: TextCapitalization.sentences,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white38),
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white24),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white24),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: kCaption(const Color(0x66FFFFFF))),
+        const SizedBox(height: 6),
+        Container(
+          height: 54,
+          decoration: BoxDecoration(
+            color: const Color(0x0EFFFFFF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0x1FFFFFFF)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            controller: controller,
+            style: kBody(),
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: kBody(const Color(0x66FFFFFF)),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
         ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white),
-        ),
-      ),
+      ],
     );
   }
 }

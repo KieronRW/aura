@@ -3,16 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../theme/aura_theme.dart';
 import '../../widgets/skeleton.dart';
 
 const _kAppVersion = '1.0.0';
 const _kSupportEmail = 'support@vivosmartlife.co.za';
-
-const _kSectionStyle = TextStyle(
-  fontSize: 10,
-  letterSpacing: 3,
-  color: Colors.white24,
-);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Data model
@@ -192,9 +187,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   ) async {
     if (_auras.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No Aura found'),
-          backgroundColor: Colors.redAccent,
+        SnackBar(
+          content: Text('No Aura found', style: kBody()),
+          backgroundColor: kError,
         ),
       );
       return;
@@ -220,8 +215,8 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$label command sent'),
-            backgroundColor: Colors.white12,
+            content: Text('$label command sent', style: kBody()),
+            backgroundColor: kCard,
           ),
         );
       }
@@ -229,9 +224,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
       debugPrint('Command insert error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to send command'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text('Failed to send command', style: kBody()),
+            backgroundColor: kError,
           ),
         );
       }
@@ -241,15 +236,14 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   Future<String?> _pickAura() => showDialog<String>(
         context: context,
         builder: (_) => AlertDialog(
-          backgroundColor: const Color(0xFF111111),
-          title: const Text(
-            'SELECT AURA',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              letterSpacing: 3,
-              fontWeight: FontWeight.w300,
-            ),
+          backgroundColor: kCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: kCardBorder),
+          ),
+          title: Text(
+            'Select Aura',
+            style: kHeading(),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -259,13 +253,11 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(
                       a.name,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w300),
+                      style: kBody(),
                     ),
                     subtitle: Text(
                       a.propertyName,
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 12),
+                      style: kCaption(),
                     ),
                     onTap: () => Navigator.pop(context, a.id),
                   ),
@@ -279,31 +271,27 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: kCardBorder),
+        ),
         title: Text(
-          title.toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
-          ),
+          title,
+          style: kHeading(),
         ),
         content: Text(
           message,
-          style: const TextStyle(
-              color: Colors.white70, fontSize: 13, height: 1.6),
+          style: kCaption(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL',
-                style: TextStyle(color: Colors.white70, letterSpacing: 2)),
+            child: Text('Cancel', style: kBody()),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('CONFIRM',
-                style: TextStyle(color: Colors.white, letterSpacing: 2)),
+            child: Text('Confirm', style: kBody(kVioletText)),
           ),
         ],
       ),
@@ -318,40 +306,39 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
-          'DIAGNOSTIC REPORT',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
-          ),
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: kCardBorder),
+        ),
+        title: Text(
+          'Diagnostic Report',
+          style: kHeading(),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Briefly describe the issue:',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              style: kCaption(),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: ctrl,
               maxLines: 4,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: const InputDecoration(
+              style: kBody(),
+              decoration: InputDecoration(
                 hintText: 'e.g. Camera stopped detecting vehicles',
-                hintStyle: TextStyle(color: Colors.white24),
+                hintStyle: kBody(const Color(0x66FFFFFF)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white12),
+                  borderSide: const BorderSide(color: kInputBorder),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white38),
+                  borderSide: const BorderSide(color: kViolet),
                 ),
                 isDense: true,
-                contentPadding: EdgeInsets.all(12),
+                contentPadding: const EdgeInsets.all(12),
               ),
             ),
           ],
@@ -362,8 +349,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
               ctrl.dispose();
               Navigator.pop(ctx);
             },
-            child: const Text('CANCEL',
-                style: TextStyle(color: Colors.white38, letterSpacing: 2)),
+            child: Text('Cancel', style: kBody()),
           ),
           TextButton(
             onPressed: () {
@@ -372,8 +358,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
               Navigator.pop(ctx);
               _sendDiagnosticReport(description);
             },
-            child: const Text('SEND',
-                style: TextStyle(color: Colors.white, letterSpacing: 2)),
+            child: Text('Send', style: kBody(kVioletText)),
           ),
         ],
       ),
@@ -417,9 +402,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
         await launchUrl(uri);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No email app available'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: Text('No email app available', style: kBody()),
+            backgroundColor: kError,
           ),
         );
       }
@@ -435,97 +420,97 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     final firstAura = _auras.isNotEmpty ? _auras.first : null;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'SUPPORT',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+        title: Text(
+          'Support',
+          style: kHeading(),
         ),
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: _load,
-            color: Colors.white,
-            backgroundColor: const Color(0xFF111111),
-            child: _loading
-                ? ListView(
-                    padding: const EdgeInsets.all(24),
-                    children: [
-                      const SkeletonBox(width: 100, height: 10, borderRadius: 3),
-                      const SizedBox(height: 16),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF111111),
-                          border: Border.all(color: const Color(0xFF222222)),
-                        ),
-                        child: Column(
-                          children: List.generate(
-                            3,
-                            (i) => Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              decoration: i > 0
-                                  ? const BoxDecoration(
-                                      border: Border(top: BorderSide(color: Color(0xFF1C1C1C))),
-                                    )
-                                  : null,
-                              child: Row(
-                                children: const [
-                                  SkeletonBox(width: 8, height: 8, borderRadius: 4),
-                                  SizedBox(width: 12),
-                                  Expanded(child: SkeletonBox(width: double.infinity, height: 13, borderRadius: 4)),
-                                  SizedBox(width: 40),
-                                  SkeletonBox(width: 50, height: 12, borderRadius: 4),
-                                ],
+        child: Container(
+          decoration: const BoxDecoration(gradient: kBgGradient),
+          child: SafeArea(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              color: kViolet,
+              backgroundColor: kCard,
+              child: _loading
+                  ? ListView(
+                      padding: const EdgeInsets.all(24),
+                      children: [
+                        const SkeletonBox(width: 100, height: 10, borderRadius: 3),
+                        const SizedBox(height: 16),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: kCard,
+                            border: Border.all(color: kCardBorder),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            children: List.generate(
+                              3,
+                              (i) => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                decoration: i > 0
+                                    ? const BoxDecoration(
+                                        border: Border(top: BorderSide(color: kRowDivider)),
+                                      )
+                                    : null,
+                                child: Row(
+                                  children: const [
+                                    SkeletonBox(width: 8, height: 8, borderRadius: 4),
+                                    SizedBox(width: 12),
+                                    Expanded(child: SkeletonBox(width: double.infinity, height: 13, borderRadius: 4)),
+                                    SizedBox(width: 40),
+                                    SkeletonBox(width: 50, height: 12, borderRadius: 4),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : ListView(
-                    padding: const EdgeInsets.all(24),
-                    children: [
-                      // ── SYSTEM STATUS ───────────────────────────────────
-                      const Text('SYSTEM STATUS', style: _kSectionStyle),
-                      const SizedBox(height: 16),
-                      _buildStatusRows(),
-                      const SizedBox(height: 32),
+                      ],
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.all(24),
+                      children: [
+                        // ── SYSTEM STATUS ───────────────────────────────────
+                        Text('SYSTEM STATUS', style: kLabel()),
+                        const SizedBox(height: 16),
+                        _buildStatusRows(),
+                        const SizedBox(height: 32),
 
-                      // ── QUICK HELP ──────────────────────────────────────
-                      const Text('QUICK HELP', style: _kSectionStyle),
-                      const SizedBox(height: 8),
-                      _buildQuickHelp(),
-                      const SizedBox(height: 32),
+                        // ── QUICK HELP ──────────────────────────────────────
+                        Text('QUICK HELP', style: kLabel()),
+                        const SizedBox(height: 8),
+                        _buildQuickHelp(),
+                        const SizedBox(height: 32),
 
-                      // ── DEVICE ACTIONS ──────────────────────────────────
-                      const Text('DEVICE ACTIONS', style: _kSectionStyle),
-                      const SizedBox(height: 16),
-                      _buildDeviceActions(),
-                      const SizedBox(height: 32),
+                        // ── DEVICE ACTIONS ──────────────────────────────────
+                        Text('DEVICE ACTIONS', style: kLabel()),
+                        const SizedBox(height: 16),
+                        _buildDeviceActions(),
+                        const SizedBox(height: 32),
 
-                      // ── SEND DIAGNOSTIC REPORT ──────────────────────────
-                      const Text('SEND DIAGNOSTIC REPORT', style: _kSectionStyle),
-                      const SizedBox(height: 16),
-                      _buildDiagnosticButton(),
-                      const SizedBox(height: 32),
+                        // ── SEND DIAGNOSTIC REPORT ──────────────────────────
+                        Text('SEND DIAGNOSTIC REPORT', style: kLabel()),
+                        const SizedBox(height: 16),
+                        _buildDiagnosticButton(),
+                        const SizedBox(height: 32),
 
-                      // ── ABOUT THIS AURA ─────────────────────────────────
-                      const Text('ABOUT THIS AURA', style: _kSectionStyle),
-                      const SizedBox(height: 16),
-                      _buildAbout(firstAura),
-                      const SizedBox(height: 32),
-                    ],
-                  ),
+                        // ── ABOUT THIS AURA ─────────────────────────────────
+                        Text('ABOUT THIS AURA', style: kLabel()),
+                        const SizedBox(height: 16),
+                        _buildAbout(firstAura),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
@@ -537,8 +522,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   Widget _buildStatusRows() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
-        border: Border.all(color: Colors.white12),
+        color: kCard,
+        border: Border.all(color: kCardBorder),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
@@ -553,7 +539,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             label: 'Last Sync',
             online: _lastSyncIso != null,
             trailing: _relativeTime(_lastSyncIso),
-            onlineColor: Colors.white38,
+            onlineColor: const Color(0x66FFFFFF),
           ),
           // One row per installation
           ..._auras.map((a) {
@@ -566,11 +552,11 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             );
           }),
           if (_auras.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16),
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Text(
                 'No Auras claimed yet',
-                style: TextStyle(color: Colors.white24, fontSize: 13),
+                style: kCaption(),
               ),
             ),
         ],
@@ -581,8 +567,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   Widget _buildQuickHelp() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
-        border: Border.all(color: Colors.white12),
+        color: kCard,
+        border: Border.all(color: kCardBorder),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: _kQuickHelp.map((item) {
@@ -593,16 +580,13 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                 const EdgeInsets.fromLTRB(16, 0, 16, 16),
             collapsedTextColor: Colors.white,
             textColor: Colors.white,
-            collapsedIconColor: Colors.white24,
-            iconColor: Colors.white38,
+            collapsedIconColor: const Color(0x40FFFFFF),
+            iconColor: const Color(0x66FFFFFF),
             shape: const Border(),
             collapsedShape: const Border(),
             title: Text(
               title,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w300,
-              ),
+              style: kBody(),
             ),
             children: [
               Column(
@@ -615,19 +599,12 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                       children: [
                         Text(
                           '${e.key + 1}. ',
-                          style: const TextStyle(
-                            color: Colors.white38,
-                            fontSize: 13,
-                          ),
+                          style: kCaption(),
                         ),
                         Expanded(
                           child: Text(
                             e.value,
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 13,
-                              height: 1.5,
-                            ),
+                            style: kCaption(),
                           ),
                         ),
                       ],
@@ -691,8 +668,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
-        border: Border.all(color: Colors.white12),
+        color: kCard,
+        border: Border.all(color: kCardBorder),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
@@ -740,8 +718,8 @@ class _StatusRow extends StatelessWidget {
       height: 8,
       decoration: BoxDecoration(
         color: online
-            ? (onlineColor ?? Colors.greenAccent)
-            : Colors.white24,
+            ? (onlineColor ?? kOnline)
+            : const Color(0x40FFFFFF),
         shape: BoxShape.circle,
       ),
     );
@@ -749,7 +727,7 @@ class _StatusRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+        border: Border(bottom: BorderSide(color: kRowDivider)),
       ),
       child: Row(
         children: [
@@ -761,31 +739,21 @@ class _StatusRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w300,
-                  ),
+                  style: kBody(),
                 ),
                 if (sublabel != null && sublabel!.isNotEmpty)
                   Text(
                     sublabel!,
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 11,
-                    ),
+                    style: kCaption(),
                   ),
               ],
             ),
           ),
           Text(
             trailing,
-            style: TextStyle(
-              color: online
-                  ? (onlineColor ?? Colors.greenAccent)
-                  : Colors.white38,
-              fontSize: 12,
-            ),
+            style: kCaption(online
+                ? (onlineColor ?? kOnline)
+                : const Color(0x66FFFFFF)),
           ),
         ],
       ),
@@ -814,7 +782,7 @@ class _ActionButton extends StatelessWidget {
         label: Text(label),
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white,
-          side: const BorderSide(color: Colors.white24),
+          side: const BorderSide(color: kCardBorder),
           padding: const EdgeInsets.symmetric(vertical: 14),
           textStyle: const TextStyle(
             letterSpacing: 2,
@@ -842,16 +810,12 @@ class _AboutRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
+              style: kCaption(),
             ),
           ),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w300,
-            ),
+            style: kCaption(),
           ),
         ],
       ),

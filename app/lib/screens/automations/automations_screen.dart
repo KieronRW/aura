@@ -4,15 +4,17 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../theme/aura_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _kSectionStyle = TextStyle(
-  fontSize: 10,
-  letterSpacing: 3,
-  color: Colors.white24,
+  fontSize: 12,
+  letterSpacing: 2,
+  fontWeight: FontWeight.w600,
+  color: Color(0x66FFFFFF),
 );
 
 // trigger_type enum value → human label (add/edit dropdown)
@@ -145,12 +147,12 @@ class _AutomationsScreenState extends ConsumerState<AutomationsScreen> {
       child: RefreshIndicator(
         onRefresh: _load,
         color: Colors.white,
-        backgroundColor: const Color(0xFF111111),
+        backgroundColor: kCard,
         child: _loading
             ? const Center(
                 child: CircularProgressIndicator(
-                  color: Colors.white24,
-                  strokeWidth: 1,
+                  color: kViolet,
+                  strokeWidth: 1.5,
                 ),
               )
             : CustomScrollView(
@@ -161,13 +163,9 @@ class _AutomationsScreenState extends ConsumerState<AutomationsScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'AUTOMATION RULES',
-                            style: TextStyle(
-                              fontSize: 11,
-                              letterSpacing: 4,
-                              color: Colors.white38,
-                            ),
+                            style: kLabel(),
                           ),
                           IconButton(
                             onPressed: () => _openAddEdit(),
@@ -178,19 +176,15 @@ class _AutomationsScreenState extends ConsumerState<AutomationsScreen> {
                     ),
                   ),
                   if (_rules.isEmpty)
-                    const SliverFillRemaining(
+                    SliverFillRemaining(
                       hasScrollBody: false,
                       child: Center(
                         child: Padding(
-                          padding: EdgeInsets.all(40),
+                          padding: const EdgeInsets.all(40),
                           child: Text(
                             'No automation rules yet.\nAura can notify your smart home system the moment someone arrives.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white24,
-                              fontSize: 13,
-                              height: 1.7,
-                            ),
+                            style: kCaption().copyWith(height: 1.7),
                           ),
                         ),
                       ),
@@ -209,8 +203,9 @@ class _AutomationsScreenState extends ConsumerState<AutomationsScreen> {
                                 margin: const EdgeInsets.only(bottom: 12),
                                 padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF111111),
-                                  border: Border.all(color: Colors.white12),
+                                  color: kCard,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: kCardBorder),
                                 ),
                                 child: Row(
                                   children: [
@@ -220,26 +215,16 @@ class _AutomationsScreenState extends ConsumerState<AutomationsScreen> {
                                         children: [
                                           Text(
                                             rule['name'] as String? ?? 'Unnamed rule',
-                                            style: TextStyle(
-                                              color: active ? Colors.white : Colors.white38,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w300,
-                                            ),
+                                            style: kBody(active ? Colors.white : const Color(0x61FFFFFF)),
                                           ),
                                           const SizedBox(height: 3),
                                           Text(
                                             _triggerDescription(rule),
-                                            style: const TextStyle(
-                                              color: Colors.white38,
-                                              fontSize: 12,
-                                            ),
+                                            style: kCaption(),
                                           ),
                                           Text(
                                             _actionDescription(rule),
-                                            style: const TextStyle(
-                                              color: Colors.white24,
-                                              fontSize: 11,
-                                            ),
+                                            style: kCaption(const Color(0x3DFFFFFF)),
                                           ),
                                         ],
                                       ),
@@ -248,7 +233,7 @@ class _AutomationsScreenState extends ConsumerState<AutomationsScreen> {
                                       value: active,
                                       onChanged: (v) => _toggleActive(rule, v),
                                       activeThumbColor: Colors.white,
-                                      activeTrackColor: Colors.white24,
+                                      activeTrackColor: kViolet,
                                       inactiveThumbColor: Colors.white38,
                                       inactiveTrackColor: Colors.white12,
                                       materialTapTargetSize:
@@ -467,9 +452,9 @@ class _AddEditAutomationRuleScreenState
       debugPrint('Save automation rule error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save. Please try again.'),
-            backgroundColor: Colors.redAccent,
+          SnackBar(
+            content: const Text('Failed to save. Please try again.'),
+            backgroundColor: kError,
           ),
         );
       }
@@ -482,30 +467,27 @@ class _AddEditAutomationRuleScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
-          'DELETE RULE',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
-          ),
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: kCardBorder),
         ),
-        content: const Text(
+        title: Text(
+          'DELETE RULE',
+          style: kHeading(),
+        ),
+        content: Text(
           'Delete this automation rule? This cannot be undone.',
-          style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
+          style: kBody().copyWith(height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL',
-                style: TextStyle(color: Colors.white70, letterSpacing: 2)),
+            child: Text('CANCEL', style: kBody()),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('DELETE',
-                style: TextStyle(color: Colors.redAccent, letterSpacing: 2)),
+            child: Text('DELETE', style: kBody(kErrorText)),
           ),
         ],
       ),
@@ -537,20 +519,25 @@ class _AddEditAutomationRuleScreenState
       padding: const EdgeInsets.only(bottom: 16),
       child: TextField(
         controller: ctrl,
-        style: const TextStyle(color: Colors.white),
+        style: kBody(),
         maxLines: maxLines,
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.white38),
+          labelStyle: kCaption(),
           hintText: hint,
-          hintStyle: const TextStyle(color: Colors.white24),
-          enabledBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: Colors.white24),
+          hintStyle: kCaption(const Color(0x3DFFFFFF)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: kInputBorder),
           ),
-          focusedBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: Colors.white),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: kCyan),
           ),
+          filled: true,
+          fillColor: const Color(0x0EFFFFFF),
           isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );
@@ -566,18 +553,14 @@ class _AddEditAutomationRuleScreenState
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
           _isEditing ? 'EDIT RULE' : 'NEW RULE',
-          style: const TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
         actions: [
           _saving
@@ -588,7 +571,7 @@ class _AddEditAutomationRuleScreenState
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
-                        color: Colors.white38,
+                        color: kViolet,
                         strokeWidth: 1.5,
                       ),
                     ),
@@ -596,222 +579,225 @@ class _AddEditAutomationRuleScreenState
                 )
               : TextButton(
                   onPressed: _save,
-                  child: const Text(
+                  child: Text(
                     'SAVE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      letterSpacing: 2,
-                      fontSize: 13,
-                    ),
+                    style: kBody(),
                   ),
                 ),
         ],
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: SafeArea(
-          child: _loadingData
-              ? const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.white24,
-                    strokeWidth: 1,
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    // ── RULE DETAILS ───────────────────────────────────────
-                    _sectionHeader('RULE DETAILS'),
-                    _textField(_nameCtrl, 'Name *', hint: 'e.g. Notify on arrival'),
-
-                    // ── TRIGGER ────────────────────────────────────────────
-                    const SizedBox(height: 8),
-                    _sectionHeader('TRIGGER'),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _triggerType,
-                        dropdownColor: const Color(0xFF1A1A1A),
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: const InputDecoration(
-                          labelText: 'When this happens',
-                          labelStyle: TextStyle(color: Colors.white38),
-                          enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white24),
-                          ),
-                          focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white),
-                          ),
-                          isDense: true,
-                        ),
-                        hint: const Text('Select trigger',
-                            style: TextStyle(color: Colors.white24)),
-                        items: _kTriggerOptions
-                            .map((t) => DropdownMenuItem(
-                                  value: t.$1,
-                                  child: Text(t.$2),
-                                ))
-                            .toList(),
-                        onChanged: (v) =>
-                            setState(() {
-                              _triggerType = v;
-                              if (v != 'profile_detected') _profileId = null;
-                            }),
-                      ),
+        child: Container(
+          decoration: const BoxDecoration(gradient: kBgGradient),
+          child: SafeArea(
+            child: _loadingData
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: kViolet,
+                      strokeWidth: 1.5,
                     ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.all(24),
+                    children: [
+                      // ── RULE DETAILS ───────────────────────────────────────
+                      _sectionHeader('RULE DETAILS'),
+                      _textField(_nameCtrl, 'Name *', hint: 'e.g. Notify on arrival'),
 
-                    // Profile picker — only for profile_detected
-                    if (_triggerType == 'profile_detected') ...[
+                      // ── TRIGGER ────────────────────────────────────────────
+                      const SizedBox(height: 8),
+                      _sectionHeader('TRIGGER'),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: DropdownButtonFormField<String>(
-                          initialValue: _profileId,
-                          dropdownColor: const Color(0xFF1A1A1A),
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
-                          decoration: const InputDecoration(
-                            labelText: 'Person',
-                            labelStyle: TextStyle(color: Colors.white38),
-                            enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white24),
+                          initialValue: _triggerType,
+                          dropdownColor: kCard,
+                          style: kBody(),
+                          decoration: InputDecoration(
+                            labelText: 'When this happens',
+                            labelStyle: kCaption(),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: kInputBorder),
                             ),
-                            focusedBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: kCyan),
                             ),
+                            filled: true,
+                            fillColor: const Color(0x0EFFFFFF),
                             isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
-                          hint: const Text('Select person',
-                              style: TextStyle(color: Colors.white24)),
-                          items: _profiles
-                              .map((p) => DropdownMenuItem(
-                                    value: p['id'] as String,
-                                    child: Text(
-                                        p['display_name'] as String? ?? 'Unknown'),
+                          hint: Text('Select trigger', style: kCaption(const Color(0x3DFFFFFF))),
+                          items: _kTriggerOptions
+                              .map((t) => DropdownMenuItem(
+                                    value: t.$1,
+                                    child: Text(t.$2),
                                   ))
                               .toList(),
-                          onChanged: (v) => setState(() => _profileId = v),
+                          onChanged: (v) =>
+                              setState(() {
+                                _triggerType = v;
+                                if (v != 'profile_detected') _profileId = null;
+                              }),
                         ),
                       ),
-                    ],
 
-                    // ── APPLIES TO ─────────────────────────────────────────
-                    const SizedBox(height: 8),
-                    _sectionHeader('APPLIES TO'),
-                    _AppliesTo(
-                      appliesToAll: _appliesToAll,
-                      selectedIds: _selectedInstallationIds,
-                      installationsByProperty: byProperty,
-                      onAppliesToAllChanged: (v) =>
-                          setState(() => _appliesToAll = v),
-                      onSelectionChanged: (ids) =>
-                          setState(() => _selectedInstallationIds = ids),
-                    ),
-
-                    // ── ACTION ─────────────────────────────────────────────
-                    const SizedBox(height: 8),
-                    _sectionHeader('ACTION'),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _actionType,
-                        dropdownColor: const Color(0xFF1A1A1A),
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: const InputDecoration(
-                          labelText: 'Do this',
-                          labelStyle: TextStyle(color: Colors.white38),
-                          enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white24),
+                      // Profile picker — only for profile_detected
+                      if (_triggerType == 'profile_detected') ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _profileId,
+                            dropdownColor: kCard,
+                            style: kBody(),
+                            decoration: InputDecoration(
+                              labelText: 'Person',
+                              labelStyle: kCaption(),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(color: kInputBorder),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(color: kCyan),
+                              ),
+                              filled: true,
+                              fillColor: const Color(0x0EFFFFFF),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            hint: Text('Select person', style: kCaption(const Color(0x3DFFFFFF))),
+                            items: _profiles
+                                .map((p) => DropdownMenuItem(
+                                      value: p['id'] as String,
+                                      child: Text(
+                                          p['display_name'] as String? ?? 'Unknown'),
+                                    ))
+                                .toList(),
+                            onChanged: (v) => setState(() => _profileId = v),
                           ),
-                          focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white),
-                          ),
-                          isDense: true,
                         ),
-                        items: _kActionOptions
-                            .map((a) => DropdownMenuItem(
-                                  value: a.$1,
-                                  child: Text(a.$2),
-                                ))
-                            .toList(),
-                        onChanged: (v) =>
-                            setState(() => _actionType = v ?? 'webhook'),
-                      ),
-                    ),
+                      ],
 
-                    if (_actionType == 'webhook') ...[
-                      _textField(
-                        _webhookUrlCtrl,
-                        'Webhook URL *',
-                        hint: 'https://example.com/webhook',
+                      // ── APPLIES TO ─────────────────────────────────────────
+                      const SizedBox(height: 8),
+                      _sectionHeader('APPLIES TO'),
+                      _AppliesTo(
+                        appliesToAll: _appliesToAll,
+                        selectedIds: _selectedInstallationIds,
+                        installationsByProperty: byProperty,
+                        onAppliesToAllChanged: (v) =>
+                            setState(() => _appliesToAll = v),
+                        onSelectionChanged: (ids) =>
+                            setState(() => _selectedInstallationIds = ids),
                       ),
-                      _textField(
-                        _headersCtrl,
-                        'Custom Headers (JSON, optional)',
-                        hint: '{"Authorization": "Bearer ..."}',
-                        maxLines: 4,
-                      ),
-                    ],
 
-                    // ── ACTIVE ─────────────────────────────────────────────
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                            bottom: BorderSide(color: Colors.white12)),
+                      // ── ACTION ─────────────────────────────────────────────
+                      const SizedBox(height: 8),
+                      _sectionHeader('ACTION'),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _actionType,
+                          dropdownColor: kCard,
+                          style: kBody(),
+                          decoration: InputDecoration(
+                            labelText: 'Do this',
+                            labelStyle: kCaption(),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: kInputBorder),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: kCyan),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0x0EFFFFFF),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          items: _kActionOptions
+                              .map((a) => DropdownMenuItem(
+                                    value: a.$1,
+                                    child: Text(a.$2),
+                                  ))
+                              .toList(),
+                          onChanged: (v) =>
+                              setState(() => _actionType = v ?? 'webhook'),
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Active',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w300,
+
+                      if (_actionType == 'webhook') ...[
+                        _textField(
+                          _webhookUrlCtrl,
+                          'Webhook URL *',
+                          hint: 'https://example.com/webhook',
+                        ),
+                        _textField(
+                          _headersCtrl,
+                          'Custom Headers (JSON, optional)',
+                          hint: '{"Authorization": "Bearer ..."}',
+                          maxLines: 4,
+                        ),
+                      ],
+
+                      // ── ACTIVE ─────────────────────────────────────────────
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                              bottom: BorderSide(color: kRowDivider)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Active',
+                                style: kBody(),
                               ),
                             ),
-                          ),
-                          Switch(
-                            value: _isActive,
-                            onChanged: (v) => setState(() => _isActive = v),
-                            activeThumbColor: Colors.white,
-                            activeTrackColor: Colors.white24,
-                            inactiveThumbColor: Colors.white38,
-                            inactiveTrackColor: Colors.white12,
-                          ),
-                        ],
+                            Switch(
+                              value: _isActive,
+                              onChanged: (v) => setState(() => _isActive = v),
+                              activeThumbColor: Colors.white,
+                              activeTrackColor: kViolet,
+                              inactiveThumbColor: Colors.white38,
+                              inactiveTrackColor: Colors.white12,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
 
-                    if (_error != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        style: const TextStyle(
-                            color: Colors.redAccent, fontSize: 13),
-                      ),
-                    ],
+                      if (_error != null) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          _error!,
+                          style: kBody(kErrorText),
+                        ),
+                      ],
 
-                    if (_isEditing) ...[
-                      const SizedBox(height: 48),
-                      Center(
-                        child: TextButton(
-                          onPressed: _delete,
-                          child: const Text(
-                            'DELETE RULE',
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 12,
-                              letterSpacing: 2,
+                      if (_isEditing) ...[
+                        const SizedBox(height: 48),
+                        Center(
+                          child: TextButton(
+                            onPressed: _delete,
+                            child: Text(
+                              'DELETE RULE',
+                              style: kBody(kErrorText),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
 
-                    const SizedBox(height: 32),
-                  ],
-                ),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+          ),
         ),
       ),
     );
@@ -863,11 +849,7 @@ class _AppliesTo extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 8, bottom: 4),
                   child: Text(
                     propName.toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white24,
-                      fontSize: 10,
-                      letterSpacing: 2,
-                    ),
+                    style: kCaption(const Color(0x3DFFFFFF)),
                   ),
                 ),
               ...installations.map((inst) {
@@ -891,17 +873,13 @@ class _AppliesTo extends StatelessWidget {
                           checked
                               ? Icons.check_box
                               : Icons.check_box_outline_blank,
-                          color: checked ? Colors.white : Colors.white24,
+                          color: checked ? kViolet : const Color(0x3DFFFFFF),
                           size: 20,
                         ),
                         const SizedBox(width: 12),
                         Text(
                           inst['name'] as String? ?? 'Aura',
-                          style: TextStyle(
-                            color: checked ? Colors.white : Colors.white38,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w300,
-                          ),
+                          style: kBody(checked ? Colors.white : const Color(0x61FFFFFF)),
                         ),
                       ],
                     ),
@@ -938,17 +916,13 @@ class _RadioRow extends StatelessWidget {
           children: [
             Icon(
               selected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: selected ? Colors.white : Colors.white24,
+              color: selected ? kViolet : const Color(0x3DFFFFFF),
               size: 20,
             ),
             const SizedBox(width: 12),
             Text(
               label,
-              style: TextStyle(
-                color: selected ? Colors.white : Colors.white38,
-                fontSize: 14,
-                fontWeight: FontWeight.w300,
-              ),
+              style: kBody(selected ? Colors.white : const Color(0x61FFFFFF)),
             ),
           ],
         ),

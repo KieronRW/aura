@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../theme/aura_theme.dart';
 
 class AddMirrorScreen extends StatefulWidget {
   const AddMirrorScreen({super.key});
@@ -104,8 +105,8 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        content: Text(message, style: kBody()),
+        backgroundColor: kError,
         duration: const Duration(seconds: 4),
       ),
     );
@@ -117,28 +118,29 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111111),
-        title: const Text(
-          'NAME YOUR MIRROR',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            letterSpacing: 3,
-            fontWeight: FontWeight.w300,
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text('Name your Aura', style: kHeading()),
+        content: Container(
+          height: 54,
+          decoration: BoxDecoration(
+            color: const Color(0x0EFFFFFF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: kInputBorder),
           ),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'e.g. Front Gate, Garage',
-            hintStyle: TextStyle(color: Colors.white24),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Center(
+            child: TextField(
+              controller: controller,
+              autofocus: true,
+              style: kBody(),
+              decoration: InputDecoration(
+                hintText: 'e.g. Front Gate, Garage',
+                hintStyle: kBody(const Color(0x66FFFFFF)),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
             ),
           ),
         ),
@@ -150,10 +152,7 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
               await _updateMirrorName(name);
               if (mounted) Navigator.pop(context, true);
             },
-            child: const Text(
-              'DONE',
-              style: TextStyle(color: Colors.white, letterSpacing: 2),
-            ),
+            child: Text('Done', style: kBody(kVioletText)),
           ),
         ],
       ),
@@ -175,53 +174,46 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'ADD AURA',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
+        title: Text('Add Aura', style: kHeading()),
       ),
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
           MobileScanner(controller: _scanner, onDetect: _onDetect),
+          // Vignette overlay so text stays readable over camera
+          Container(
+            decoration: const BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.center,
+                radius: 1.2,
+                colors: [Colors.transparent, Color(0xCC000000)],
+              ),
+            ),
+          ),
           SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 32),
-                const Text(
-                  'SCAN QR CODE',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    letterSpacing: 4,
-                  ),
-                ),
+                const SizedBox(height: 24),
+                Text('Scan QR code', style: kLabel()),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Point your camera at the QR code\non your Aura mirror',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 13,
-                    height: 1.6,
-                  ),
+                  style: kCaption(),
                 ),
                 const Spacer(),
                 Center(
                   child: Container(
-                    width: 200,
-                    height: 200,
+                    width: 220,
+                    height: 220,
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white38, width: 2),
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: kViolet, width: 2),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                 ),
@@ -230,8 +222,8 @@ class _AddMirrorScreenState extends State<AddMirrorScreen> {
                   const Padding(
                     padding: EdgeInsets.all(24),
                     child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 1,
+                      color: kCyan,
+                      strokeWidth: 1.5,
                     ),
                   ),
                 const SizedBox(height: 48),

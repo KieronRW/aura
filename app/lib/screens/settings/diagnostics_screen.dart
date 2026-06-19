@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/installation_provider.dart';
 import '../../services/supabase_service.dart';
+import '../../theme/aura_theme.dart';
 import '../../widgets/skeleton.dart';
 
 class DiagnosticsScreen extends ConsumerStatefulWidget {
@@ -133,45 +134,55 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   Color _severityColor(String? severity) {
     switch (severity) {
       case 'critical':
-        return Colors.redAccent;
+        return kErrorText;
       case 'error':
-        return Colors.redAccent;
+        return kErrorText;
       case 'warning':
-        return Colors.amberAccent;
+        return kWarningText;
       case 'info':
         return Colors.white;
       default:
-        return Colors.white38;
+        return const Color(0x80FFFFFF);
     }
   }
 
-  bool _severityBold(String? severity) =>
-      severity == 'critical' || severity == 'error';
+  Color _severityDotColor(String? severity) {
+    switch (severity) {
+      case 'critical':
+        return kError;
+      case 'error':
+        return kError;
+      case 'warning':
+        return kWarning;
+      case 'info':
+        return kOnline;
+      default:
+        return const Color(0x40FFFFFF);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final isOnline = _isActuallyOnline(_deviceStatus);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'DIAGNOSTICS',
-          style: TextStyle(
-            fontSize: 13,
-            letterSpacing: 4,
-            fontWeight: FontWeight.w300,
-          ),
+          style: kHeading(),
         ),
       ),
       body: SafeArea(
-        child: RefreshIndicator(
+        child: Container(
+          decoration: const BoxDecoration(gradient: kBgGradient),
+          child: RefreshIndicator(
           onRefresh: _loadData,
           color: Colors.white,
-          backgroundColor: const Color(0xFF111111),
+          backgroundColor: kCard,
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
@@ -179,8 +190,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111111),
-                    border: Border.all(color: const Color(0xFF222222)),
+                    color: kCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: kCardBorder),
                   ),
                   child: Column(
                     children: const [
@@ -200,20 +212,17 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 )
               else ...[
                 // Mirror status
-                const Text(
+                Text(
                   'MIRROR STATUS',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 3,
-                    color: Colors.white24,
-                  ),
+                  style: kLabel(),
                 ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111111),
-                    border: Border.all(color: Colors.white12),
+                    color: kCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: kCardBorder),
                   ),
                   child: Column(
                     children: [
@@ -221,8 +230,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                         label: 'Status',
                         value: isOnline ? 'Online' : 'Offline',
                         valueColor: isOnline
-                            ? Colors.greenAccent
-                            : Colors.redAccent,
+                            ? kOnlineText
+                            : kErrorText,
                       ),
                       _DiagnosticRow(
                         label: 'IP Address',
@@ -242,8 +251,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                             ? 'OK'
                             : 'Error',
                         valueColor: _deviceStatus?['camera_ok'] == true
-                            ? Colors.greenAccent
-                            : Colors.redAccent,
+                            ? kOnlineText
+                            : kErrorText,
                       ),
                       _DiagnosticRow(
                         label: 'Display',
@@ -257,20 +266,17 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 const SizedBox(height: 24),
 
                 // System resources
-                const Text(
+                Text(
                   'SYSTEM RESOURCES',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 3,
-                    color: Colors.white24,
-                  ),
+                  style: kLabel(),
                 ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111111),
-                    border: Border.all(color: Colors.white12),
+                    color: kCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: kCardBorder),
                   ),
                   child: Column(
                     children: [
@@ -309,13 +315,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 const SizedBox(height: 32),
 
                 // Recent logs header
-                const Text(
+                Text(
                   'RECENT LOGS',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 3,
-                    color: Colors.white24,
-                  ),
+                  style: kLabel(),
                 ),
                 const SizedBox(height: 12),
 
@@ -408,20 +410,21 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                     ),
                   )
                 else if (_logs.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Center(
                       child: Text(
                         'No logs found',
-                        style: TextStyle(color: Colors.white24, fontSize: 13),
+                        style: kCaption(),
                       ),
                     ),
                   )
                 else
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111111),
-                      border: Border.all(color: Colors.white12),
+                      color: kCardDim,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: kCardBorder),
                     ),
                     child: Column(
                       children: _logs.asMap().entries.map((entry) {
@@ -434,7 +437,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                         return Column(
                           children: [
                             if (i > 0)
-                              const Divider(height: 1, color: Colors.white12),
+                              const Divider(height: 1, color: kRowDivider),
                             Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -449,7 +452,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                                     height: 7,
                                     margin: const EdgeInsets.only(top: 4, right: 10),
                                     decoration: BoxDecoration(
-                                      color: _severityColor(severity),
+                                      color: _severityDotColor(severity),
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -461,32 +464,19 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                                           children: [
                                             Text(
                                               category,
-                                              style: const TextStyle(
-                                                fontSize: 9,
-                                                letterSpacing: 1.5,
-                                                color: Colors.white24,
-                                              ),
+                                              style: kMono(const Color(0x40FFFFFF)),
                                             ),
                                             const Spacer(),
                                             Text(
                                               ts,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.white24,
-                                              ),
+                                              style: kMono(const Color(0x40FFFFFF)),
                                             ),
                                           ],
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
                                           message,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: _severityColor(severity),
-                                            fontWeight: _severityBold(severity)
-                                                ? FontWeight.w600
-                                                : FontWeight.normal,
-                                          ),
+                                          style: kMono(_severityColor(severity)),
                                         ),
                                       ],
                                     ),
@@ -504,6 +494,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               ],
             ],
           ),
+        ),
         ),
       ),
     );
@@ -529,18 +520,16 @@ class _FilterChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? Colors.white : Colors.white24,
+            color: selected ? Colors.white : kCardBorder,
           ),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
-            letterSpacing: 1.5,
-            color: selected ? Colors.black : Colors.white38,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-          ),
+          style: selected
+              ? kLabel(Colors.black)
+              : kLabel(),
         ),
       ),
     );
@@ -567,11 +556,11 @@ class _DiagnosticRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white38, fontSize: 13),
+            style: kCaption(),
           ),
           Text(
             value,
-            style: TextStyle(color: valueColor ?? Colors.white, fontSize: 13),
+            style: valueColor != null ? kMono(valueColor!) : kMono(),
           ),
         ],
       ),
@@ -585,8 +574,8 @@ class _TempRow extends StatelessWidget {
   const _TempRow({this.tempC});
 
   Color _tempColor(double t) {
-    if (t >= 80) return Colors.redAccent;
-    if (t >= 70) return Colors.orangeAccent;
+    if (t >= 80) return kErrorText;
+    if (t >= 70) return kWarningText;
     return Colors.white;
   }
 
@@ -600,10 +589,10 @@ class _TempRow extends StatelessWidget {
             width: 64,
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white38, fontSize: 13),
+              style: kCaption(),
             ),
           ),
-          const Text('—', style: TextStyle(color: Colors.white38, fontSize: 13)),
+          Text('—', style: kMono(const Color(0x80FFFFFF))),
         ],
       );
     }
@@ -613,12 +602,12 @@ class _TempRow extends StatelessWidget {
           width: 64,
           child: Text(
             label,
-            style: const TextStyle(color: Colors.white38, fontSize: 13),
+            style: kCaption(),
           ),
         ),
         Text(
           '${tempC!.toStringAsFixed(1)}°C',
-          style: TextStyle(color: _tempColor(tempC!), fontSize: 13),
+          style: kMono(_tempColor(tempC!)),
         ),
       ],
     );
@@ -632,9 +621,9 @@ class _ResourceRow extends StatelessWidget {
   const _ResourceRow({required this.label, required this.value});
 
   Color _barColor(double v) {
-    if (v > 80) return Colors.redAccent;
-    if (v > 60) return Colors.orangeAccent;
-    return Colors.greenAccent;
+    if (v > 80) return kError;
+    if (v > 60) return kWarning;
+    return kViolet;
   }
 
   @override
@@ -645,7 +634,7 @@ class _ResourceRow extends StatelessWidget {
           width: 64,
           child: Text(
             label,
-            style: const TextStyle(color: Colors.white38, fontSize: 13),
+            style: kCaption(),
           ),
         ),
         Expanded(
@@ -653,7 +642,7 @@ class _ResourceRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
               value: value / 100,
-              backgroundColor: Colors.white12,
+              backgroundColor: const Color(0x1FFFFFFF),
               valueColor: AlwaysStoppedAnimation<Color>(_barColor(value)),
               minHeight: 4,
             ),
@@ -665,7 +654,7 @@ class _ResourceRow extends StatelessWidget {
           child: Text(
             '${value.toStringAsFixed(0)}%',
             textAlign: TextAlign.right,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
+            style: kMono(),
           ),
         ),
       ],

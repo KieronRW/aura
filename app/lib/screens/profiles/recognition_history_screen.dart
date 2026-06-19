@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../theme/aura_theme.dart';
 
 class RecognitionHistoryScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> profile;
@@ -113,48 +114,51 @@ class _RecognitionHistoryScreenState
   Widget build(BuildContext context) {
     if (_loading) {
       return const Center(
-        child: CircularProgressIndicator(color: Colors.white24, strokeWidth: 1),
+        child: CircularProgressIndicator(color: kViolet, strokeWidth: 1.5),
       );
     }
 
     if (_events.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No recognition history yet',
-          style: TextStyle(color: Colors.white24, fontSize: 13),
+          style: kCaption(const Color(0x1AFFFFFF)),
         ),
       );
     }
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: (scroll) {
-        if (scroll.metrics.pixels >= scroll.metrics.maxScrollExtent - 200) {
-          _loadEvents(loadMore: true);
-        }
-        return false;
-      },
-      child: ListView.builder(
-        padding: const EdgeInsets.all(24),
-        itemCount: _events.length + (_loadingMore ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == _events.length) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator(
-                  color: Colors.white24,
-                  strokeWidth: 1,
-                ),
-              ),
-            );
+    return Container(
+      decoration: const BoxDecoration(gradient: kBgGradient),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (scroll) {
+          if (scroll.metrics.pixels >= scroll.metrics.maxScrollExtent - 200) {
+            _loadEvents(loadMore: true);
           }
-          final event = _events[index];
-          return _HistoryEventRow(
-            event: event,
-            getSignedUrl: _getSignedUrl,
-            formatTs: _formatTs,
-          );
+          return false;
         },
+        child: ListView.builder(
+          padding: const EdgeInsets.all(24),
+          itemCount: _events.length + (_loadingMore ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == _events.length) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(
+                    color: kViolet,
+                    strokeWidth: 1.5,
+                  ),
+                ),
+              );
+            }
+            final event = _events[index];
+            return _HistoryEventRow(
+              event: event,
+              getSignedUrl: _getSignedUrl,
+              formatTs: _formatTs,
+            );
+          },
+        ),
       ),
     );
   }
@@ -205,7 +209,7 @@ class _HistoryEventRowState extends State<_HistoryEventRow> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+        border: Border(bottom: BorderSide(color: kRowDivider)),
       ),
       child: Row(
         children: [
@@ -213,32 +217,36 @@ class _HistoryEventRowState extends State<_HistoryEventRow> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFF111111),
-              border: Border.all(color: Colors.white12),
+              color: kCardDim,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: kCardBorder),
             ),
             child: _imageUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: _imageUrl!,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) => const Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1,
-                          color: Colors.white24,
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: CachedNetworkImage(
+                      imageUrl: _imageUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, _) => const Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: kViolet,
+                          ),
                         ),
                       ),
-                    ),
-                    errorWidget: (_, _, _) => const Icon(
-                      Icons.directions_car_outlined,
-                      color: Colors.white24,
-                      size: 24,
+                      errorWidget: (_, _, _) => const Icon(
+                        Icons.directions_car_outlined,
+                        color: Color(0x40FFFFFF),
+                        size: 24,
+                      ),
                     ),
                   )
                 : const Icon(
                     Icons.directions_car_outlined,
-                    color: Colors.white24,
+                    color: Color(0x40FFFFFF),
                     size: 24,
                   ),
           ),
@@ -249,16 +257,12 @@ class _HistoryEventRowState extends State<_HistoryEventRow> {
               children: [
                 Text(
                   vehicleLabel,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    letterSpacing: 0.5,
-                  ),
+                  style: kBody(),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   timeLabel,
-                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  style: kCaption(),
                 ),
               ],
             ),
