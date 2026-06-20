@@ -8,6 +8,16 @@ import '../../theme/aura_theme.dart';
 import '../onboarding/discover_mirror_screen.dart';
 import 'aura_settings_screen.dart';
 
+bool _isActuallyOnline(Map<String, dynamic>? status) {
+  if (status == null) return false;
+  if (status['is_online'] != true) return false;
+  final lastSeen = status['last_seen_at'];
+  if (lastSeen == null) return false;
+  return DateTime.now().toUtc()
+      .difference(DateTime.parse(lastSeen.toString()))
+      .inSeconds < 45;
+}
+
 class ManageAurasScreen extends ConsumerStatefulWidget {
   const ManageAurasScreen({super.key});
 
@@ -188,71 +198,78 @@ class _PropertySection extends ConsumerWidget {
             }
             return Column(
               children: [
-                ...installationModels.map((model) {
-                  final installation = model.toMap();
-                  final isOnline = installation['status'] == 'online';
-                  return GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AuraSettingsScreen(
-                          installation: installation,
-                          propertyId: property['id'] as String,
-                        ),
-                      ),
-                    ),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: kCard,
-                        border: Border.all(color: kCardBorder),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.sensors,
-                            color: Color(0x66FFFFFF),
-                            size: 20,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              installation['name'] as String? ?? 'Aura',
-                              style: kBody(),
-                            ),
-                          ),
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: isOnline ? kOnline : kError,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            isOnline ? 'Online' : 'Offline',
-                            style: kCaption(isOnline ? kOnlineText : kErrorText),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.chevron_right,
-                            color: Color(0x40FFFFFF),
-                            size: 18,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
+                ...installationModels.map((model) => _AuraRow(
+                  installation: model.toMap(),
+                  propertyId: property['id'] as String,
+                )),
                 const SizedBox(height: 16),
               ],
             );
           },
         ),
       ],
+    );
+  }
+}
+
+class _AuraRow extends ConsumerWidget {
+  final Map<String, dynamic> installation;
+  final String propertyId;
+
+  const _AuraRow({required this.installation, required this.propertyId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final id = installation['id'] as String;
+    final statusAsync = ref.watch(deviceStatusProvider(id));
+    final isOnline = _isActuallyOnline(statusAsync.valueOrNull);
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AuraSettingsScreen(
+            installation: installation,
+            propertyId: propertyId,
+          ),
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: kCard,
+          border: Border.all(color: kCardBorder),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.sensors, color: Color(0x66FFFFFF), size: 20),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                installation['name'] as String? ?? 'Aura',
+                style: kBody(),
+              ),
+            ),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isOnline ? kOnline : kError,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              isOnline ? 'Online' : 'Offline',
+              style: kCaption(isOnline ? kOnlineText : kErrorText),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Color(0x40FFFFFF), size: 18),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'config/supabase_config.dart';
-import 'screens/auth/login_screen.dart';
+import 'screens/auth/splash_screen.dart';
 import 'screens/auth/terms_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'providers/terms_provider.dart';
@@ -128,7 +128,7 @@ if (termsAccepted) return const HomeScreen();
               return _buildHome(session);
             }
           }
-          return const LoginScreen();
+          return const SplashScreen();
         },
       ),
     );

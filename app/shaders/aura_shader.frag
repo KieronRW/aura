@@ -19,16 +19,16 @@ void main() {
   vec3 pal2 = vec3(0.82, 0.30, 0.90);
 
   vec3 col = vec3(0.0);
-  float lw = 0.0022;
+  float lw = 0.002;
   float len = length(uv);
-  float diag = mod(uv.x + uv.y, 0.2);
+  float diag = mod(uv.x - uv.y, 0.2);
 
   for (int i = 0; i < 5; i++) {
     float fi = float(i);
     float w = lw * fi * fi;
     float d0 = max(abs(fract(t              + fi * 0.01) * 5.0 - len + diag), 1e-4);
-    float d1 = max(abs(fract(t - 0.012      + fi * 0.01) * 5.0 - len + diag), 1e-4);
-    float d2 = max(abs(fract(t - 0.024      + fi * 0.01) * 5.0 - len + diag), 1e-4);
+    float d1 = max(abs(fract(t - 0.01       + fi * 0.01) * 5.0 - len + diag), 1e-4);
+    float d2 = max(abs(fract(t - 0.02       + fi * 0.01) * 5.0 - len + diag), 1e-4);
     col += (w / d0) * pal0;
     col += (w / d1) * pal1;
     col += (w / d2) * pal2;
