@@ -130,9 +130,10 @@ def _badge_url(make: str | None) -> str:
     # Try full slug first, then progressively shorter: "land-rover-evoque" -> "land-rover" -> "land"
     for i in range(len(parts), 0, -1):
         slug = "-".join(parts[:i])
-        candidate = _BADGES_DIR / f"{slug}.png"
-        if candidate.exists():
-            return f"{_BADGE_BASE_URL}/{slug}.png"
+        for ext in (".glb", ".png"):
+            candidate = _BADGES_DIR / f"{slug}{ext}"
+            if candidate.exists():
+                return f"{_BADGE_BASE_URL}/{slug}{ext}"
 
     logger.debug("No badge file found for make '%s' — using default", make)
     return _DEFAULT_BADGE_URL
