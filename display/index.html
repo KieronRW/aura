@@ -377,6 +377,15 @@
   <script src="/display/vendor/GLTFLoader.js"></script>
 
   <script>
+    // ── TEMP DEBUG — on-screen error capture (remove when GLB issue resolved) ──
+    const _errBox = document.createElement('div');
+    _errBox.style.cssText = 'position:fixed;top:10px;left:10px;right:10px;z-index:9999;color:#f66;font-size:14px;font-family:monospace;white-space:pre-wrap;pointer-events:none;';
+    document.body.appendChild(_errBox);
+    window.onerror = (msg, src, line) => { _errBox.textContent += `ERR: ${msg} (${src}:${line})\n`; };
+    window.__origConsoleError = console.error;
+    console.error = (...a) => { _errBox.textContent += `LOG: ${a.join(' ')}\n`; window.__origConsoleError(...a); };
+    // ── END TEMP DEBUG ────────────────────────────────────────────────────────
+
     // ── DOM refs ────────────────────────────────────────────────────
     const idleScreen     = document.getElementById('idle-screen');
     const recScreen      = document.getElementById('recognition-screen');
