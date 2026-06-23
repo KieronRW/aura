@@ -375,6 +375,7 @@
   <!-- Three.js + GLTFLoader -->
   <script src="/display/vendor/three.min.js"></script>
   <script src="/display/vendor/GLTFLoader.js"></script>
+  <script src="/display/vendor/meshopt_decoder.js"></script>
 
   <script>
     // ── TEMP DEBUG — on-screen error capture (remove when GLB issue resolved) ──
@@ -473,6 +474,7 @@
       }
 
       const loader = new THREE.GLTFLoader();
+      loader.setMeshoptDecoder(MeshoptDecoder);
       loader.load(
         url,
         (gltf) => {
