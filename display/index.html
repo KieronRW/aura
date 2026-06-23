@@ -451,15 +451,17 @@
     }
 
     function loadGLB(url) {
+      // Canvas must be display:block before the renderer sizes itself,
+      // otherwise clientWidth/clientHeight are 0 on the first load (0×0 buffer).
+      recBadge.classList.add('hidden');
+      badgeCanvas.classList.add('active');
+
       initGLBRenderer();
 
       if (glbBadge) {
         glbScene.remove(glbBadge);
         glbBadge = null;
       }
-
-      recBadge.classList.add('hidden');
-      badgeCanvas.classList.add('active');
 
       const loader = new THREE.GLTFLoader();
       loader.load(

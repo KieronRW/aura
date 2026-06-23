@@ -122,7 +122,10 @@ _DEFAULT_BADGE_URL = f"{_BADGE_BASE_URL}/default.png"
 
 def _badge_url(make: str | None) -> str:
     """Return the HTTP URL for a make's badge, falling back to default."""
+    # TEMP DEBUG — badge resolution tracing
+    logger.info("[badge-debug] make=%r  _BADGES_DIR=%s", make, _BADGES_DIR)
     if not make:
+        logger.info("[badge-debug] empty make — returning default: %s", _DEFAULT_BADGE_URL)
         return _DEFAULT_BADGE_URL
 
     parts = make.lower().strip().replace("/", "-").split()
@@ -132,10 +135,15 @@ def _badge_url(make: str | None) -> str:
         slug = "-".join(parts[:i])
         for ext in (".glb", ".png"):
             candidate = _BADGES_DIR / f"{slug}{ext}"
+            # TEMP DEBUG
+            logger.info("[badge-debug] checking %s — exists=%s", candidate, candidate.exists())
             if candidate.exists():
-                return f"{_BADGE_BASE_URL}/{slug}{ext}"
+                url = f"{_BADGE_BASE_URL}/{slug}{ext}"
+                logger.info("[badge-debug] match — returning %s", url)
+                return url
 
     logger.debug("No badge file found for make '%s' — using default", make)
+    logger.info("[badge-debug] no match — returning default: %s", _DEFAULT_BADGE_URL)
     return _DEFAULT_BADGE_URL
 
 
