@@ -290,13 +290,14 @@ _HTTP_PORT = 9998
 _STATIC_PORT = 8080
 _STATIC_ROOT = Path.home() / "aura"
 _TEST_IMAGE_PATH = _STATIC_ROOT / "test_vw_front.jpg"
+_PROJECT_ROOT = Path(__file__).resolve().parent
 
 
 def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue: "queue.Queue", synced_vehicles: list):
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path != "/test-recognition":
-                self._respond(404, {"error": "not found"})
+                self._serve_static()
                 return
 
             import cv2
@@ -352,6 +353,34 @@ def _make_http_handler(camera: "Camera", recognizer: "Recognizer", display_queue
                 logger.info("HTTP test: recognised '%s' via %s (%.2f)", name, result.method_used, result.confidence)
 
             self._respond(200, payload)
+
+        def _serve_static(self):
+            # Map request path to a file under the project root.
+            # /vendor/* is served from display/vendor/*.
+            rel = self.path.lstrip("/").split("?", 1)[0]
+            if rel.startswith("vendor/"):
+                rel = "display/" + rel
+            file_path = (_PROJECT_ROOT / rel).resolve()
+
+            # 404 for missing files or any path escaping the project root.
+            if not file_path.is_file() or _PROJECT_ROOT not in file_path.parents:
+                self._respond(404, {"error": "not found"})
+                return
+
+            content_type = {
+                ".html": "text/html",
+                ".js": "application/javascript",
+                ".glb": "model/gltf-binary",
+                ".png": "image/png",
+                ".css": "text/css",
+            }.get(file_path.suffix.lower(), "application/octet-stream")
+
+            data = file_path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
 
         def _respond(self, code: int, body: dict):
             data = json.dumps(body, indent=2).encode()
