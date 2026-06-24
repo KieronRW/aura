@@ -147,7 +147,24 @@
     #recognition-screen {
       gap: 0;
       padding: 0 6vw;
+      justify-content: flex-start;   /* zones define vertical layout, not centering */
     }
+
+    /* Fixed vertical zones over the space above the status bar (15 / 55 / 30). */
+    .rec-zone {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;              /* content stays within its zone */
+    }
+    .rec-zone-info     { flex: 0 0 15%; }
+    .rec-zone-badge    { flex: 0 0 55%; }
+    .rec-zone-greeting { flex: 0 0 30%; }
+
+    /* ══ TEMP ZONE GUIDES — remove after tuning ══ */
+    .rec-zone { border-bottom: 1px solid rgba(255, 255, 255, 0.4); }
+    /* ══ END TEMP ZONE GUIDES ══ */
 
     .rec-make-model {
       font-family: 'Montserrat', sans-serif;
@@ -157,11 +174,12 @@
       padding-left: 0.48em;
       text-transform: uppercase;
       color: rgba(255, 255, 255, 0.28);
-      margin-bottom: 7vh;
       text-align: center;
     }
 
     .badge-stage {
+      width: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -185,9 +203,10 @@
     /* PNG badge — kept for backwards compatibility */
     .badge-img {
       display: block;
-      width: 70vw;
-      max-width: 756px;
+      width: auto;
       height: auto;
+      max-width: 100%;
+      max-height: 100%;
       filter: none;
     }
 
@@ -195,13 +214,12 @@
     .badge-reflection { display: none; }
 
     /* GLB badge canvas — MUST stay outside any CSS spin/float/transform;
-       all motion comes from the Three.js camera orbit, not CSS. */
+       all motion comes from the Three.js camera orbit, not CSS.
+       Fills zone 2; the WebGL camera fit adapts to its aspect. */
     #badge-canvas {
       display: none;
-      width: 70vw;
-      max-width: 756px;
-      height: 70vw;
-      max-height: 756px;
+      width: 100%;
+      height: 100%;
       background: transparent;
     }
 
@@ -227,7 +245,6 @@
       color: rgba(255, 255, 255, 0.72);
       letter-spacing: 0.04em;
       text-align: center;
-      margin-top: 7vh;
       max-width: 88vw;
     }
 
@@ -348,9 +365,14 @@
 
   <!-- ── Recognition screen ───────────────────────────────────────── -->
   <div id="recognition-screen" class="screen">
-    <div class="rec-make-model" id="rec-make-model"></div>
+    <!-- Zone 1: vehicle info (15%) -->
+    <div class="rec-zone rec-zone-info">
+      <div class="rec-make-model" id="rec-make-model"></div>
+    </div>
 
-    <div class="badge-stage">
+    <!-- Zone 2: badge (55%) -->
+    <div class="rec-zone rec-zone-badge">
+      <div class="badge-stage">
       <!-- PNG fallback keeps its CSS float/spin -->
       <div class="badge-float">
         <div class="badge-spin">
@@ -360,10 +382,13 @@
       </div>
       <!-- GLB canvas: static, OUTSIDE the CSS spin/float — motion is the WebGL camera orbit -->
       <canvas id="badge-canvas"></canvas>
+      </div>
     </div>
 
-    <div class="badge-floor-glow"></div>
-    <div class="rec-greeting" id="rec-greeting"></div>
+    <!-- Zone 3: greeting (30%) -->
+    <div class="rec-zone rec-zone-greeting">
+      <div class="rec-greeting" id="rec-greeting"></div>
+    </div>
   </div>
 
   <!-- ── Visitor pre-arrival screen ──────────────────────────────── -->
