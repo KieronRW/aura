@@ -372,13 +372,23 @@
 
   <div id="ws-dot"></div>
 
-  <!-- Three.js + GLTFLoader -->
-  <script src="/display/vendor/three.min.js"></script>
-  <script src="/display/vendor/GLTFLoader.js"></script>
-  <script src="/display/vendor/meshopt_decoder.js"></script>
-  <script src="/display/vendor/RoomEnvironment.js"></script>
+  <!-- Modern three.js (r160) vendored locally — ESM via importmap. Chrome 148 on
+       the Pi supports importmaps natively; every path resolves to a local file. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/display/vendor/three.module.js",
+      "three/addons/": "/display/vendor/jsm/"
+    }
+  }
+  </script>
 
-  <script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
     // ── DOM refs ────────────────────────────────────────────────────
     const idleScreen     = document.getElementById('idle-screen');
     const recScreen      = document.getElementById('recognition-screen');
@@ -424,13 +434,14 @@
       });
       glbRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       glbRenderer.setClearColor(0x000000, 0); // fully transparent — pure black shows through
-      glbRenderer.outputEncoding = THREE.sRGBEncoding;
+      // Modern three: colour management is on by default; SRGBColorSpace is the
+      // default output (set explicitly for clarity). physicallyCorrectLights is
+      // gone — lighting is always physically correct now.
+      glbRenderer.outputColorSpace = THREE.SRGBColorSpace;
       // Match donmccurdy/three-gltf-viewer's proven pipeline: Linear tone mapping,
-      // exposure 2^0 = 1.0. (ACES rolls off the bright env highlights that make
-      // chrome read as polished.) Applies to geometry only — clear colour untouched.
+      // exposure 2^0 = 1.0. Applies to geometry only — clear colour untouched.
       glbRenderer.toneMapping = THREE.LinearToneMapping;
       glbRenderer.toneMappingExposure = Math.pow(2, 0.0);
-      glbRenderer.physicallyCorrectLights = true;
 
       glbScene  = new THREE.Scene();
       glbCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
@@ -443,7 +454,7 @@
       // → PMREM → scene.environment (default sigma). CONSTRAINT: scene.background
       // stays null so the canvas stays transparent — env is reflections/IBL only.
       const pmrem = new THREE.PMREMGenerator(glbRenderer);
-      glbEnvMap = pmrem.fromScene(new THREE.RoomEnvironment()).texture;
+      glbEnvMap = pmrem.fromScene(new RoomEnvironment()).texture;
       glbScene.environment = glbEnvMap;
       glbScene.background  = null;
       pmrem.dispose();
@@ -512,7 +523,7 @@
         glbBadge = null;
       }
 
-      const loader = new THREE.GLTFLoader();
+      const loader = new GLTFLoader();
       loader.setMeshoptDecoder(MeshoptDecoder);
       loader.load(
         url,
