@@ -20,6 +20,9 @@ DEFAULTS: dict[str, Any] = {
     "show_weather": False,
     "status_bar_scale": 100,  # percentage, 50–200; 100 = default size
     "auto_update": True,      # units stay current by default; updated between 02:00–04:00
+    "badge_scale": 100,         # percentage, 50–150; 100 = default (badges authored at 1x)
+    "badge_spin_period": 20,    # seconds per full rotation, range 8–40
+    "badge_spin_direction": 1,  # 1 = clockwise, -1 = counter-clockwise
 }
 
 _VALID_ROTATIONS = (0, 90, 180, 270)

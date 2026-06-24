@@ -55,6 +55,9 @@ class DisplayServer:
         model: str | None,
         greeting: str,
         badge_url: str | None,
+        badge_scale: int = 100,
+        badge_spin_period: int = 20,
+        badge_spin_direction: int = 1,
     ):
         payload = json.dumps({
             "state":     "recognition",
@@ -62,6 +65,9 @@ class DisplayServer:
             "model":     model or "",
             "greeting":  greeting,
             "badge_url": badge_url or "",
+            "badge_scale":          badge_scale,
+            "badge_spin_period":    badge_spin_period,
+            "badge_spin_direction": badge_spin_direction,
         })
         logger.info("Broadcasting recognition — make=%s model=%s", make, model)
         self._is_idle = False

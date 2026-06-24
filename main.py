@@ -640,6 +640,18 @@ def main() -> None:
 
     _state["force_status_bar_cb"] = _force_status_bar
 
+    def _badge_settings() -> dict:
+        """Current 3D-badge settings for the recognition payload (read from cache)."""
+        s = _cached_display_settings
+        return {
+            "badge_scale": s.get("badge_scale", 100),
+            "badge_spin_period": s.get("badge_spin_period", 20),
+            "badge_spin_direction": s.get("badge_spin_direction", 1),
+        }
+
+    # Populate display settings so the startup recognition carries current badge values.
+    _cached_display_settings = _display_settings_mod.get_settings()
+
     # Startup scan: recognise any car already in frame
     logger.info("Startup: running initial recognition scan")
     time.sleep(3)
@@ -658,7 +670,7 @@ def main() -> None:
                     startup_result.method_used, vehicle["id"] if vehicle else None,
                     image_frame=startup_frame,
                 )
-                display.send_recognition(make=startup_result.make or "", model=startup_result.model or "", greeting=greeting, badge_url=badge_url)
+                display.send_recognition(make=startup_result.make or "", model=startup_result.model or "", greeting=greeting, badge_url=badge_url, **_badge_settings())
                 last_recognition_sent_at = time.monotonic()
                 last_recognized_make = startup_result.make or ""
                 last_hold_check_at = 0.0
@@ -685,7 +697,7 @@ def main() -> None:
                 except queue.Empty:
                     break
                 if cmd[0] == "recognition":
-                    display.send_recognition(make=cmd[1], model=cmd[2], greeting=cmd[3], badge_url=cmd[4])
+                    display.send_recognition(make=cmd[1], model=cmd[2], greeting=cmd[3], badge_url=cmd[4], **_badge_settings())
                     last_recognition_sent_at = time.monotonic()
                 elif cmd[0] == "idle":
                     if time.monotonic() - last_recognition_sent_at >= 10.0:
@@ -865,7 +877,7 @@ def main() -> None:
                             # Keepalive: re-send badge every 30 s to prevent display timeout
                             if now_mono - last_recognition_sent_at >= 30.0:
                                 badge_url = _badge_url(last_recognized_make)
-                                display.send_recognition(make=last_recognized_make, model="", greeting="", badge_url=badge_url)
+                                display.send_recognition(make=last_recognized_make, model="", greeting="", badge_url=badge_url, **_badge_settings())
                                 last_recognition_sent_at = now_mono
                                 logger.info("Re-sent badge to display (keepalive)")
                         else:
@@ -1021,6 +1033,7 @@ def main() -> None:
                             model=result.model or "",
                             greeting=greeting,
                             badge_url=badge_url,
+                            **_badge_settings(),
                         )
                     else:
                         display.send_visitor_bay_occupied(greeting)
@@ -1160,6 +1173,7 @@ def main() -> None:
                     model=result.model or "",
                     greeting=greeting,
                     badge_url=badge_url,
+                    **_badge_settings(),
                 )
                 last_recognition_sent_at = time.monotonic()
                 last_recognized_make = result.make or ""

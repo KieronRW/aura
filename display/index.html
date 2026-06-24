@@ -452,8 +452,12 @@
     let glbFitSize   = null;   // centred+scaled bbox size, for camera fitting
     let glbEnvMap    = null;   // PMREM env texture, assigned per-material
     let glbCamDist = null;          // fixed camera distance on +Z (from fitCamera)
-    const SPIN_PERIOD_MS = 20000;   // ~20s per full badge Y-axis rotation (premium pace)
-    const FIT_MARGIN     = 1.3;     // camera distance beyond the tight sphere fit
+    const SPIN_PERIOD_MS = 20000;   // default ms per full rotation (fallback)
+    const FIT_MARGIN     = 1.55;    // frames the 100% badge with headroom up to 150% scale
+    // Per-badge display settings from the recognition payload (with fallbacks).
+    let glbScaleMul     = 1;        // badge_scale / 100
+    let glbSpinPeriodMs = SPIN_PERIOD_MS;
+    let glbSpinDir      = 1;        // 1 = clockwise, -1 = counter-clockwise
 
     function initGLBRenderer() {
       if (glbRenderer) return;
@@ -566,17 +570,18 @@
         (gltf) => {
           glbBadge = gltf.scene;
 
-          // Normalise scale first, then recentre the scaled model on the origin
-          // (the Y-spin pivot), then fit the camera to the real bounding box.
-          const box0   = new THREE.Box3().setFromObject(glbBadge);
-          const maxDim = Math.max(...box0.getSize(new THREE.Vector3()).toArray());
-          glbBadge.scale.setScalar(1.5 / maxDim);
+          // Fit-normalise to a 1.5-unit reference, then apply the per-badge size
+          // multiplier (badge_scale) on top; recentre on the origin (Y-spin pivot).
+          const size0  = new THREE.Box3().setFromObject(glbBadge).getSize(new THREE.Vector3());
+          const norm   = 1.5 / Math.max(size0.x, size0.y, size0.z);
+          glbBadge.scale.setScalar(norm * glbScaleMul);
 
           const box1   = new THREE.Box3().setFromObject(glbBadge);
           glbBadge.position.sub(box1.getCenter(new THREE.Vector3()));
 
-          const box2   = new THREE.Box3().setFromObject(glbBadge);
-          glbFitSize   = box2.getSize(new THREE.Vector3());
+          // Camera fits the NORMALISED (100%) reference — independent of badge_scale —
+          // so the size multiplier stays visible; FIT_MARGIN keeps ≤150% framed.
+          glbFitSize   = size0.multiplyScalar(norm);
 
           glbScene.add(glbBadge);
           fitCamera();
@@ -610,8 +615,9 @@
       function animate() {
         glbAnimId = requestAnimationFrame(animate);
         if (glbBadge) {
-          // Camera stays fixed & perpendicular; spin the badge on its own Y axis.
-          glbBadge.rotation.y = (Date.now() % SPIN_PERIOD_MS) / SPIN_PERIOD_MS * Math.PI * 2;
+          // Camera stays fixed & perpendicular; spin the badge on its own Y axis
+          // (period + direction from the per-badge display settings).
+          glbBadge.rotation.y = glbSpinDir * (Date.now() % glbSpinPeriodMs) / glbSpinPeriodMs * Math.PI * 2;
         }
         glbRenderer.render(glbScene, glbCamera);
       }
@@ -698,6 +704,11 @@
       const parts = [data.make, data.model].filter(Boolean);
       recMM.textContent       = parts.join('  ·  ');
       recGreeting.textContent = data.greeting || '';
+
+      // Per-badge 3D display settings (fallbacks for older payloads / PNG path).
+      glbScaleMul     = (Number(data.badge_scale)         || 100) / 100;
+      glbSpinPeriodMs = (Number(data.badge_spin_period)   || 20)  * 1000;
+      glbSpinDir      = Number(data.badge_spin_direction) === -1 ? -1 : 1;
 
       if (data.badge_url) {
         if (data.badge_url.toLowerCase().endsWith('.glb')) {
