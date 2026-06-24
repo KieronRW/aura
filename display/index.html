@@ -422,6 +422,11 @@
       glbRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       glbRenderer.setClearColor(0x000000, 0); // fully transparent — pure black shows through
       glbRenderer.outputEncoding = THREE.sRGBEncoding;
+      // ACES tone mapping maps the PMREM env's HDR reflections into displayable
+      // range — without it, mirror-chrome under an HDR env crushes to black/flat.
+      // Applies to rendered geometry only; the transparent clear colour is untouched.
+      glbRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+      glbRenderer.toneMappingExposure = 1.0;
       glbRenderer.physicallyCorrectLights = true;
 
       glbScene  = new THREE.Scene();
@@ -528,7 +533,7 @@
             const mats = Array.isArray(o.material) ? o.material : [o.material];
             mats.forEach((m) => {
               m.envMap = glbEnvMap;
-              m.envMapIntensity = 1.5;
+              m.envMapIntensity = 1.0;
               m.needsUpdate = true;
             });
           });
