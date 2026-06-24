@@ -532,54 +532,6 @@
         glbBadge = null;
       }
 
-      // ══ TEMP TEST OBJECT ═══════════════════════════════════════════════════
-      // Renders a known-good chrome primitive INSTEAD of the GLB, through the
-      // identical pipeline (scale / centre / fit / orbit / envMap / lights /
-      // tone mapping) to prove whether the fault is the renderer or the GLB.
-      // TO REVERT TO REAL GLB LOADING: set TEMP_TEST_OBJECT = false (or delete
-      // this whole block down to the matching "END TEMP TEST OBJECT" marker).
-      const TEMP_TEST_OBJECT = true;
-      if (TEMP_TEST_OBJECT) {
-        const geom = new THREE.TorusKnotGeometry(0.4, 0.12, 200, 32);
-        const mat  = new THREE.MeshStandardMaterial({
-          color: 0xffffff, metalness: 1.0, roughness: 0.2, // same chrome PBR class
-        });
-        glbBadge = new THREE.Mesh(geom, mat);
-
-        // Same normalise → recentre → fit as the GLB path.
-        const tbox0 = new THREE.Box3().setFromObject(glbBadge);
-        const tmax  = Math.max(...tbox0.getSize(new THREE.Vector3()).toArray());
-        glbBadge.scale.setScalar(1.5 / tmax);
-        const tbox1 = new THREE.Box3().setFromObject(glbBadge);
-        glbBadge.position.sub(tbox1.getCenter(new THREE.Vector3()));
-        const tbox2 = new THREE.Box3().setFromObject(glbBadge);
-        glbFitSize  = tbox2.getSize(new THREE.Vector3());
-
-        glbScene.add(glbBadge);
-        fitCamera();
-
-        // Same explicit env-map assignment as the GLB path.
-        glbBadge.traverse((o) => {
-          if (!o.isMesh) return;
-          const mats = Array.isArray(o.material) ? o.material : [o.material];
-          mats.forEach((m) => {
-            m.envMap = glbEnvMap;
-            m.envMapIntensity = 1.0;
-            m.needsUpdate = true;
-          });
-        });
-
-        window.__glbBadge = glbBadge;
-        window.__glbRenderer = glbRenderer;
-        window.__glbScene = glbScene;
-        window.__glbEnvMap = glbEnvMap;
-        window.__glbCamera = glbCamera;
-
-        startGLBLoop();
-        return;
-      }
-      // ══ END TEMP TEST OBJECT ═══════════════════════════════════════════════
-
       const loader = new GLTFLoader();
       loader.setMeshoptDecoder(MeshoptDecoder);
       loader.load(
@@ -614,14 +566,6 @@
               m.needsUpdate = true;
             });
           });
-
-          // ── TEMP DEBUG HOOK — expose live objects for DevTools inspection (remove later) ──
-          window.__glbBadge = glbBadge;
-          window.__glbRenderer = glbRenderer;
-          window.__glbScene = glbScene;
-          window.__glbEnvMap = glbEnvMap;
-          window.__glbCamera = glbCamera;
-          // ── END TEMP DEBUG HOOK ──
 
           startGLBLoop();
         },
