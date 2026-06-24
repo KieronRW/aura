@@ -425,38 +425,39 @@
       glbRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       glbRenderer.setClearColor(0x000000, 0); // fully transparent — pure black shows through
       glbRenderer.outputEncoding = THREE.sRGBEncoding;
-      // ACES tone mapping maps the PMREM env's HDR reflections into displayable
-      // range — without it, mirror-chrome under an HDR env crushes to black/flat.
-      // Applies to rendered geometry only; the transparent clear colour is untouched.
-      glbRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-      glbRenderer.toneMappingExposure = 1.0;
+      // Match donmccurdy/three-gltf-viewer's proven pipeline: Linear tone mapping,
+      // exposure 2^0 = 1.0. (ACES rolls off the bright env highlights that make
+      // chrome read as polished.) Applies to geometry only — clear colour untouched.
+      glbRenderer.toneMapping = THREE.LinearToneMapping;
+      glbRenderer.toneMappingExposure = Math.pow(2, 0.0);
       glbRenderer.physicallyCorrectLights = true;
 
       glbScene  = new THREE.Scene();
       glbCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
       glbCamera.position.set(0, 0, 3);
+      // Lights are parented to the camera (below), so the camera itself must be
+      // in the scene graph for them to contribute to lighting.
+      glbScene.add(glbCamera);
 
-      // Environment map for reflections (procedural RoomEnvironment via PMREM).
-      // CRITICAL: scene.environment supplies IBL reflections ONLY — scene.background
-      // stays null so the canvas remains transparent / pure black behind the mirror.
+      // Neutral IBL environment, exactly as the reference viewer: RoomEnvironment
+      // → PMREM → scene.environment (default sigma). CONSTRAINT: scene.background
+      // stays null so the canvas stays transparent — env is reflections/IBL only.
       const pmrem = new THREE.PMREMGenerator(glbRenderer);
-      glbEnvMap = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+      glbEnvMap = pmrem.fromScene(new THREE.RoomEnvironment()).texture;
       glbScene.environment = glbEnvMap;
       glbScene.background  = null;
       pmrem.dispose();
 
-      // Three-point lighting for chrome PBR
-      const keyLight  = new THREE.DirectionalLight(0xffffff, 2.5);
-      keyLight.position.set(2, 3, 4);
-      glbScene.add(keyLight);
+      // Lighting copied from the reference viewer's addLights(): a soft ambient
+      // plus one bright key directional, BOTH PARENTED TO THE CAMERA so the lit
+      // side always faces the viewer as the camera orbits. This is the key fix —
+      // our previous world-fixed lights let the chrome go dark at off angles.
+      const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+      glbCamera.add(ambient);
 
-      const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      fillLight.position.set(-3, -1, 2);
-      glbScene.add(fillLight);
-
-      const rimLight  = new THREE.DirectionalLight(0xffffff, 1.2);
-      rimLight.position.set(0, -3, -3);
-      glbScene.add(rimLight);
+      const keyLight = new THREE.DirectionalLight(0xffffff, 0.8 * Math.PI);
+      keyLight.position.set(0.5, 0, 0.866); // ~60° off the camera axis
+      glbCamera.add(keyLight);
 
       function resizeGLB() {
         const w = badgeCanvas.clientWidth;
