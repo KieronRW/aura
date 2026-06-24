@@ -162,7 +162,11 @@
     }
 
     .badge-stage {
-      perspective: 1100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      perspective: 1100px;       /* only affects the PNG wrappers' 3D transforms */
       perspective-origin: 50% 50%;
     }
 
@@ -190,7 +194,8 @@
     .badge-img.hidden { display: none; }
     .badge-reflection { display: none; }
 
-    /* GLB badge canvas */
+    /* GLB badge canvas — MUST stay outside any CSS spin/float/transform;
+       all motion comes from the Three.js camera orbit, not CSS. */
     #badge-canvas {
       display: none;
       width: 70vw;
@@ -346,13 +351,15 @@
     <div class="rec-make-model" id="rec-make-model"></div>
 
     <div class="badge-stage">
+      <!-- PNG fallback keeps its CSS float/spin -->
       <div class="badge-float">
         <div class="badge-spin">
           <img class="badge-img hidden" id="rec-badge" src="" alt="Vehicle badge">
           <img class="badge-reflection hidden" id="rec-reflect" src="" alt="">
-          <canvas id="badge-canvas"></canvas>
         </div>
       </div>
+      <!-- GLB canvas: static, OUTSIDE the CSS spin/float — motion is the WebGL camera orbit -->
+      <canvas id="badge-canvas"></canvas>
     </div>
 
     <div class="badge-floor-glow"></div>
@@ -419,9 +426,10 @@
     let glbAnimId    = null;
     let glbFitSize   = null;   // centred+scaled bbox size, for camera fitting
     let glbEnvMap    = null;   // PMREM env texture, assigned per-material
-    let glbOrbitRadius = null; // XZ orbit radius for the camera (from fitCamera)
+    let glbOrbitRadius = null; // constant 3-D orbit distance (from fitCamera)
     const ORBIT_PERIOD_MS = 20000; // ~20s per full camera orbit (premium pace)
-    const ORBIT_ELEV      = 0.25;  // camera elevation as a fraction of orbit radius
+    const ORBIT_ELEV_DEG  = 22;    // fixed camera elevation above the horizon
+    const ORBIT_MARGIN    = 1.3;   // orbit distance beyond the tight sphere fit
 
     function initGLBRenderer() {
       if (glbRenderer) return;
@@ -492,20 +500,21 @@
       if (!glbFitSize || !glbCamera) return;
       const w = badgeCanvas.clientWidth, h = badgeCanvas.clientHeight;
       const aspect = (w && h) ? w / h : 1;
+      glbCamera.aspect = aspect;                       // keep projection un-stretched
       const fovV = glbCamera.fov * Math.PI / 180;
       const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
       const halfMin = Math.min(fovV, fovH) / 2;        // limiting half-FOV
+      // Bounding-SPHERE radius — invariant to viewing direction.
       const R = 0.5 * Math.sqrt(
         glbFitSize.x * glbFitSize.x +
         glbFitSize.y * glbFitSize.y +
         glbFitSize.z * glbFitSize.z
-      ) + 0.04;                                        // +float/bob headroom
-      const dist = (R / Math.sin(halfMin)) * 1.18;     // distance-to-centre, 18% margin
-      // Camera orbits in XZ at radius r with elevation r*ORBIT_ELEV; choose r so
-      // the resulting distance-to-centre equals dist.
-      glbOrbitRadius = dist / Math.sqrt(1 + ORBIT_ELEV * ORBIT_ELEV);
-      glbCamera.near = Math.max(0.01, dist - R * 2);
-      glbCamera.far  = dist + R * 2 + 10;
+      );
+      // CONSTANT 3-D orbit distance: tight sphere fit × comfortable margin, so the
+      // camera always stays well outside the object (can never near-clip it).
+      glbOrbitRadius = (R / Math.sin(halfMin)) * ORBIT_MARGIN;
+      glbCamera.near = Math.max(0.01, glbOrbitRadius - R - 0.1);
+      glbCamera.far  = glbOrbitRadius + R + 1;
       glbCamera.updateProjectionMatrix();
       // Camera position + lookAt are driven per-frame by the orbit loop.
     }
@@ -630,14 +639,19 @@
       function animate() {
         glbAnimId = requestAnimationFrame(animate);
         if (glbBadge && glbOrbitRadius) {
-          // Orbit the camera around the stationary badge — never goes edge-on.
+          // Stable spherical turntable: CONSTANT radius, FIXED elevation angle,
+          // CONSTANT up-vector. Never nears the pole, never varies distance,
+          // never skims edge-on — the full 3-D form is always in view.
           const t = Date.now();
           const angle = (t % ORBIT_PERIOD_MS) / ORBIT_PERIOD_MS * Math.PI * 2;
-          const r = glbOrbitRadius;
-          glbCamera.position.x = r * Math.sin(angle);
-          glbCamera.position.z = r * Math.cos(angle);
-          // Gentle elevation with a subtle bob for life.
-          glbCamera.position.y = r * ORBIT_ELEV + Math.sin(t / 1400) * r * 0.03;
+          const elev  = ORBIT_ELEV_DEG * Math.PI / 180;
+          const r = glbOrbitRadius, cosE = Math.cos(elev), sinE = Math.sin(elev);
+          glbCamera.position.set(
+            r * cosE * Math.sin(angle),
+            r * sinE,
+            r * cosE * Math.cos(angle)
+          );
+          glbCamera.up.set(0, 1, 0);
           glbCamera.lookAt(0, 0, 0);
         }
         glbRenderer.render(glbScene, glbCamera);
