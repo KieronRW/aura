@@ -409,6 +409,9 @@
     let glbAnimId    = null;
     let glbFitSize   = null;   // centred+scaled bbox size, for camera fitting
     let glbEnvMap    = null;   // PMREM env texture, assigned per-material
+    let glbOrbitRadius = null; // XZ orbit radius for the camera (from fitCamera)
+    const ORBIT_PERIOD_MS = 20000; // ~20s per full camera orbit (premium pace)
+    const ORBIT_ELEV      = 0.25;  // camera elevation as a fraction of orbit radius
 
     function initGLBRenderer() {
       if (glbRenderer) return;
@@ -469,25 +472,30 @@
       window.addEventListener('resize', resizeGLB);
     }
 
-    // Fit the camera so the FULL badge stays visible through a 360° Y-spin, for
-    // any badge proportions. Horizontal extent uses the XZ diagonal (the widest
-    // the model gets as it rotates); vertical extent is spin-invariant (+float).
+    // Fit the camera so the FULL badge stays in frame throughout the camera
+    // orbit, for any badge proportions. We fit to the badge's bounding SPHERE,
+    // which is invariant to camera direction/elevation, then set the orbit
+    // radius so the camera's distance-to-centre satisfies the fit.
     function fitCamera() {
       if (!glbFitSize || !glbCamera) return;
       const w = badgeCanvas.clientWidth, h = badgeCanvas.clientHeight;
       const aspect = (w && h) ? w / h : 1;
       const fovV = glbCamera.fov * Math.PI / 180;
       const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
-      const horiz = Math.sqrt(glbFitSize.x * glbFitSize.x + glbFitSize.z * glbFitSize.z);
-      const vert  = glbFitSize.y + 0.08; // headroom for the ±0.04 float
-      const distH = (horiz / 2) / Math.tan(fovH / 2);
-      const distV = (vert  / 2) / Math.tan(fovV / 2);
-      const dist  = Math.max(distH, distV) * 1.18 + horiz / 2; // 18% margin
-      glbCamera.position.set(0, 0, dist);
-      glbCamera.near = Math.max(0.01, dist - horiz);
-      glbCamera.far  = dist + horiz * 2 + 10;
-      glbCamera.lookAt(0, 0, 0);
+      const halfMin = Math.min(fovV, fovH) / 2;        // limiting half-FOV
+      const R = 0.5 * Math.sqrt(
+        glbFitSize.x * glbFitSize.x +
+        glbFitSize.y * glbFitSize.y +
+        glbFitSize.z * glbFitSize.z
+      ) + 0.04;                                        // +float/bob headroom
+      const dist = (R / Math.sin(halfMin)) * 1.18;     // distance-to-centre, 18% margin
+      // Camera orbits in XZ at radius r with elevation r*ORBIT_ELEV; choose r so
+      // the resulting distance-to-centre equals dist.
+      glbOrbitRadius = dist / Math.sqrt(1 + ORBIT_ELEV * ORBIT_ELEV);
+      glbCamera.near = Math.max(0.01, dist - R * 2);
+      glbCamera.far  = dist + R * 2 + 10;
       glbCamera.updateProjectionMatrix();
+      // Camera position + lookAt are driven per-frame by the orbit loop.
     }
 
     function loadGLB(url) {
@@ -561,9 +569,16 @@
 
       function animate() {
         glbAnimId = requestAnimationFrame(animate);
-        if (glbBadge) {
-          glbBadge.rotation.y += 0.008;
-          glbBadge.position.y  = Math.sin(Date.now() / 1000) * 0.04;
+        if (glbBadge && glbOrbitRadius) {
+          // Orbit the camera around the stationary badge — never goes edge-on.
+          const t = Date.now();
+          const angle = (t % ORBIT_PERIOD_MS) / ORBIT_PERIOD_MS * Math.PI * 2;
+          const r = glbOrbitRadius;
+          glbCamera.position.x = r * Math.sin(angle);
+          glbCamera.position.z = r * Math.cos(angle);
+          // Gentle elevation with a subtle bob for life.
+          glbCamera.position.y = r * ORBIT_ELEV + Math.sin(t / 1400) * r * 0.03;
+          glbCamera.lookAt(0, 0, 0);
         }
         glbRenderer.render(glbScene, glbCamera);
       }
