@@ -538,6 +538,14 @@
             });
           });
 
+          // ── TEMP DEBUG HOOK — expose live objects for DevTools inspection (remove later) ──
+          window.__glbBadge = glbBadge;
+          window.__glbRenderer = glbRenderer;
+          window.__glbScene = glbScene;
+          window.__glbEnvMap = glbEnvMap;
+          window.__glbCamera = glbCamera;
+          // ── END TEMP DEBUG HOOK ──
+
           startGLBLoop();
         },
         undefined,
