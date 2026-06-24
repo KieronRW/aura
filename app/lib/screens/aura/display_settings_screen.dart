@@ -187,6 +187,48 @@ class _DisplaySettingsScreenState extends State<DisplaySettingsScreen> {
                                 _postSetting('status_bar_scale', v.round()),
                           ),
                           const SizedBox(height: 32),
+                          _sectionLabel('BADGE'),
+                          const SizedBox(height: 4),
+                          _SliderRow(
+                            title: 'Size',
+                            subtitle: 'Resize the floating 3D badge',
+                            value: (_settings['badge_scale'] as num? ?? 100).toDouble(),
+                            min: 50,
+                            max: 150,
+                            divisions: 10,
+                            label: '${(_settings['badge_scale'] as num? ?? 100).round()}%',
+                            onChanged: (v) => setState(
+                              () => _settings['badge_scale'] = v.round(),
+                            ),
+                            onChangeEnd: (v) =>
+                                _postSetting('badge_scale', v.round()),
+                          ),
+                          _SliderRow(
+                            title: 'Rotation Speed',
+                            subtitle: 'Seconds per full rotation',
+                            value: (_settings['badge_spin_period'] as num? ?? 20).toDouble(),
+                            min: 8,
+                            max: 40,
+                            divisions: 16,
+                            label: '${(_settings['badge_spin_period'] as num? ?? 20).round()}s',
+                            onChanged: (v) => setState(
+                              () => _settings['badge_spin_period'] = v.round(),
+                            ),
+                            onChangeEnd: (v) =>
+                                _postSetting('badge_spin_period', v.round()),
+                          ),
+                          _ToggleRow(
+                            title: 'Rotation Direction',
+                            subtitle: 'Clockwise or counter-clockwise',
+                            value: (_settings['badge_spin_direction'] as num? ?? 1) == 1,
+                            onChanged: (v) {
+                              setState(
+                                () => _settings['badge_spin_direction'] = v ? 1 : -1,
+                              );
+                              _postSetting('badge_spin_direction', v ? 1 : -1);
+                            },
+                          ),
+                          const SizedBox(height: 32),
                           _sectionLabel('UPDATES'),
                           const SizedBox(height: 4),
                           _ToggleRow(
