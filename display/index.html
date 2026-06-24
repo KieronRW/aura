@@ -426,10 +426,9 @@
     let glbAnimId    = null;
     let glbFitSize   = null;   // centred+scaled bbox size, for camera fitting
     let glbEnvMap    = null;   // PMREM env texture, assigned per-material
-    let glbOrbitRadius = null; // constant 3-D orbit distance (from fitCamera)
-    const ORBIT_PERIOD_MS = 20000; // ~20s per full camera orbit (premium pace)
-    const ORBIT_ELEV_DEG  = 22;    // fixed camera elevation above the horizon
-    const ORBIT_MARGIN    = 1.3;   // orbit distance beyond the tight sphere fit
+    let glbCamDist = null;          // fixed camera distance on +Z (from fitCamera)
+    const SPIN_PERIOD_MS = 20000;   // ~20s per full badge Y-axis rotation (premium pace)
+    const FIT_MARGIN     = 1.3;     // camera distance beyond the tight sphere fit
 
     function initGLBRenderer() {
       if (glbRenderer) return;
@@ -492,10 +491,10 @@
       window.addEventListener('resize', resizeGLB);
     }
 
-    // Fit the camera so the FULL badge stays in frame throughout the camera
-    // orbit, for any badge proportions. We fit to the badge's bounding SPHERE,
-    // which is invariant to camera direction/elevation, then set the orbit
-    // radius so the camera's distance-to-centre satisfies the fit.
+    // Fit the camera so the whole badge stays framed, for any badge proportions.
+    // We fit to the badge's bounding SPHERE (invariant to its Y-spin), then place
+    // the camera straight-on on the +Z axis looking at the centre. The badge spins
+    // on its own Y axis (in the loop); the camera itself stays fixed perpendicular.
     function fitCamera() {
       if (!glbFitSize || !glbCamera) return;
       const w = badgeCanvas.clientWidth, h = badgeCanvas.clientHeight;
@@ -504,19 +503,22 @@
       const fovV = glbCamera.fov * Math.PI / 180;
       const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
       const halfMin = Math.min(fovV, fovH) / 2;        // limiting half-FOV
-      // Bounding-SPHERE radius — invariant to viewing direction.
+      // Bounding-SPHERE radius — invariant to the badge's Y-spin.
       const R = 0.5 * Math.sqrt(
         glbFitSize.x * glbFitSize.x +
         glbFitSize.y * glbFitSize.y +
         glbFitSize.z * glbFitSize.z
       );
-      // CONSTANT 3-D orbit distance: tight sphere fit × comfortable margin, so the
-      // camera always stays well outside the object (can never near-clip it).
-      glbOrbitRadius = (R / Math.sin(halfMin)) * ORBIT_MARGIN;
-      glbCamera.near = Math.max(0.01, glbOrbitRadius - R - 0.1);
-      glbCamera.far  = glbOrbitRadius + R + 1;
+      // Fixed camera distance: tight sphere fit × margin, so the badge is fully
+      // framed and the camera stays well outside it (can never near-clip).
+      glbCamDist = (R / Math.sin(halfMin)) * FIT_MARGIN;
+      glbCamera.near = Math.max(0.01, glbCamDist - R - 0.1);
+      glbCamera.far  = glbCamDist + R + 1;
+      // Straight-on perpendicular front view on the +Z axis (no elevation).
+      glbCamera.position.set(0, 0, glbCamDist);
+      glbCamera.up.set(0, 1, 0);
+      glbCamera.lookAt(0, 0, 0);
       glbCamera.updateProjectionMatrix();
-      // Camera position + lookAt are driven per-frame by the orbit loop.
     }
 
     function loadGLB(url) {
@@ -582,21 +584,9 @@
 
       function animate() {
         glbAnimId = requestAnimationFrame(animate);
-        if (glbBadge && glbOrbitRadius) {
-          // Stable spherical turntable: CONSTANT radius, FIXED elevation angle,
-          // CONSTANT up-vector. Never nears the pole, never varies distance,
-          // never skims edge-on — the full 3-D form is always in view.
-          const t = Date.now();
-          const angle = (t % ORBIT_PERIOD_MS) / ORBIT_PERIOD_MS * Math.PI * 2;
-          const elev  = ORBIT_ELEV_DEG * Math.PI / 180;
-          const r = glbOrbitRadius, cosE = Math.cos(elev), sinE = Math.sin(elev);
-          glbCamera.position.set(
-            r * cosE * Math.sin(angle),
-            r * sinE,
-            r * cosE * Math.cos(angle)
-          );
-          glbCamera.up.set(0, 1, 0);
-          glbCamera.lookAt(0, 0, 0);
+        if (glbBadge) {
+          // Camera stays fixed & perpendicular; spin the badge on its own Y axis.
+          glbBadge.rotation.y = (Date.now() % SPIN_PERIOD_MS) / SPIN_PERIOD_MS * Math.PI * 2;
         }
         glbRenderer.render(glbScene, glbCamera);
       }
