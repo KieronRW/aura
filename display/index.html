@@ -376,6 +376,7 @@
   <script src="/display/vendor/three.min.js"></script>
   <script src="/display/vendor/GLTFLoader.js"></script>
   <script src="/display/vendor/meshopt_decoder.js"></script>
+  <script src="/display/vendor/RoomEnvironment.js"></script>
 
   <script>
     // ── TEMP DEBUG — on-screen error capture (remove when GLB issue resolved) ──
@@ -415,6 +416,7 @@
     let glbCamera    = null;
     let glbBadge     = null;
     let glbAnimId    = null;
+    let glbFitSize   = null;   // centred+scaled bbox size, for camera fitting
 
     function initGLBRenderer() {
       if (glbRenderer) return;
@@ -433,6 +435,14 @@
       glbScene  = new THREE.Scene();
       glbCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
       glbCamera.position.set(0, 0, 3);
+
+      // Environment map for reflections (procedural RoomEnvironment via PMREM).
+      // CRITICAL: scene.environment supplies IBL reflections ONLY — scene.background
+      // stays null so the canvas remains transparent / pure black behind the mirror.
+      const pmrem = new THREE.PMREMGenerator(glbRenderer);
+      glbScene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+      glbScene.background  = null;
+      pmrem.dispose();
 
       // Three-point lighting for chrome PBR
       const keyLight  = new THREE.DirectionalLight(0xffffff, 2.5);
@@ -454,10 +464,32 @@
           glbRenderer.setSize(w, h, false);
           glbCamera.aspect = w / h;
           glbCamera.updateProjectionMatrix();
+          fitCamera();
         }
       }
       resizeGLB();
       window.addEventListener('resize', resizeGLB);
+    }
+
+    // Fit the camera so the FULL badge stays visible through a 360° Y-spin, for
+    // any badge proportions. Horizontal extent uses the XZ diagonal (the widest
+    // the model gets as it rotates); vertical extent is spin-invariant (+float).
+    function fitCamera() {
+      if (!glbFitSize || !glbCamera) return;
+      const w = badgeCanvas.clientWidth, h = badgeCanvas.clientHeight;
+      const aspect = (w && h) ? w / h : 1;
+      const fovV = glbCamera.fov * Math.PI / 180;
+      const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
+      const horiz = Math.sqrt(glbFitSize.x * glbFitSize.x + glbFitSize.z * glbFitSize.z);
+      const vert  = glbFitSize.y + 0.08; // headroom for the ±0.04 float
+      const distH = (horiz / 2) / Math.tan(fovH / 2);
+      const distV = (vert  / 2) / Math.tan(fovV / 2);
+      const dist  = Math.max(distH, distV) * 1.18 + horiz / 2; // 18% margin
+      glbCamera.position.set(0, 0, dist);
+      glbCamera.near = Math.max(0.01, dist - horiz);
+      glbCamera.far  = dist + horiz * 2 + 10;
+      glbCamera.lookAt(0, 0, 0);
+      glbCamera.updateProjectionMatrix();
     }
 
     function loadGLB(url) {
@@ -480,15 +512,20 @@
         (gltf) => {
           glbBadge = gltf.scene;
 
-          // Centre and normalise scale
-          const box    = new THREE.Box3().setFromObject(glbBadge);
-          const centre = box.getCenter(new THREE.Vector3());
-          const size   = box.getSize(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z);
-          glbBadge.position.sub(centre);
+          // Normalise scale first, then recentre the scaled model on the origin
+          // (the Y-spin pivot), then fit the camera to the real bounding box.
+          const box0   = new THREE.Box3().setFromObject(glbBadge);
+          const maxDim = Math.max(...box0.getSize(new THREE.Vector3()).toArray());
           glbBadge.scale.setScalar(1.5 / maxDim);
 
+          const box1   = new THREE.Box3().setFromObject(glbBadge);
+          glbBadge.position.sub(box1.getCenter(new THREE.Vector3()));
+
+          const box2   = new THREE.Box3().setFromObject(glbBadge);
+          glbFitSize   = box2.getSize(new THREE.Vector3());
+
           glbScene.add(glbBadge);
+          fitCamera();
           startGLBLoop();
         },
         undefined,
