@@ -418,7 +418,6 @@
   <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
     import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
     // ── DOM refs ────────────────────────────────────────────────────
@@ -459,6 +458,33 @@
     let glbSpinPeriodMs = SPIN_PERIOD_MS;
     let glbSpinDir      = 1;        // 1 = clockwise, -1 = counter-clockwise
 
+    // Bright, evenly-lit NEUTRAL studio environment for IBL reflections — replaces
+    // THREE's RoomEnvironment (a DARK room that made polished chrome reflect black).
+    // A vertical white→mid-grey gradient (never black) so chrome faces read bright,
+    // with a gentle top-down falloff so the metal still shows form. Built in-code
+    // (no external HDRI — the Pi has no internet at boot).
+    function buildNeutralEnvironment(renderer) {
+      const w = 16, h = 256;
+      const data = new Uint8Array(w * h * 4);
+      for (let y = 0; y < h; y++) {
+        const t = y / (h - 1);                  // gradient across the vertical axis
+        const lum = Math.round(165 + t * 90);   // mid-grey (#a5) → white (#ff)
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          data[i] = data[i + 1] = data[i + 2] = lum;
+          data[i + 3] = 255;
+        }
+      }
+      const tex = new THREE.DataTexture(data, w, h);
+      tex.mapping = THREE.EquirectangularReflectionMapping;
+      tex.needsUpdate = true;
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      const env = pmrem.fromEquirectangular(tex).texture;
+      pmrem.dispose();
+      tex.dispose();
+      return env;
+    }
+
     function initGLBRenderer() {
       if (glbRenderer) return;
 
@@ -486,14 +512,13 @@
       // in the scene graph for them to contribute to lighting.
       glbScene.add(glbCamera);
 
-      // Neutral IBL environment, exactly as the reference viewer: RoomEnvironment
-      // → PMREM → scene.environment (default sigma). CONSTRAINT: scene.background
-      // stays null so the canvas stays transparent — env is reflections/IBL only.
-      const pmrem = new THREE.PMREMGenerator(glbRenderer);
-      glbEnvMap = pmrem.fromScene(new RoomEnvironment()).texture;
+      // Bright NEUTRAL studio IBL (reflections only) — chrome faces reflect bright
+      // neutral light instead of RoomEnvironment's dark walls. CONSTRAINT:
+      // scene.background stays null so the canvas is transparent — the bright
+      // environment must NEVER be drawn (one-way-mirror illusion).
+      glbEnvMap = buildNeutralEnvironment(glbRenderer);
       glbScene.environment = glbEnvMap;
       glbScene.background  = null;
-      pmrem.dispose();
 
       // Lighting copied from the reference viewer's addLights(): a soft ambient
       // plus one bright key directional, BOTH PARENTED TO THE CAMERA so the lit
