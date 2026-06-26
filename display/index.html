@@ -460,36 +460,46 @@
 
     // Bright, evenly-lit NEUTRAL studio environment for IBL reflections — replaces
     // THREE's RoomEnvironment (a DARK room that made polished chrome reflect black).
-    // Built via PMREM.fromScene() of a bright UNLIT studio: MeshBasicMaterial emits
-    // its colour directly (no lighting, no DataTexture colour-space surprises), so the
-    // surround is guaranteed bright. Bright-grey walls + white softbox panels give the
-    // chrome a bright surface with highlights for form. In-code (no external HDRI).
+    // Built via PMREM.fromScene() of an UNLIT photo studio: MeshBasicMaterial emits its
+    // colour directly (no lighting / DataTexture colour-space surprises). The key to
+    // chrome reading as CHROME is tonal CONTRAST — bright white softboxes against a
+    // darker-grey surround and darker floor — so the mirror finish shows bright streaks
+    // sweeping over darker areas as it spins, not a flat white fill. In-code (no HDRI).
     function buildNeutralEnvironment(renderer) {
       const scene = new THREE.Scene();
       const disposables = [];
 
-      // Inward-facing bright-grey "room" the chrome reflects.
-      const roomMat = new THREE.MeshBasicMaterial({ color: 0xcfcfcf, side: THREE.BackSide });
-      const roomGeo = new THREE.BoxGeometry(12, 12, 12);
-      scene.add(new THREE.Mesh(roomGeo, roomMat));
-      disposables.push(roomMat, roomGeo);
+      const addBasic = (geo, color, side) => {
+        const mat = new THREE.MeshBasicMaterial({ color, side: side ?? THREE.FrontSide });
+        const mesh = new THREE.Mesh(geo, mat);
+        disposables.push(mat, geo);
+        return mesh;
+      };
 
-      // White softbox panels for large-scale highlights (so the metal shows form).
+      // Dark-mid-grey surround — the darker field the bright highlights read against
+      // (dark enough for contrast, not black so faces never go fully dark).
+      scene.add(addBasic(new THREE.BoxGeometry(14, 14, 14), 0x505050, THREE.BackSide));
+
+      // Darker floor → a bright-top to dark-bottom gradient across the reflection.
+      const floor = addBasic(new THREE.PlaneGeometry(14, 14), 0x2a2a2a);
+      floor.position.set(0, -6.9, 0);
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+
+      // Bright white softboxes — the metallic highlights/streaks. Placed as a large
+      // upper-front key, a tall left rim, and a smaller right fill for clear contrast.
       const addPanel = (w, h, x, y, z) => {
-        const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const geo = new THREE.PlaneGeometry(w, h);
-        const panel = new THREE.Mesh(geo, mat);
+        const panel = addBasic(new THREE.PlaneGeometry(w, h), 0xffffff);
         panel.position.set(x, y, z);
         panel.lookAt(0, 0, 0);
         scene.add(panel);
-        disposables.push(mat, geo);
       };
-      addPanel(8, 8,  0,  5,  4);   // upper front
-      addPanel(8, 8, -5,  1, -3);   // left
-      addPanel(8, 8,  5,  1, -3);   // right
+      addPanel(10, 7,  0,  5,  5);   // large upper-front key
+      addPanel(5,  9, -6,  1,  0);   // tall left rim
+      addPanel(4,  6,  5,  2, -4);   // smaller right fill
 
       const pmrem = new THREE.PMREMGenerator(renderer);
-      const env = pmrem.fromScene(scene, 0.04).texture;
+      const env = pmrem.fromScene(scene, 0.03).texture;
 
       pmrem.dispose();
       disposables.forEach((d) => d.dispose());
