@@ -460,28 +460,39 @@
 
     // Bright, evenly-lit NEUTRAL studio environment for IBL reflections — replaces
     // THREE's RoomEnvironment (a DARK room that made polished chrome reflect black).
-    // A vertical white→mid-grey gradient (never black) so chrome faces read bright,
-    // with a gentle top-down falloff so the metal still shows form. Built in-code
-    // (no external HDRI — the Pi has no internet at boot).
+    // Built via PMREM.fromScene() of a bright UNLIT studio: MeshBasicMaterial emits
+    // its colour directly (no lighting, no DataTexture colour-space surprises), so the
+    // surround is guaranteed bright. Bright-grey walls + white softbox panels give the
+    // chrome a bright surface with highlights for form. In-code (no external HDRI).
     function buildNeutralEnvironment(renderer) {
-      const w = 16, h = 256;
-      const data = new Uint8Array(w * h * 4);
-      for (let y = 0; y < h; y++) {
-        const t = y / (h - 1);                  // gradient across the vertical axis
-        const lum = Math.round(165 + t * 90);   // mid-grey (#a5) → white (#ff)
-        for (let x = 0; x < w; x++) {
-          const i = (y * w + x) * 4;
-          data[i] = data[i + 1] = data[i + 2] = lum;
-          data[i + 3] = 255;
-        }
-      }
-      const tex = new THREE.DataTexture(data, w, h);
-      tex.mapping = THREE.EquirectangularReflectionMapping;
-      tex.needsUpdate = true;
+      const scene = new THREE.Scene();
+      const disposables = [];
+
+      // Inward-facing bright-grey "room" the chrome reflects.
+      const roomMat = new THREE.MeshBasicMaterial({ color: 0xcfcfcf, side: THREE.BackSide });
+      const roomGeo = new THREE.BoxGeometry(12, 12, 12);
+      scene.add(new THREE.Mesh(roomGeo, roomMat));
+      disposables.push(roomMat, roomGeo);
+
+      // White softbox panels for large-scale highlights (so the metal shows form).
+      const addPanel = (w, h, x, y, z) => {
+        const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const geo = new THREE.PlaneGeometry(w, h);
+        const panel = new THREE.Mesh(geo, mat);
+        panel.position.set(x, y, z);
+        panel.lookAt(0, 0, 0);
+        scene.add(panel);
+        disposables.push(mat, geo);
+      };
+      addPanel(8, 8,  0,  5,  4);   // upper front
+      addPanel(8, 8, -5,  1, -3);   // left
+      addPanel(8, 8,  5,  1, -3);   // right
+
       const pmrem = new THREE.PMREMGenerator(renderer);
-      const env = pmrem.fromEquirectangular(tex).texture;
+      const env = pmrem.fromScene(scene, 0.04).texture;
+
       pmrem.dispose();
-      tex.dispose();
+      disposables.forEach((d) => d.dispose());
       return env;
     }
 
@@ -623,46 +634,6 @@
               m.needsUpdate = true;
             });
           });
-
-          // ── TEMP DIAGNOSTIC — live material/env/renderer readout (remove later) ──
-          window.__glbBadge    = glbBadge;
-          window.__glbScene    = glbScene;
-          window.__glbRenderer = glbRenderer;
-          window.__glbCamera   = glbCamera;
-          window.__glbEnvMap   = glbEnvMap;
-
-          let _diag = document.getElementById('__diagBox');
-          if (!_diag) {
-            _diag = document.createElement('div');
-            _diag.id = '__diagBox';
-            _diag.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;'
-              + 'color:#f66;font:11px/1.35 monospace;white-space:pre;'
-              + 'pointer-events:none;text-shadow:0 0 2px #000;';
-            document.body.appendChild(_diag);
-          }
-          const _lines = [];
-          _lines.push('scene.environment: ' + !!glbScene.environment);
-          _lines.push('toneMapping: ' + glbRenderer.toneMapping
-            + '  exposure: ' + glbRenderer.toneMappingExposure);
-          let _n = 0;
-          glbBadge.traverse((o) => {
-            if (!o.isMesh) return;
-            const mats = Array.isArray(o.material) ? o.material : [o.material];
-            mats.forEach((m) => {
-              _n++;
-              _lines.push(
-                '#' + _n + ' ' + m.type
-                + ' metal=' + m.metalness
-                + ' rough=' + m.roughness
-                + ' envMap=' + !!m.envMap
-                + ' int=' + m.envMapIntensity
-                + ' isNeutral=' + (m.envMap === glbEnvMap)
-              );
-            });
-          });
-          if (_n === 0) _lines.push('(no meshes found)');
-          _diag.textContent = _lines.join('\n');
-          // ── END TEMP DIAGNOSTIC ──
 
           startGLBLoop();
         },
