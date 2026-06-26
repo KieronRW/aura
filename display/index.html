@@ -624,6 +624,46 @@
             });
           });
 
+          // ── TEMP DIAGNOSTIC — live material/env/renderer readout (remove later) ──
+          window.__glbBadge    = glbBadge;
+          window.__glbScene    = glbScene;
+          window.__glbRenderer = glbRenderer;
+          window.__glbCamera   = glbCamera;
+          window.__glbEnvMap   = glbEnvMap;
+
+          let _diag = document.getElementById('__diagBox');
+          if (!_diag) {
+            _diag = document.createElement('div');
+            _diag.id = '__diagBox';
+            _diag.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;'
+              + 'color:#f66;font:11px/1.35 monospace;white-space:pre;'
+              + 'pointer-events:none;text-shadow:0 0 2px #000;';
+            document.body.appendChild(_diag);
+          }
+          const _lines = [];
+          _lines.push('scene.environment: ' + !!glbScene.environment);
+          _lines.push('toneMapping: ' + glbRenderer.toneMapping
+            + '  exposure: ' + glbRenderer.toneMappingExposure);
+          let _n = 0;
+          glbBadge.traverse((o) => {
+            if (!o.isMesh) return;
+            const mats = Array.isArray(o.material) ? o.material : [o.material];
+            mats.forEach((m) => {
+              _n++;
+              _lines.push(
+                '#' + _n + ' ' + m.type
+                + ' metal=' + m.metalness
+                + ' rough=' + m.roughness
+                + ' envMap=' + !!m.envMap
+                + ' int=' + m.envMapIntensity
+                + ' isNeutral=' + (m.envMap === glbEnvMap)
+              );
+            });
+          });
+          if (_n === 0) _lines.push('(no meshes found)');
+          _diag.textContent = _lines.join('\n');
+          // ── END TEMP DIAGNOSTIC ──
+
           startGLBLoop();
         },
         undefined,
