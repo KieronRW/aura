@@ -224,7 +224,7 @@ class Camera:
                     stable_since = None
 
                 prev_frame_gray = gray
-                time.sleep(0.1)
+                time.sleep(0.25)
 
         finally:
             self._cam = None

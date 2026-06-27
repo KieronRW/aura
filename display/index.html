@@ -457,6 +457,8 @@
     let glbScaleMul     = 1;        // badge_scale / 100
     let glbSpinPeriodMs = SPIN_PERIOD_MS;
     let glbSpinDir      = 1;        // 1 = clockwise, -1 = counter-clockwise
+    let glbBaseNorm     = 1;        // fit-normalise factor (badge → 1.5u), set in loadGLB
+    let glbLastTs       = null;     // rAF timestamp of previous frame, for delta-based spin
 
     // Bright, evenly-lit NEUTRAL studio environment for IBL reflections — replaces
     // THREE's RoomEnvironment (a DARK room that made polished chrome reflect black).
@@ -620,6 +622,7 @@
           // multiplier (badge_scale) on top; recentre on the origin (Y-spin pivot).
           const size0  = new THREE.Box3().setFromObject(glbBadge).getSize(new THREE.Vector3());
           const norm   = 1.5 / Math.max(size0.x, size0.y, size0.z);
+          glbBaseNorm  = norm;   // remember so settings_update can re-scale in place
           glbBadge.scale.setScalar(norm * glbScaleMul);
 
           const box1   = new THREE.Box3().setFromObject(glbBadge);
@@ -657,17 +660,23 @@
 
     function startGLBLoop() {
       if (glbAnimId) cancelAnimationFrame(glbAnimId);
+      glbLastTs = null;   // first frame establishes the baseline (dt = 0)
 
-      function animate() {
+      function animate(ts) {
         glbAnimId = requestAnimationFrame(animate);
         if (glbBadge) {
-          // Camera stays fixed & perpendicular; spin the badge on its own Y axis
-          // (period + direction from the per-badge display settings).
-          glbBadge.rotation.y = glbSpinDir * (Date.now() % glbSpinPeriodMs) / glbSpinPeriodMs * Math.PI * 2;
+          // Camera stays fixed & perpendicular; spin the badge on its own Y axis.
+          // ACCUMULATE the angle from the frame delta (rather than recomputing an
+          // absolute phase from the clock) so live changes to the spin period or
+          // direction via settings_update take effect smoothly, with no jump.
+          if (glbLastTs == null) glbLastTs = ts;
+          const dt = ts - glbLastTs;
+          glbLastTs = ts;
+          glbBadge.rotation.y += glbSpinDir * (dt / glbSpinPeriodMs) * Math.PI * 2;
         }
         glbRenderer.render(glbScene, glbCamera);
       }
-      animate();
+      glbAnimId = requestAnimationFrame(animate);
     }
 
     function stopGLBLoop() {
@@ -767,6 +776,33 @@
         }
       } else {
         applyBadge(null);
+      }
+    }
+
+    // ── Live settings update ────────────────────────────────────────
+    // Apply display settings to the ALREADY-RUNNING scene without re-triggering
+    // the recognition animation. Pushed by the server right after the settings are
+    // saved (POST /display/settings → settings_update WS message), so slider moves
+    // are reflected on the badge in real time. Every field is optional; only the
+    // keys present in the message are touched.
+    function applySettingsUpdate(data) {
+      // Badge size — re-scale the loaded badge in place; the camera fit is anchored
+      // to the 100% reference, so the multiplier stays visible and never re-frames.
+      if (data.badge_scale != null) {
+        glbScaleMul = (Number(data.badge_scale) || 100) / 100;
+        if (glbBadge) glbBadge.scale.setScalar(glbBaseNorm * glbScaleMul);
+      }
+      // Spin period / direction — the delta-based loop picks these up on the next
+      // frame, so the change is smooth with no jump in the badge's current angle.
+      if (data.badge_spin_period != null) {
+        glbSpinPeriodMs = (Number(data.badge_spin_period) || 20) * 1000;
+      }
+      if (data.badge_spin_direction != null) {
+        glbSpinDir = Number(data.badge_spin_direction) === -1 ? -1 : 1;
+      }
+      // Status-bar scale — same CSS variable the status_bar message drives.
+      if (data.status_bar_scale != null) {
+        document.documentElement.style.setProperty('--status-bar-scale', (data.status_bar_scale / 100).toFixed(2));
       }
     }
 
@@ -941,6 +977,7 @@
         let msg;
         try { msg = JSON.parse(data); } catch { return; }
         if      (msg.state === 'recognition')          showRecognition(msg);
+        else if (msg.state === 'settings_update')      applySettingsUpdate(msg);
         else if (msg.state === 'status_bar')           updateStatusBar(msg);
         else if (msg.state === 'visitor_pre_arrival')  showVisitorPreArrival(msg);
         else if (msg.state === 'visitor_bay_occupied') showVisitorBayOccupied(msg);

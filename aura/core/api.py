@@ -432,6 +432,9 @@ class DisplaySettingsPayload(BaseModel):
     show_weather: Optional[bool] = None
     status_bar_scale: Optional[int] = None  # percentage, 50–200
     auto_update: Optional[bool] = None
+    badge_scale: Optional[int] = None            # percentage, 50–150
+    badge_spin_period: Optional[int] = None      # seconds per full rotation, 8–40
+    badge_spin_direction: Optional[int] = None   # 1 = clockwise, -1 = counter-clockwise
 
 
 @app.get("/display/settings")
@@ -457,6 +460,14 @@ def post_display_settings(payload: DisplaySettingsPayload):
                 cb()
             except Exception as exc:
                 logger.warning("force_status_bar_cb failed: %s", exc)
+    # Push the updated settings to the display immediately so badge scale / spin /
+    # status-bar scale changes apply live, without waiting for a recognition event.
+    push_cb = _state.get("push_settings_update_cb")
+    if push_cb is not None:
+        try:
+            push_cb()
+        except Exception as exc:
+            logger.warning("push_settings_update_cb failed: %s", exc)
     return {"ok": True, "saved": saved, "applied": applied}
 
 

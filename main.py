@@ -640,6 +640,24 @@ def main() -> None:
 
     _state["force_status_bar_cb"] = _force_status_bar
 
+    def _push_settings_update() -> None:
+        """Broadcast current display settings to the display immediately (live update).
+
+        Called from POST /display/settings after a save so badge scale / spin / status-
+        bar scale changes apply to the running scene without a new recognition event.
+        """
+        nonlocal _cached_display_settings
+        _cached_display_settings = _display_settings_mod.get_settings()
+        s = _cached_display_settings
+        display.send_settings_update({
+            "badge_scale": s.get("badge_scale", 100),
+            "badge_spin_period": s.get("badge_spin_period", 20),
+            "badge_spin_direction": s.get("badge_spin_direction", 1),
+            "status_bar_scale": s.get("status_bar_scale", 100),
+        })
+
+    _state["push_settings_update_cb"] = _push_settings_update
+
     def _badge_settings() -> dict:
         """Current 3D-badge settings for the recognition payload (read from cache)."""
         s = _cached_display_settings

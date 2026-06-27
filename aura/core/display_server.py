@@ -85,6 +85,20 @@ class DisplayServer:
         logger.info("Broadcasting status_bar — show_time=%s show_weather=%s", data.get("show_time"), data.get("show_weather"))
         self._broadcast(payload)
 
+    def send_settings_update(self, settings: dict):
+        """Push updated display settings to the display immediately so live changes
+        (badge scale / spin period / spin direction / status-bar scale, etc.) take
+        effect on the running scene without waiting for the next recognition event.
+
+        This is a settings-only message — it carries no state transition, so it does
+        NOT touch _is_idle and never moves the display off whatever screen it's on.
+        The display applies the values in place (re-scales the loaded badge, retimes
+        the spin) rather than re-triggering the recognition animation.
+        """
+        payload = json.dumps({"state": "settings_update", **settings})
+        logger.info("Broadcasting settings_update — %s", settings)
+        self._broadcast(payload)
+
     def send_visitor_pre_arrival(self, name: str, message: str):
         payload = json.dumps({
             "state":        "visitor_pre_arrival",
