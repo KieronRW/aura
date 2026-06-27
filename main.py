@@ -640,14 +640,19 @@ def main() -> None:
 
     _state["force_status_bar_cb"] = _force_status_bar
 
-    def _push_settings_update() -> None:
-        """Broadcast current display settings to the display immediately (live update).
+    def _push_settings_update(params: dict | None = None) -> None:
+        """Broadcast updated display settings to the display immediately (live, in place).
 
-        Called from POST /display/settings after a save so badge scale / spin / status-
-        bar scale changes apply to the running scene without a new recognition event.
+        Called from POST /display/settings after a save. Applies the just-saved params
+        straight onto the in-memory cache and pushes the badge / status-bar values to
+        the display — NO Supabase round-trip on the request path (which would widen the
+        window for a racing loop tick), and crucially NO idle / recognition message, so
+        the display updates the running scene in place with no screen transition. The
+        cache merge also means the next keepalive re-send picks up the new values.
         """
         nonlocal _cached_display_settings
-        _cached_display_settings = _display_settings_mod.get_settings()
+        if params:
+            _cached_display_settings = {**_cached_display_settings, **params}
         s = _cached_display_settings
         display.send_settings_update({
             "badge_scale": s.get("badge_scale", 100),

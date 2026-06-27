@@ -982,7 +982,10 @@
         else if (msg.state === 'visitor_pre_arrival')  showVisitorPreArrival(msg);
         else if (msg.state === 'visitor_bay_occupied') showVisitorBayOccupied(msg);
         else if (msg.state === 'visitor_mode_ended')   showVisitorModeEnded();
-        else                                           showIdle();
+        else if (msg.state === 'idle')                 showIdle();
+        // Any other / unknown message type is IGNORED — only an explicit idle
+        // message may blank the screen. This stops a settings_update (or any new
+        // message the display doesn't recognise) from flashing the AURA logo.
       });
       ws.addEventListener('close', () => {
         wsDot.className = 'reconnecting';

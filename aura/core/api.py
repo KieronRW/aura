@@ -465,7 +465,7 @@ def post_display_settings(payload: DisplaySettingsPayload):
     push_cb = _state.get("push_settings_update_cb")
     if push_cb is not None:
         try:
-            push_cb()
+            push_cb(params)
         except Exception as exc:
             logger.warning("push_settings_update_cb failed: %s", exc)
     return {"ok": True, "saved": saved, "applied": applied}
