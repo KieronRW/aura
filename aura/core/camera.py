@@ -43,6 +43,11 @@ class Camera:
         self._rotation: int = 0
         self._motion_threshold: float = MOTION_THRESHOLD
         self._restart_requested: bool = False
+        # Last-applied Picamera2 controls (Brightness/Contrast/ExposureValue/
+        # Sharpness/…). Cached so they survive a camera restart — a fresh
+        # Picamera2 starts at libcamera defaults, so without re-applying these
+        # every restart would silently revert the settings.
+        self._controls: dict = {}
 
     # ------------------------------------------------------------------
     # Public interface
@@ -91,10 +96,21 @@ class Camera:
         return self.get_frame()
 
     def apply_controls(self, controls: dict) -> bool:
-        """Apply Picamera2 controls to the live camera. Returns True if applied."""
+        """Apply Picamera2 controls to the live camera and remember them.
+
+        The controls are merged into self._controls FIRST, unconditionally, so that:
+          • a camera restart (transform change or error recovery) re-applies them in
+            _camera_loop instead of silently reverting to libcamera defaults, and
+          • controls requested before the camera thread has finished starting
+            (self._cam still None — e.g. the startup apply in main()) are not lost;
+            they are pushed once the loop comes up.
+        Returns True if the controls were pushed to the live camera right now.
+        """
+        with self._lock:
+            self._controls.update(controls)
         cam = self._cam
         if cam is None:
-            logger.warning("apply_controls: camera not running")
+            logger.info("apply_controls: camera not running yet — cached %s for next start", controls)
             return False
         try:
             cam.set_controls(controls)
@@ -150,6 +166,19 @@ class Camera:
         cam.start()
         self._cam = cam
         logger.info("Picamera2 started (%dx%d) hflip=%s vflip=%s rotation=%d", CAMERA_WIDTH, CAMERA_HEIGHT, hflip, vflip, self._rotation)
+
+        # Re-apply any persisted controls (Brightness/Contrast/ExposureValue/
+        # Sharpness/NoiseReductionMode/…) to this fresh Picamera2 instance. A new
+        # camera starts at libcamera defaults, so without this every restart — and
+        # any settings applied before the camera was ready — would be silently lost.
+        with self._lock:
+            persisted = dict(self._controls)
+        if persisted:
+            try:
+                cam.set_controls(persisted)
+                logger.info("Re-applied persisted camera controls on start: %s", persisted)
+            except Exception:
+                logger.exception("Failed to re-apply persisted controls on start")
 
         prev_gray: np.ndarray | None = None
         prev_frame_gray: np.ndarray | None = None
