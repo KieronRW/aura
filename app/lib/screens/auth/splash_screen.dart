@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../theme/aura_theme.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kVoid = Color(0xFF050506);
+// kVoid is the shared background token from aura_theme.dart.
 const _kBase = Color(0xFF0A0A0D);
 const _kSurface = Color(0xFF1A1C24);
 const _kCyan = Color(0xFF3AA8E0);
@@ -188,7 +189,7 @@ class _SplashScreenState extends State<SplashScreen>
     final keyboardBottom = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
-      backgroundColor: _kVoid,
+      backgroundColor: kVoid,
       resizeToAvoidBottomInset: false,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -200,7 +201,7 @@ class _SplashScreenState extends State<SplashScreen>
                 gradient: RadialGradient(
                   center: Alignment(0, -0.6),
                   radius: 1.3,
-                  colors: [_kSurface, _kBase, _kVoid],
+                  colors: [_kSurface, _kBase, kVoid],
                   stops: [0.0, 0.55, 1.0],
                 ),
               ),

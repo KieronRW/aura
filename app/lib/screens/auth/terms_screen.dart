@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/terms_provider.dart';
+import '../../theme/aura_theme.dart';
 import 'terms_content.dart';
 
 class TermsScreen extends ConsumerStatefulWidget {
@@ -49,11 +50,11 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       // No back button — this is a mandatory first-login gate.
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(

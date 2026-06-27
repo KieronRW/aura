@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/aura_theme.dart';
+
 // Reusable scrollable T&Cs body — no scroll wrapper, embed inside your own
 // ScrollView. Used by both TermsScreen (gate) and TermsViewScreen (read-only).
 class TermsContent extends StatelessWidget {
@@ -144,9 +146,9 @@ class TermsViewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kVoid,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: kVoid,
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
